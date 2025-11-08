@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ticker Search - Scanner Results</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        .search-form {
+            margin: 30px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .search-input {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            width: 300px;
+            text-transform: uppercase;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .search-button {
+            padding: 12px 30px;
+            font-size: 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .search-button:hover {
+            background: #2980b9;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .results-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        .results-summary strong {
+            font-size: 24px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th {
+            background: #34495e;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .gain-positive {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .gain-negative {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .scanner-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: #3498db;
+            color: white;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .strength-high {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .strength-medium {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        .strength-low {
+            color: #95a5a6;
+            font-weight: bold;
+        }
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+            font-size: 18px;
+        }
+        .error-message {
+            background: #fee;
+            border-left: 4px solid #e74c3c;
+            padding: 20px;
+            border-radius: 4px;
+            color: #c0392b;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Scanner</a>
+        <h1>🔍 Ticker Search</h1>
+        
+        <p style="color: #666; font-size: 16px;">
+            Search for all scanner signals (current and historical) for any ticker symbol.
+        </p>
+
+        <form method="GET" action="/ticker-search" class="search-form">
+            <input 
+                type="text" 
+                name="ticker" 
+                placeholder="Enter ticker (e.g., AAPL)" 
+                class="search-input"
+                value="{{ ticker if ticker else '' }}"
+                required
+                autofocus
+            >
+            <button type="submit" class="search-button">Search</button>
+        </form>
+
+        {% if ticker %}
+            {% if error %}
+                <div class="error-message">
+                    <strong>Error:</strong> {{ error }}
+                </div>
+            {% elif results is not none %}
+                {% if results|length > 0 %}
+                    <div class="results-summary">
+                        Found <strong>{{ result_count }}</strong> scanner signal(s) for <strong>{{ ticker }}</strong>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Scanner</th>
+                                <th>Date Found</th>
+                                <th>Entry Price</th>
+                                <th>Current Price</th>
+                                <th>Gain</th>
+                                <th>Signal Strength</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in results %}
+                            <tr>
+                                <td>
+                                    <span class="scanner-badge">{{ result.scanner_name }}</span>
+                                </td>
+                                <td>{{ result.scan_date }}</td>
+                                <td>{{ result.entry_price }}</td>
+                                <td>{{ result.current_price }}</td>
+                                <td>
+                                    {% if result.gain_pct != "N/A" %}
+                                        {% if result.gain_pct.startswith('+') %}
+                                            <span class="gain-positive">{{ result.gain_pct }}</span>
+                                        {% else %}
+                                            <span class="gain-negative">{{ result.gain_pct }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        {{ result.gain_pct }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% set strength = result.signal_strength|replace('N/A', '0')|float %}
+                                    {% if strength >= 80 %}
+                                        <span class="strength-high">{{ result.signal_strength }}</span>
+                                    {% elif strength >= 60 %}
+                                        <span class="strength-medium">{{ result.signal_strength }}</span>
+                                    {% else %}
+                                        <span class="strength-low">{{ result.signal_strength }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ result.notes }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="no-results">
+                        <p>No scanner results found for <strong>{{ ticker }}</strong></p>
+                        <p style="font-size: 14px; margin-top: 10px;">
+                            This ticker may not have been flagged by any scanners yet, or it may not exist in the database.
+                        </p>
+                    </div>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+    </div>
+</body>
+</html>

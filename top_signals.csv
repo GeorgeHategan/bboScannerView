@@ -1,0 +1,31 @@
+rank,symbol,company,pattern,signal,strength,quality
+1,AAPL,Apple Inc.,Belt-hold,bearish,100,strong
+2,AAPL,Apple Inc.,Long Line Candle,bearish,100,strong
+3,AAPL,Apple Inc.,Bull Flag,bullish,100,strong
+4,ATO,Atmos Energy Corp,Hikkake Pattern,bullish,100,strong
+5,ATO,Atmos Energy Corp,Stick Sandwich,bullish,100,strong
+6,BRK.B,Berkshire Hathaway,Harami Pattern,bearish,100,strong
+7,BRK.B,Berkshire Hathaway,Spinning Top,bullish,100,strong
+8,CVX,Chevron Corp.,Ascending Triangle,bullish,100,strong
+9,MCK,McKesson Corp.,Bull Flag,bullish,100,strong
+10,NFLX,Netflix Inc.,Hikkake Pattern,bullish,100,strong
+11,VMC,Vulcan Materials,Harami Pattern,bearish,100,strong
+12,VMC,Vulcan Materials,Spinning Top,bullish,100,strong
+13,AFL,AFLAC Inc,Belt-hold,bullish,95,strong
+14,AIZ,Assurant,Spinning Top,bullish,95,strong
+15,CL,Colgate-Palmolive,Three Inside Up/Down,bullish,95,strong
+16,CL,Colgate-Palmolive,Closing Marubozu,bullish,95,strong
+17,NWS,News Corp. Class B,High-Wave Candle,bullish,95,strong
+18,NWS,News Corp. Class B,Spinning Top,bullish,95,strong
+19,PFE,Pfizer Inc.,Engulfing Pattern,bullish,95,strong
+20,TROW,T. Rowe Price Group,Harami Pattern,bullish,95,strong
+21,TROW,T. Rowe Price Group,Homing Pigeon,bullish,95,strong
+22,XEL,Xcel Energy Inc,High-Wave Candle,bearish,95,strong
+23,XEL,Xcel Energy Inc,Spinning Top,bearish,95,strong
+24,AES,AES Corp,Bull Flag,bullish,90,strong
+25,AMZN,Amazon.com Inc.,Belt-hold,bearish,90,strong
+26,AMZN,Amazon.com Inc.,Closing Marubozu,bearish,90,strong
+27,AMZN,Amazon.com Inc.,Long Line Candle,bearish,90,strong
+28,AMZN,Amazon.com Inc.,Marubozu,bearish,90,strong
+29,AMCR,Amcor plc,Closing Marubozu,bullish,90,strong
+30,AMCR,Amcor plc,Piercing Pattern,bullish,90,strong

@@ -1,0 +1,376 @@
+<html>
+<head>
+    <style>
+        body { font-family: arial; margin: 20px; }
+        td { padding: 5px; }
+        .bullish { background: green; color: white; }
+        .bearish { background: red; color: white; }
+        .strength { font-weight: bold; }
+        .strong { color: #006400; }
+        .good { color: #228B22; }
+        .moderate { color: #FFA500; }
+        .weak { color: #FF6347; }
+        .very_weak { color: #8B0000; }
+        .tradingview-link {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 12px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 13px;
+            font-weight: bold;
+            z-index: 10;
+            transition: all 0.3s;
+        }
+        .tradingview-link:hover {
+            background: rgba(0,120,255,0.9);
+            transform: scale(1.05);
+        }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-overlay.active {
+            display: flex;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0066cc;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <script>
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+        
+        function clearTicker() {
+            document.getElementById('tickerSearch').value = '';
+            showLoading();
+            document.querySelector('form').submit();
+        }
+        
+        function handleTickerInput(event) {
+            if (event.key === 'Enter') {
+                showLoading();
+                document.querySelector('form').submit();
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div style="text-align: center;">
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; font-size: 16px; color: #666;">Loading results...</p>
+        </div>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1>Technical Scanner</h1>
+        <div style="display: flex; gap: 10px;">
+            <a href="/scanner-docs" style="background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">� Scanner Docs</a>
+            <a href="/stats" style="background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">� View Stats</a>
+        </div>
+    </div>
+    <form>
+        <div style="display: inline-block; position: relative;">
+            <input 
+                type="text" 
+                name="ticker" 
+                id="tickerSearch" 
+                placeholder="🔍 Search ticker (e.g., AAPL)..." 
+                value="{{ selected_ticker if selected_ticker else '' }}"
+                style="padding: 10px 15px; font-size: 14px; border: 2px solid #ddd; border-radius: 5px; width: 250px; text-transform: uppercase;"
+                list="tickerList"
+                autocomplete="off"
+                onkeypress="handleTickerInput(event)"
+            >
+            <datalist id="tickerList">
+                {% for ticker in available_tickers %}
+                <option value="{{ ticker }}">
+                {% endfor %}
+            </datalist>
+            {% if selected_ticker %}
+            <button type="button" onclick="clearTicker()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 5px 10px; cursor: pointer; font-size: 12px; font-weight: bold;">✕</button>
+            {% endif %}
+        </div>
+
+        <select name="pattern" id="patternSelect" onchange="showLoading(); this.form.submit()">
+            <option value="">-- Select a Scanner --</option>
+            {% for key in candlestick_patterns %}
+                <option value="{{ key }}" {% if pattern == key %}selected="selected"{% endif %} data-is-scanner="{% if key in available_scanners %}true{% else %}false{% endif %}">{{ candlestick_patterns[key] }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="scan_date" onchange="showLoading(); this.form.submit()">
+            <option value="">-- Latest Scan --</option>
+            {% for date, count in available_scan_dates %}
+                <option value="{{ date }}" {% if selected_scan_date == date %}selected{% endif %}>{{ date }} ({{ count }} setups)</option>
+            {% endfor %}
+        </select>
+
+        <select name="sector" onchange="showLoading(); this.form.submit()">
+            <option value="">-- All Sectors --</option>
+            {% for sector in available_sectors %}
+                <option value="{{ sector }}" {% if selected_sector == sector %}selected="selected"{% endif %}>{{ sector }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="min_market_cap" onchange="showLoading(); this.form.submit()">
+            <option value="">-- Min Market Cap --</option>
+            <option value="100M" {% if selected_market_cap == '100M' %}selected{% endif %}>$100M+</option>
+            <option value="500M" {% if selected_market_cap == '500M' %}selected{% endif %}>$500M+</option>
+            <option value="1B" {% if selected_market_cap == '1B' %}selected{% endif %}>$1B+</option>
+            <option value="5B" {% if selected_market_cap == '5B' %}selected{% endif %}>$5B+</option>
+            <option value="10B" {% if selected_market_cap == '10B' %}selected{% endif %}>$10B+</option>
+            <option value="50B" {% if selected_market_cap == '50B' %}selected{% endif %}>$50B+</option>
+            <option value="100B" {% if selected_market_cap == '100B' %}selected{% endif %}>$100B+</option>
+        </select>
+
+        <select name="min_strength" onchange="showLoading(); this.form.submit()">
+            <option value="">-- Min Strength --</option>
+            <option value="50" {% if selected_min_strength == '50' %}selected{% endif %}>50+ (Any)</option>
+            <option value="60" {% if selected_min_strength == '60' %}selected{% endif %}>60+ (Moderate)</option>
+            <option value="70" {% if selected_min_strength == '70' %}selected{% endif %}>70+ (Good)</option>
+            <option value="80" {% if selected_min_strength == '80' %}selected{% endif %}>80+ (Strong)</option>
+            <option value="90" {% if selected_min_strength == '90' %}selected{% endif %}>90+ (Very Strong)</option>
+        </select>
+
+        <label style="margin-left: 20px; cursor: pointer;">
+            <input type="checkbox" name="confirmed_only" value="yes" 
+                   {% if confirmed_only == 'yes' %}checked{% endif %}
+                   onchange="showLoading(); this.form.submit()">
+            <span style="font-weight: bold; color: #0066cc;">✓ Confirmed by other scanners only</span>
+        </label>
+    </form>
+
+    {% if pattern %}
+    {% set result_count = namespace(value=0) %}
+    {% for stock in stocks %}
+        {% if stocks[stock][pattern] %}
+            {% set result_count.value = result_count.value + 1 %}
+        {% endif %}
+    {% endfor %}
+    <div style="margin: 20px 0; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+        <strong>Results:</strong> {{ result_count.value }} setups found
+        {% if selected_scan_date %}
+            <span style="margin-left: 20px; color: #666;">Date: {{ selected_scan_date }}</span>
+        {% else %}
+            <span style="margin-left: 20px; color: #666;">Latest scan</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <table>
+        <tr>
+            <th>symbol</th>
+            <th>company</th>
+            <th>signal</th>
+            <th>strength</th>
+            <th>quality</th>
+        </tr>
+        {% for stock in stocks %}
+            {% if stocks[stock][pattern] %}
+            {% if not loop.first %}
+            <tr class="result-separator">
+                <td colspan="6" style="padding:0;">
+                    <div style="height:1px;background:#e0e0e0;margin:32px 0 12px 0;"></div>
+                </td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td>
+                    <a href="https://www.tradingview.com/chart/?symbol={{ stock }}" 
+                       target="_blank" 
+                       style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
+                        {{ stock }}
+                    </a>
+                </td>
+                <td>
+                    {{ stocks[stock]['company'] }}
+                </td>
+                <td class="{{ stocks[stock][pattern] }}">
+                    {{ stocks[stock][pattern]}}
+                </td>
+                <td class="strength">
+                    {{ stocks[stock][pattern + '_strength'] }}
+                </td>
+                <td class="{{ stocks[stock][pattern + '_quality'] }}">
+                    {{ stocks[stock][pattern + '_quality'] }}
+                </td>
+            <tr>
+                <td colspan="3">
+                    <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" />
+                </td>
+                <td colspan="2" style="vertical-align: top; padding-left: 20px;">
+                    <div style="font-size: 14px; line-height: 1.8;">
+                        <strong>Volume Analysis:</strong><br>
+                        Volume: {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}<br>
+                        Avg (20d): {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}<br>
+                        <strong>Ratio: {{ stocks[stock][pattern + '_volume_ratio'] }}x</strong>
+                        {% if stocks[stock][pattern + '_volume_ratio'] >= 2.0 %}
+                            <span style="color: green; font-weight: bold;"> ✓ HIGH</span>
+                        {% elif stocks[stock][pattern + '_volume_ratio'] >= 1.5 %}
+                            <span style="color: orange; font-weight: bold;"> ↑ Above Avg</span>
+                        {% elif stocks[stock][pattern + '_volume_ratio'] < 0.8 %}
+                            <span style="color: red;"> ↓ Below Avg</span>
+                        {% endif %}
+                        <br><br>
+                        {% if stocks[stock].get(pattern + '_entry_price') %}
+                        <strong>Entry Price:</strong> ${{ '%.2f'|format(stocks[stock][pattern + '_entry_price']) }}<br>
+                        {% endif %}
+                        {% if stocks[stock].get(pattern + '_picked_count') %}
+                        <strong>Confluence:</strong> Picked by {{ stocks[stock][pattern + '_picked_count'] }} scanner(s)<br>
+                        {% endif %}
+                        {% if stocks[stock].get(pattern + '_setup_stage') %}
+                        <strong>Setup Stage:</strong> {{ stocks[stock][pattern + '_setup_stage'] }}<br>
+                        {% endif %}
+                        
+                        {% if stocks[stock][pattern + '_earnings_date'] and stocks[stock][pattern + '_earnings_days'] and stocks[stock][pattern + '_earnings_days'] > 0 %}
+                        <br>
+                        <div style="
+                            {% if stocks[stock][pattern + '_earnings_days'] <= 7 %}
+                            background-color: #ffebee; border-left: 4px solid #f44336; padding: 8px; margin: 5px 0;
+                            {% elif stocks[stock][pattern + '_earnings_days'] <= 14 %}
+                            background-color: #fff8e1; border-left: 4px solid #ff9800; padding: 8px; margin: 5px 0;
+                            {% else %}
+                            padding: 5px 0;
+                            {% endif %}
+                        ">
+                            <strong style="font-size: 13px;">📊 Next Earnings:</strong> 
+                            <span style="font-weight: bold;">{{ stocks[stock][pattern + '_earnings_date'] }}</span>
+                            ({{ stocks[stock][pattern + '_earnings_days'] }} days)
+                            {% if stocks[stock][pattern + '_earnings_days'] <= 7 %}
+                                <span style="color: #f44336; font-weight: bold; font-size: 13px;"> ⚠️ IMMINENT</span>
+                            {% elif stocks[stock][pattern + '_earnings_days'] <= 14 %}
+                                <span style="color: #ff9800; font-weight: bold;"> ⚡ SOON</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
+                        <br>
+                        <strong>✓ Confirmed by other scanners:</strong><br>
+                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6;">
+                        {% for conf in stocks[stock][pattern + '_confirmations'][:5] %}
+                            • <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
+                            <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
+                        {% endfor %}
+                        {% if stocks[stock][pattern + '_confirmations']|length > 5 %}
+                            <span style="color: #999;">... and {{ stocks[stock][pattern + '_confirmations']|length - 5 }} more</span>
+                        {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <br><br>
+                        <strong>📰 News Sentiment:</strong><br>
+                        {% if stocks[stock].get('news_sentiment_label') %}
+                            <div style="padding: 8px; border-radius: 5px; margin-top: 5px; 
+                                {% if stocks[stock]['news_sentiment_label'] == 'Bullish' %}
+                                    background: #d4edda; border: 1px solid #28a745; color: #155724;
+                                {% elif stocks[stock]['news_sentiment_label'] == 'Somewhat-Bullish' %}
+                                    background: #d1ecf1; border: 1px solid #17a2b8; color: #0c5460;
+                                {% elif stocks[stock]['news_sentiment_label'] == 'Neutral' %}
+                                    background: #fff3cd; border: 1px solid #ffc107; color: #856404;
+                                {% elif stocks[stock]['news_sentiment_label'] == 'Somewhat-Bearish' %}
+                                    background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;
+                                {% elif stocks[stock]['news_sentiment_label'] == 'Bearish' %}
+                                    background: #f8d7da; border: 1px solid #dc3545; color: #721c24;
+                                {% endif %}">
+                                <strong style="font-size: 14px;">{{ stocks[stock]['news_sentiment_label'] }}</strong>
+                                {% if stocks[stock].get('news_sentiment') %}
+                                    <span style="font-size: 12px; opacity: 0.8;"> ({{ '%.3f'|format(stocks[stock]['news_sentiment']) }})</span>
+                                {% endif %}
+                                {% if stocks[stock].get('news_relevance') %}
+                                    <br><span style="font-size: 11px; opacity: 0.7;">Relevance: {{ '%.1f%%'|format(stocks[stock]['news_relevance'] * 100) }}</span>
+                                {% endif %}
+                            </div>
+                            {% if stocks[stock].get('news_headline') %}
+                                <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #007bff;">
+                                    <div style="font-size: 11px; color: #666; margin-bottom: 3px;">Latest Headline:</div>
+                                    {% if stocks[stock].get('news_url') %}
+                                        <a href="{{ stocks[stock]['news_url'] }}" target="_blank" style="font-size: 12px; color: #333; text-decoration: none; line-height: 1.4;">
+                                            {{ stocks[stock]['news_headline'][:120] }}{% if stocks[stock]['news_headline']|length > 120 %}...{% endif %}
+                                        </a>
+                                    {% else %}
+                                        <div style="font-size: 12px; color: #333; line-height: 1.4;">
+                                            {{ stocks[stock]['news_headline'][:120] }}{% if stocks[stock]['news_headline']|length > 120 %}...{% endif %}
+                                        </div>
+                                    {% endif %}
+                                    {% if stocks[stock].get('news_published') %}
+                                        <div style="font-size: 10px; color: #999; margin-top: 4px;">{{ stocks[stock]['news_published'] }}</div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: gray; font-size: 12px;">No recent news</span>
+                        {% endif %}
+                        
+                        <br><br>
+                        <strong>Sector:</strong><br>
+                        {% if stocks[stock]['sector'] %}
+                            <span style="font-size: 14px; color: #333;">{{ stocks[stock]['sector'] }}</span>
+                        {% else %}
+                            <span style="color: gray; font-size: 12px;">Not Available</span>
+                        {% endif %}
+                        
+                        <br><br>
+                        <strong>Market Cap:</strong><br>
+                        {% if stocks[stock]['market_cap'] %}
+                            <span style="font-size: 16px; font-weight: bold; color: #0066cc;">${{ stocks[stock]['market_cap'] }}</span>
+                        {% else %}
+                            <span style="color: gray;">Not Available</span>
+                        {% endif %}
+                        
+                        {% if stocks[stock][pattern + '_sentiment_label'] %}
+                        <br><br>
+                        <strong>News Sentiment:</strong><br>
+                        {% if stocks[stock][pattern + '_sentiment_label'] == 'Bullish' %}
+                            <span style="font-size: 15px; font-weight: bold; color: #00AA00;">📈 Bullish</span>
+                        {% elif stocks[stock][pattern + '_sentiment_label'] == 'Somewhat-Bullish' %}
+                            <span style="font-size: 15px; font-weight: bold; color: #66CC66;">↗ Somewhat Bullish</span>
+                        {% elif stocks[stock][pattern + '_sentiment_label'] == 'Bearish' %}
+                            <span style="font-size: 15px; font-weight: bold; color: #CC0000;">📉 Bearish</span>
+                        {% elif stocks[stock][pattern + '_sentiment_label'] == 'Somewhat-Bearish' %}
+                            <span style="font-size: 15px; font-weight: bold; color: #FF6666;">↘ Somewhat Bearish</span>
+                        {% else %}
+                            <span style="font-size: 15px; color: #888888;">➡ Neutral</span>
+                        {% endif %}
+                        <br>
+                        <span style="font-size: 12px; color: #666;">Score: {{ stocks[stock][pattern + '_sentiment_score'] }}</span><br>
+                        <span style="font-size: 11px; color: #999;">(Based on {{ stocks[stock][pattern + '_sentiment_articles'] }} recent articles)</span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% if loop.last %}
+            <tr class="result-separator-end">
+                <td colspan="5" style="padding:0;">
+                    <div style="height:1px;background:#e0e0e0;margin:32px 0 4px 0;"></div>
+                </td>
+            </tr>
+            {% endif %}
+            {% endif %}
+        {% endfor %}
+    </table>
+</body>
+</html>
