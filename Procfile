@@ -1,1 +1,1 @@
-web: gunicorn app:app --timeout 120 --workers 2 --threads 2
+web: uvicorn app:app --host 0.0.0.0 --port $PORT --workers 2

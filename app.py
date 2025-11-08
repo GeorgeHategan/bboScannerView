@@ -1,34 +1,16 @@
-import os, csv
-import talib
-import pandas
+import os
 import duckdb
-import yfinance as yf
-from flask import Flask, request, render_template
-from markupsafe import escape
-from patterns import candlestick_patterns
-from custom_patterns import (custom_chart_patterns, detect_cup_and_handle, 
-                              detect_ascending_triangle, detect_double_bottom,
-                              detect_bull_flag, detect_bear_flag)
-from qullamaggie_scanner import (detect_qullamaggie_breakout, 
-                                  qullamaggie_pattern)
-from momentum_burst_scanner import (detect_momentum_burst_1d,
-                                     detect_momentum_burst_3d,
-                                     detect_momentum_burst_5d,
-                                     momentum_burst_patterns)
-from supertrend_scanner import (detect_supertrend_bullish,
-                                 detect_supertrend_fresh,
-                                 detect_supertrend_recent,
-                                 supertrend_patterns)
-from explosive_volume_scanner import (detect_explosive_volume_3x,
-                                       detect_explosive_volume_5x,
-                                       detect_explosive_volume_10x,
-                                       detect_volume_surge_with_price,
-                                       explosive_volume_patterns)
-from pattern_scoring import calculate_pattern_strength, get_signal_quality
-from alpha_vantage.timeseries import TimeSeries
-from datetime import datetime, timedelta, date
+from fastapi import FastAPI, Request, Query
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from datetime import datetime, timedelta
+from typing import Optional
 
-app = Flask(__name__)
+# Create FastAPI app
+app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard")
+
+# Setup templates
+templates = Jinja2Templates(directory="templates")
 
 # Database configuration
 # For local development, use MotherDuck to access production data
@@ -41,9 +23,6 @@ else:
     # Fallback to local DB if no MotherDuck token
     DUCKDB_PATH = os.environ.get('DUCKDB_PATH', '/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.duckdb')
     print("WARNING: No motherduck_token found, using local database (may not have scanner_results)")
-
-# Set your Alpha Vantage API key here or use environment variable
-ALPHA_VANTAGE_API_KEY = os.environ.get('ALPHA_VANTAGE_API_KEY', '75IGYUZ3C7AC2PBM')
 
 # Skip slow database initialization on startup - connect lazily when needed
 print(f"INFO: Database path configured: {DUCKDB_PATH}")
@@ -71,122 +50,14 @@ def format_market_cap(market_cap):
         return None
 
 
-def get_news_sentiment(symbol):
-    """Get news sentiment for a symbol from Alpha Vantage."""
-    try:
-        import requests
-        url = f'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={symbol}&apikey={ALPHA_VANTAGE_API_KEY}&limit=10'
-        
-        response = requests.get(url, timeout=5)
-        data = response.json()
-        
-        if 'feed' in data and len(data['feed']) > 0:
-            # Calculate average sentiment from recent articles
-            sentiment_scores = []
-            sentiment_labels = []
-            
-            for article in data['feed'][:10]:  # Look at top 10 articles
-                if 'ticker_sentiment' in article:
-                    for ticker_sent in article['ticker_sentiment']:
-                        if ticker_sent['ticker'] == symbol:
-                            score = float(ticker_sent.get('ticker_sentiment_score', 0))
-                            label = ticker_sent.get('ticker_sentiment_label', 'Neutral')
-                            sentiment_scores.append(score)
-                            sentiment_labels.append(label)
-            
-            if sentiment_scores:
-                avg_score = sum(sentiment_scores) / len(sentiment_scores)
-                
-                # Determine overall sentiment
-                if avg_score >= 0.35:
-                    overall = 'Bullish'
-                elif avg_score >= 0.15:
-                    overall = 'Somewhat-Bullish'
-                elif avg_score <= -0.35:
-                    overall = 'Bearish'
-                elif avg_score <= -0.15:
-                    overall = 'Somewhat-Bearish'
-                else:
-                    overall = 'Neutral'
-                
-                return {
-                    'score': round(avg_score, 3),
-                    'label': overall,
-                    'article_count': len(sentiment_scores),
-                    'total_articles': len(data['feed'])
-                }
-    except Exception as e:
-        print(f"Error getting sentiment for {symbol}: {e}")
-    
-    return None
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring."""
+    return {"status": "healthy", "service": "bbo-scanner-view"}
 
 
-def get_earnings_date(symbol):
-    """Get next earnings date for a symbol."""
-    try:
-        ticker = yf.Ticker(symbol)
-        calendar = ticker.calendar
-        
-        if calendar is not None and 'Earnings Date' in calendar:
-            earnings_dates = calendar['Earnings Date']
-            
-            # Handle both single date and list of dates
-            if not isinstance(earnings_dates, list):
-                earnings_dates = [earnings_dates]
-            
-            # Get the first future date
-            next_date = None
-            for ed in earnings_dates:
-                if ed:
-                    next_date = ed
-                    break
-            
-            if next_date:
-                # Convert to date for comparison
-                if hasattr(next_date, 'date'):
-                    next_date = next_date.date()
-                
-                today = date.today()
-                days_until = (next_date - today).days
-                
-                return {
-                    'date': next_date.strftime('%Y-%m-%d'),
-                    'days_until': days_until
-                }
-    except Exception as e:
-        print(f"Error getting earnings for {symbol}: {e}")
-    
-    return None
-
-
-@app.route('/snapshot')
-def snapshot():
-    ts = TimeSeries(key=ALPHA_VANTAGE_API_KEY, output_format='pandas')
-    
-    with open('datasets/symbols.csv') as f:
-        for line in f:
-            if "," not in line:
-                continue
-            symbol = line.split(",")[0]
-            try:
-                # Get daily data from Alpha Vantage (compact = last 100 days)
-                # Use 'full' for complete history, 'compact' for recent data only
-                data, meta_data = ts.get_daily(symbol=symbol, outputsize='compact')
-                # Rename columns to match previous format (lowercase)
-                data.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-                # Keep only last 252 trading days (~1 year)
-                data = data.head(252)
-                data.to_csv('datasets/daily/{}.csv'.format(symbol))
-                print(f'Downloaded {symbol}')
-            except Exception as e:
-                print(f'Failed on {symbol}: {e}')
-
-    return {
-        "code": "success"
-    }
-
-@app.route('/stats')
-def stats():
+@app.get("/stats", response_class=HTMLResponse)
+async def stats(request: Request):
     """Display database statistics landing page."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -272,11 +143,14 @@ def stats():
     
     conn.close()
     
-    return render_template('stats.html', stats=stats_data)
+    return templates.TemplateResponse('stats.html', {
+        'request': request,
+        'stats': stats_data
+    })
 
 
-@app.route('/scanner-docs')
-def scanner_docs():
+@app.get("/scanner-docs", response_class=HTMLResponse)
+async def scanner_docs(request: Request):
     """Display documentation landing page with all scanners."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -308,11 +182,14 @@ def scanner_docs():
             'count': count
         })
     
-    return render_template('scanner_docs.html', scanners=scanners)
+    return templates.TemplateResponse('scanner_docs.html', {
+        'request': request,
+        'scanners': scanners
+    })
 
 
-@app.route('/scanner-docs/<scanner_name>')
-def scanner_detail(scanner_name):
+@app.get("/scanner-docs/{scanner_name}", response_class=HTMLResponse)
+async def scanner_detail(request: Request, scanner_name: str):
     """Display detailed documentation for a specific scanner."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -339,16 +216,26 @@ def scanner_detail(scanner_name):
     # Load scanner-specific content
     content = get_scanner_documentation(scanner_name)
     
-    return render_template('scanner_detail.html', scanner_info=scanner_info, content=content)
+    return templates.TemplateResponse('scanner_detail.html', {
+        'request': request,
+        'scanner_info': scanner_info,
+        'content': content
+    })
 
 
-@app.route('/ticker-search')
-def ticker_search():
+@app.get("/ticker-search", response_class=HTMLResponse)
+async def ticker_search(request: Request, ticker: Optional[str] = Query(None)):
     """Search for all scanner results for a specific ticker."""
-    ticker = request.args.get('ticker', '').strip().upper()
+    if not ticker:
+        ticker = ''
+    ticker = ticker.strip().upper()
     
     if not ticker:
-        return render_template('ticker_search.html', ticker=None, results=None)
+        return templates.TemplateResponse('ticker_search.html', {
+            'request': request,
+            'ticker': None,
+            'results': None
+        })
     
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -400,17 +287,21 @@ def ticker_search():
                 'notes': row[5] if row[5] else ""
             })
         
-        return render_template('ticker_search.html', 
-                             ticker=ticker, 
-                             results=formatted_results,
-                             result_count=len(formatted_results))
+        return templates.TemplateResponse('ticker_search.html', {
+            'request': request,
+            'ticker': ticker,
+            'results': formatted_results,
+            'result_count': len(formatted_results)
+        })
     
     except Exception as e:
         print(f"Error searching ticker: {e}")
-        return render_template('ticker_search.html', 
-                             ticker=ticker, 
-                             results=None,
-                             error=str(e))
+        return templates.TemplateResponse('ticker_search.html', {
+            'request': request,
+            'ticker': ticker,
+            'results': None,
+            'error': str(e)
+        })
     finally:
         conn.close()
 
@@ -1470,14 +1361,20 @@ def get_scanner_documentation(scanner_name):
     return docs.get(scanner_name, '<p>Documentation coming soon...</p>')
 
 
-@app.route('/')
-def index():
-    min_market_cap = request.args.get('min_market_cap', '')
-    sector_filter = request.args.get('sector', '')
-    min_strength = request.args.get('min_strength', '')
-    selected_scan_date = request.args.get('scan_date', '')
-    confirmed_only = request.args.get('confirmed_only', '')
-    selected_ticker = request.args.get('ticker', '').strip().upper()
+@app.get("/", response_class=HTMLResponse)
+async def index(
+    request: Request,
+    min_market_cap: Optional[str] = Query(None),
+    sector: Optional[str] = Query(None),
+    min_strength: Optional[str] = Query(None),
+    scan_date: Optional[str] = Query(None),
+    confirmed_only: Optional[str] = Query(None),
+    ticker: Optional[str] = Query(None),
+    pattern: Optional[str] = Query(None)
+):
+    sector_filter = sector or ''
+    selected_scan_date = scan_date or ''
+    selected_ticker = ticker.strip().upper() if ticker else ''
     stocks = {}
 
     # Connect to DuckDB and get list of symbols
@@ -1496,7 +1393,6 @@ def index():
         print(f"Could not fetch ticker list: {e}")
     
     # Get default pattern (scanner with lowest count) if none selected
-    pattern = request.args.get('pattern', None)
     if not pattern:
         try:
             default_scanner = conn.execute("""
@@ -1894,25 +1790,25 @@ def index():
     
     conn.close()
     
-    return render_template(
-        'index.html',
-        candlestick_patterns=all_patterns,
-        stocks=stocks,
-        pattern=pattern,
-        available_sectors=available_sectors,
-        available_scanners=available_scanners,
-        available_scan_dates=available_scan_dates,
-        available_tickers=available_tickers,
-        selected_scan_date=selected_scan_date,
-        selected_sector=sector_filter,
-        selected_market_cap=min_market_cap,
-        selected_min_strength=min_strength,
-        selected_ticker=selected_ticker,
-        confirmed_only=confirmed_only
-    )
+    return templates.TemplateResponse('index.html', {
+        'request': request,
+        'candlestick_patterns': all_patterns,
+        'stocks': stocks,
+        'pattern': pattern,
+        'available_sectors': available_sectors,
+        'available_scanners': available_scanners,
+        'available_scan_dates': available_scan_dates,
+        'available_tickers': available_tickers,
+        'selected_scan_date': selected_scan_date,
+        'selected_sector': sector_filter,
+        'selected_market_cap': min_market_cap,
+        'selected_min_strength': min_strength,
+        'selected_ticker': selected_ticker,
+        'confirmed_only': confirmed_only
+    })
 
 
 if __name__ == '__main__':
+    import uvicorn
     port = int(os.environ.get('PORT', 8000))
-    debug = os.environ.get('DEBUG', 'True') == 'True'
-    app.run(debug=debug, host='0.0.0.0', port=port)
+    uvicorn.run(app, host='0.0.0.0', port=port)
