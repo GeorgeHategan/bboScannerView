@@ -3,10 +3,12 @@
 Upload scanner results from local database to MotherDuck.
 Run this after fixing the MotherDuck schema.
 """
+
 import duckdb
+import os
 
 # Your MotherDuck token (read-write needed)
-MOTHERDUCK_TOKEN = "YOUR_READWRITE_TOKEN_HERE"
+MOTHERDUCK_TOKEN = os.environ.get('MOTHERDUCK_TOKEN', '')
 
 print("Connecting to local database...")
 local_conn = duckdb.connect('/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.duckdb', read_only=True)

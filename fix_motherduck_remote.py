@@ -8,6 +8,7 @@ import os
 import sys
 
 
+motherduck_token = os.environ.get('MOTHERDUCK_TOKEN', '')
 connection_string = f'md:scanner_data?motherduck_token={motherduck_token}'
 
 print(f"Connecting to MotherDuck...")

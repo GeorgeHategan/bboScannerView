@@ -4,12 +4,8 @@ This app has been converted from an active scanner to a **VIEW-ONLY** app for Mo
 
 The following files are no longer used and contain pattern detection logic:
 
-## Scanner Files (DEPRECATED)
-- `qullamaggie_scanner.py` - Qullamaggie breakout detection
-- `momentum_burst_scanner.py` - Momentum burst pattern detection  
-- `supertrend_scanner.py` - SuperTrend indicator patterns
-- `explosive_volume_scanner.py` - Volume explosion detection
-- `save_scanner_results_to_db.py` - Scanner execution and database saving
+## Scanner Files (REMOVED)
+All scanner files have been removed. This app is now view-only and does not perform any pattern detection or scanning.
 
 ## Pattern Detection Files (DEPRECATED)  
 - `patterns.py` - Candlestick pattern definitions
