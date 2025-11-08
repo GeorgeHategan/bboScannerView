@@ -177,7 +177,7 @@
                             <tr>
                                 <th>Scanner</th>
                                 <th>Date Found</th>
-                                <th>Entry Price</th>
+                                {# Entry Price column removed #}
                                 <th>Current Price</th>
                                 <th>Gain</th>
                                 <th>Signal Strength</th>
@@ -191,7 +191,7 @@
                                     <span class="scanner-badge">{{ result.scanner_name }}</span>
                                 </td>
                                 <td>{{ result.scan_date }}</td>
-                                <td>{{ result.entry_price }}</td>
+                                {# Entry Price value removed #}
                                 <td>{{ result.current_price }}</td>
                                 <td>
                                     {% if result.gain_pct != "N/A" %}

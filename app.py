@@ -3,7 +3,7 @@ import duckdb
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.middleware.sessions import SessionMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from typing import Optional
 import duckdb
@@ -319,7 +319,7 @@ async def ticker_search(request: Request, ticker: Optional[str] = Query(None)):
                 'scanner_name': row[0].replace('_', ' ').title(),
                 'symbol': row[1],
                 'scan_date': row[2],
-                'entry_price': f"${row[3]:.2f}" if row[3] else "N/A",
+                # 'entry_price': f"${row[3]:.2f}" if row[3] else "N/A",
                 'current_price': f"${current_price:.2f}" if current_price else "N/A",
                 'gain_pct': f"{gain_pct:+.1f}%" if gain_pct is not None else "N/A",
                 'signal_strength': f"{row[4]:.1f}" if row[4] else "N/A",

@@ -235,10 +235,8 @@
                             <span style="color: red;"> ↓ Below Avg</span>
                         {% endif %}
                         <br><br>
-                        {% if stocks[stock].get(pattern + '_entry_price') %}
-                        <strong>Entry Price:</strong> ${{ '%.2f'|format(stocks[stock][pattern + '_entry_price']) }}<br>
-                        {% endif %}
-                        {% if stocks[stock].get(pattern + '_picked_count') %}
+                        {# Entry Price removed #}
+                            {% if stocks[stock].get(pattern + '_picked_count') %}
                         <strong>Confluence:</strong> Picked by {{ stocks[stock][pattern + '_picked_count'] }} scanner(s)<br>
                         {% endif %}
                         {% if stocks[stock].get(pattern + '_setup_stage') %}
@@ -247,15 +245,15 @@
                         
                         {% if stocks[stock][pattern + '_earnings_date'] and stocks[stock][pattern + '_earnings_days'] and stocks[stock][pattern + '_earnings_days'] > 0 %}
                         <br>
-                        <div style="
-                            {% if stocks[stock][pattern + '_earnings_days'] <= 7 %}
-                            background-color: #ffebee; border-left: 4px solid #f44336; padding: 8px; margin: 5px 0;
-                            {% elif stocks[stock][pattern + '_earnings_days'] <= 14 %}
-                            background-color: #fff8e1; border-left: 4px solid #ff9800; padding: 8px; margin: 5px 0;
-                            {% else %}
-                            padding: 5px 0;
-                            {% endif %}
-                        ">
+                        {% set earnings_style = '' %}
+                        {% if stocks[stock][pattern + '_earnings_days'] <= 7 %}
+                            {% set earnings_style = 'background-color: #ffebee; border-left: 4px solid #f44336; padding: 8px; margin: 5px 0;' %}
+                        {% elif stocks[stock][pattern + '_earnings_days'] <= 14 %}
+                            {% set earnings_style = 'background-color: #fff8e1; border-left: 4px solid #ff9800; padding: 8px; margin: 5px 0;' %}
+                        {% else %}
+                            {% set earnings_style = 'padding: 5px 0;' %}
+                        {% endif %}
+                        <div style="{{ earnings_style }}">
                             <strong style="font-size: 13px;">📊 Next Earnings:</strong> 
                             <span style="font-weight: bold;">{{ stocks[stock][pattern + '_earnings_date'] }}</span>
                             ({{ stocks[stock][pattern + '_earnings_days'] }} days)
