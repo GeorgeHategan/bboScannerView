@@ -7,8 +7,6 @@ import duckdb
 import os
 import sys
 
-# Get MotherDuck connection string from environment
-motherduck_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imdlb3JnZS5oYXRlZ2FuQGdtYWlsLmNvbSIsInNlc3Npb24iOiJnZW9yZ2UuaGF0ZWdhbi5nbWFpbC5jb20iLCJwYXQiOiJzRjdZeGV0Zzd4czRfQjJWS2NtVlRuenB4d1VZUWFWUUVwQmZsOVdfYU1nIiwidXNlcklkIjoiMDEzY2E5ZDAtNTU3Yi00YzkzLWIyYWYtNDFjM2MwYWIxMTAyIiwiaXNzIjoibWRfcGF0IiwiaWF0IjoxNzMwNjY2NjkyfQ.0qUEAR0C5XbRDlI6OXWvvVZm8TmF8o-4KjKJ2XL_xxw"
 
 connection_string = f'md:scanner_data?motherduck_token={motherduck_token}'
 
