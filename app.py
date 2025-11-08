@@ -1,13 +1,51 @@
 import os
 import duckdb
+from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.middleware.sessions import SessionMiddleware
+from datetime import datetime, timedelta
+from typing import Optional
+import duckdb
 from fastapi import FastAPI, Request, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from datetime import datetime, timedelta
 from typing import Optional
 
-# Create FastAPI app
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard")
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
+# Helper: get allowed emails from env
+def get_allowed_emails():
+    return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
+
+# Dependency: require login and allowed email
+def require_login(request: Request):
+    email = request.session.get('email')
+    allowed = get_allowed_emails()
+    if not email or email not in allowed:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authorized')
+    return email
+
+# Login page
+@app.get('/login', response_class=HTMLResponse)
+async def login_form(request: Request):
+    return templates.TemplateResponse('login.html', {'request': request, 'error': None})
+
+# Login POST
+@app.post('/login', response_class=HTMLResponse)
+async def login_submit(request: Request, email: str = Form(...)):
+    allowed = get_allowed_emails()
+    if email.strip() in allowed:
+        request.session['email'] = email.strip()
+        return RedirectResponse('/', status_code=302)
+    return templates.TemplateResponse('login.html', {'request': request, 'error': 'Access denied'})
+
+# Logout
+@app.get('/logout')
+async def logout(request: Request):
+    request.session.pop('email', None)
+    return RedirectResponse('/login', status_code=302)
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")
@@ -50,14 +88,15 @@ def format_market_cap(market_cap):
         return None
 
 
+
 @app.get("/health")
-async def health_check():
+async def health_check(request: Request, email: str = Depends(require_login)):
     """Health check endpoint for monitoring."""
     return {"status": "healthy", "service": "bbo-scanner-view"}
 
 
 @app.get("/stats", response_class=HTMLResponse)
-async def stats(request: Request):
+async def stats(request: Request, email: str = Depends(require_login)):
     """Display database statistics landing page."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -150,7 +189,7 @@ async def stats(request: Request):
 
 
 @app.get("/scanner-docs", response_class=HTMLResponse)
-async def scanner_docs(request: Request):
+async def scanner_docs(request: Request, email: str = Depends(require_login)):
     """Display documentation landing page with all scanners."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -189,7 +228,7 @@ async def scanner_docs(request: Request):
 
 
 @app.get("/scanner-docs/{scanner_name}", response_class=HTMLResponse)
-async def scanner_detail(request: Request, scanner_name: str):
+async def scanner_detail(request: Request, scanner_name: str, email: str = Depends(require_login)):
     """Display detailed documentation for a specific scanner."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
