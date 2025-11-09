@@ -1834,8 +1834,21 @@ async def index(
     except Exception as e:
         print(f"Could not load scan dates: {e}")
     
+    # Get most recent scan timestamp for display
+    last_updated = None
+    try:
+        latest_timestamp = conn.execute("""
+            SELECT MAX(scan_date)
+            FROM scanner_data.scanner_results
+        """).fetchone()
+        if latest_timestamp and latest_timestamp[0]:
+            # Format as datetime string
+            last_updated = str(latest_timestamp[0])
+    except Exception as e:
+        print(f"Could not get last update time: {e}")
+
     conn.close()
-    
+
     return templates.TemplateResponse('index.html', {
         'request': request,
         'candlestick_patterns': all_patterns,
@@ -1850,7 +1863,8 @@ async def index(
         'selected_market_cap': min_market_cap,
         'selected_min_strength': min_strength,
         'selected_ticker': selected_ticker,
-        'confirmed_only': confirmed_only
+        'confirmed_only': confirmed_only,
+        'last_updated': last_updated
     })
 
 

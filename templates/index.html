@@ -85,9 +85,14 @@
     </div>
     
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1>Technical Scanner</h1>
+        <div>
+            <h1>Scanner Results</h1>
+            {% if last_updated %}
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Last updated: {{ last_updated }}</p>
+            {% endif %}
+        </div>
         <div style="display: flex; gap: 10px;">
-            <a href="/scanner-docs" style="background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">� Scanner Docs</a>
+            <a href="/scanner-docs" style="background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">📚 Scanner Docs</a>
             <a href="/stats" style="background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">📊 View Stats</a>
         </div>
     </div>
