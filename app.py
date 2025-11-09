@@ -141,10 +141,10 @@ async def stats(request: Request, email: str = Depends(require_login)):
         
         # Results per date
         date_breakdown = conn.execute("""
-            SELECT DATE(scan_date) as date, COUNT(*) as count
+            SELECT CAST(scan_date AS DATE) as date, COUNT(*) as count
             FROM scanner_data.scanner_results
             WHERE scan_date IS NOT NULL
-            GROUP BY DATE(scan_date)
+            GROUP BY CAST(scan_date AS DATE)
             ORDER BY date DESC
             LIMIT 10
         """).fetchall()
@@ -1821,10 +1821,10 @@ async def index(
     available_scan_dates = []
     try:
         dates = conn.execute("""
-            SELECT DATE(scan_date) as date, COUNT(*) as count
+            SELECT CAST(scan_date AS DATE) as date, COUNT(*) as count
             FROM scanner_data.scanner_results
             WHERE scan_date IS NOT NULL
-            GROUP BY DATE(scan_date)
+            GROUP BY CAST(scan_date AS DATE)
             ORDER BY date DESC
         """).fetchall()
         available_scan_dates = [(str(row[0]), row[1]) for row in dates]
