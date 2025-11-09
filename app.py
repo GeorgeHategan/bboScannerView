@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 import duckdb
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
 from fastapi.templating import Jinja2Templates
@@ -6,12 +7,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from typing import Optional
-import duckdb
-from fastapi import FastAPI, Request, Query
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
-from datetime import datetime, timedelta
-from typing import Optional
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
@@ -36,9 +34,13 @@ async def login_form(request: Request):
 @app.post('/login', response_class=HTMLResponse)
 async def login_submit(request: Request, email: str = Form(...)):
     allowed = get_allowed_emails()
+    print(f"DEBUG: Login attempt with email: '{email.strip()}'")
+    print(f"DEBUG: Allowed emails: {allowed}")
     if email.strip() in allowed:
         request.session['email'] = email.strip()
+        print(f"DEBUG: Login successful, redirecting to /")
         return RedirectResponse('/', status_code=302)
+    print(f"DEBUG: Login failed - email not in allowed list")
     return templates.TemplateResponse('login.html', {'request': request, 'error': 'Access denied'})
 
 # Logout
