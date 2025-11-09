@@ -59,7 +59,11 @@
     </style>
     <script>
         function showLoading() {
-            document.getElementById('loadingOverlay').classList.add('active');
+            try {
+                document.getElementById('loadingOverlay').classList.add('active');
+            } catch(e) {
+                console.error('Error showing loading overlay:', e);
+            }
         }
         
         function clearTicker() {
@@ -74,6 +78,18 @@
                 document.querySelector('form').submit();
             }
         }
+        
+        // Debug: Log when scanner dropdown changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const scannerDropdown = document.getElementById('patternSelect');
+            if (scannerDropdown) {
+                scannerDropdown.addEventListener('change', function(e) {
+                    console.log('Scanner changed to:', e.target.value);
+                    showLoading();
+                    this.form.submit();
+                });
+            }
+        });
     </script>
 </head>
 <body>
@@ -119,7 +135,7 @@
             {% endif %}
         </div>
 
-        <select name="pattern" id="patternSelect" onchange="showLoading(); this.form.submit()" style="padding: 10px 15px; font-size: 14px; border: 2px solid #0066cc; border-radius: 5px; background: white; cursor: pointer; min-width: 250px;">
+        <select name="pattern" id="patternSelect" style="padding: 10px 15px; font-size: 14px; border: 2px solid #0066cc; border-radius: 5px; background: white; cursor: pointer; min-width: 250px;">
             <option value="">-- Select a Scanner --</option>
             {% for key in candlestick_patterns %}
                 <option value="{{ key }}" {% if pattern == key %}selected="selected"{% endif %} data-is-scanner="{% if key in available_scanners %}true{% else %}false{% endif %}">{{ candlestick_patterns[key] }}</option>
