@@ -275,6 +275,15 @@
                         <strong>Setup Stage:</strong> {{ stocks[stock][pattern + '_setup_stage'] }}<br>
                         {% endif %}
                         
+                        {# Display candlestick patterns if available #}
+                        {% if stocks[stock].get(pattern + '_patterns') %}
+                        <br>
+                        <strong>🕯️ Patterns Detected:</strong><br>
+                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; color: #0066cc;">
+                            {{ stocks[stock][pattern + '_patterns'] }}
+                        </div>
+                        {% endif %}
+                        
                         {% if stocks[stock][pattern + '_earnings_date'] and stocks[stock][pattern + '_earnings_days'] and stocks[stock][pattern + '_earnings_days'] > 0 %}
                         <br>
                         {% set earnings_style = '' %}

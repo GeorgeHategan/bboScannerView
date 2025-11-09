@@ -1888,7 +1888,8 @@ async def index(
                    news_relevance,
                    news_headline,
                    news_published,
-                   news_url
+                   news_url,
+                   metadata
             FROM scanner_data.scanner_results
             WHERE scanner_name = ?
         '''
@@ -1928,7 +1929,8 @@ async def index(
                     'news_relevance': row[10] if len(row) > 10 else None,
                     'news_headline': row[11] if len(row) > 11 else None,
                     'news_published': row[12] if len(row) > 12 else None,
-                    'news_url': row[13] if len(row) > 13 else None
+                    'news_url': row[13] if len(row) > 13 else None,
+                    'metadata': row[14] if len(row) > 14 else None
                 } for row in scanner_results
             }
             print(f'Found {len(scanner_dict)} results for {pattern}')
@@ -2040,6 +2042,7 @@ async def index(
                 picked_by_scanners = scanner_result.get('picked_by_scanners')
                 setup_stage = scanner_result.get('setup_stage')
                 scan_date = scanner_result.get('scan_date', '')
+                metadata = scanner_result.get('metadata')
                 news_sentiment = scanner_result.get('news_sentiment')
                 news_sentiment_label = scanner_result.get('news_sentiment_label')
                 news_relevance = scanner_result.get('news_relevance')
@@ -2085,6 +2088,10 @@ async def index(
                                 stocks[symbol]['news_published'] = news_published
                             if news_url:
                                 stocks[symbol]['news_url'] = news_url
+                            
+                            # Add candlestick patterns metadata
+                            if metadata:
+                                stocks[symbol][f'{pattern}_patterns'] = metadata
                             
                             # Add all scanners that identified this symbol on this date
                             if symbol in all_scanners_dict:
