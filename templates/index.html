@@ -245,9 +245,9 @@
                 <td colspan="2" style="vertical-align: top; padding-left: 20px;">
                     <div style="font-size: 14px; line-height: 1.8;">
                         <strong>Volume Analysis:</strong><br>
-                        Volume: {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}<br>
-                        Avg (20d): {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}<br>
-                        <strong>Ratio: {{ stocks[stock][pattern + '_volume_ratio'] }}x</strong>
+                        <strong>Volume:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}<br>
+                        <strong>Avg (20d):</strong> {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}<br>
+                        <strong>Ratio:</strong> {{ stocks[stock][pattern + '_volume_ratio'] }}x
                         {% if stocks[stock][pattern + '_volume_ratio'] >= 2.0 %}
                             <span style="color: green; font-weight: bold;"> ✓ HIGH</span>
                         {% elif stocks[stock][pattern + '_volume_ratio'] >= 1.5 %}
@@ -345,7 +345,7 @@
                         {% endif %}
                         
                         <br><br>
-                        <strong>Sector:</strong><br>
+                        <strong>Sector:</strong> 
                         {% if stocks[stock]['sector'] %}
                             <span style="font-size: 14px; color: #333;">{{ stocks[stock]['sector'] }}</span>
                         {% else %}
@@ -353,7 +353,7 @@
                         {% endif %}
                         
                         <br><br>
-                        <strong>Market Cap:</strong><br>
+                        <strong>Market Cap:</strong> 
                         {% if stocks[stock]['market_cap'] %}
                             <span style="font-size: 16px; font-weight: bold; color: #0066cc;">${{ stocks[stock]['market_cap'] }}</span>
                         {% else %}
