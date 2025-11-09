@@ -231,7 +231,17 @@
                     {{ stocks[stock]['company'] }}
                 </td>
                 <td class="{{ stocks[stock][pattern] }}">
-                    {{ stocks[stock][pattern]}}
+                        {{ stocks[stock][pattern]}}
+                        {% if stocks[stock].get('picked_by_scanners') %}
+                            {% set scanners = stocks[stock]['picked_by_scanners'].split(',') %}
+                            {% if scanners|length > 1 %}
+                                <ul style="margin: 6px 0 0 0; padding-left: 18px; font-size: 13px; color: #0066cc;">
+                                    {% for scanner in scanners %}
+                                        <li>{{ scanner.strip().replace('_', ' ')|title }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        {% endif %}
                 </td>
                 <td class="strength">
                     {{ stocks[stock][pattern + '_strength'] }}
@@ -354,11 +364,25 @@
                         {% endif %}
                         
                         <br><br>
+                        <strong>Industry:</strong> 
+                        {% if stocks[stock]['industry'] %}
+                            <span style="font-size: 14px; color: #333;">{{ stocks[stock]['industry'] }}</span>
+                        {% else %}
+                            <span style="color: gray; font-size: 12px;">Not Available</span>
+                        {% endif %}
+                        
+                        <br><br>
                         <strong>Market Cap:</strong> 
                         {% if stocks[stock]['market_cap'] %}
                             <span style="font-size: 16px; font-weight: bold; color: #0066cc;">${{ stocks[stock]['market_cap'] }}</span>
                         {% else %}
                             <span style="color: gray;">Not Available</span>
+                        {% endif %}
+                        
+                        {% if stocks[stock]['earnings_date'] %}
+                        <br><br>
+                        <strong>📅 Earnings Date:</strong> 
+                        <span style="font-size: 14px; color: #333;">{{ stocks[stock]['earnings_date'] }}</span>
                         {% endif %}
                         
                         {% if stocks[stock][pattern + '_sentiment_label'] %}

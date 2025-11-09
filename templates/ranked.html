@@ -212,6 +212,16 @@
                         </a>
                         <div style="font-size: 14px; color: #666; margin-top: 2px;">{{ result.company_name }}</div>
                         <div class="scanner-name">{{ result.scanner_name.replace('_', ' ').title() }}</div>
+                            {% if result.picked_by_scanners %}
+                                {% set scanners = result.picked_by_scanners.split(',') %}
+                                {% if scanners|length > 1 %}
+                                    <ul style="margin: 6px 0 0 0; padding-left: 18px; font-size: 13px; color: #0066cc;">
+                                        {% for scanner in scanners %}
+                                            <li>{{ scanner.strip().replace('_', ' ')|title }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            {% endif %}
                     </div>
                 </div>
                 <div class="scores">
@@ -244,9 +254,23 @@
                     <span class="sector">{{ result.sector or 'N/A' }}</span>
                 </div>
                 <div>
+                    <strong>Industry:</strong> 
+                    <span class="industry">{{ result.industry or 'N/A' }}</span>
+                </div>
+                <div>
                     <strong>Price:</strong> 
                     <span class="price">${{ "%.2f"|format(result.price) }}</span>
                 </div>
+                <div>
+                    <strong>Market Cap:</strong> 
+                    <span class="market-cap">${{ result.market_cap or 'N/A' }}</span>
+                </div>
+                {% if result.earnings_date %}
+                <div>
+                    <strong>📅 Earnings:</strong> 
+                    <span class="earnings-date">{{ result.earnings_date }}</span>
+                </div>
+                {% endif %}
             </div>
 
             {% if result.news_headline %}

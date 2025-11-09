@@ -136,7 +136,10 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 ai.analysis_text,
                 r.news_headline,
                 r.news_sentiment_label,
-                COALESCE(f.company_name, r.symbol) as company_name
+                COALESCE(f.company_name, r.symbol) as company_name,
+                f.market_cap,
+                f.next_earnings_date,
+                f.industry
             FROM scanner_data.ranked_analysis r
             LEFT JOIN scanner_data.fundamental_cache f ON r.symbol = f.symbol
             LEFT JOIN scanner_data.ai_analysis_individual ai ON r.symbol = ai.symbol AND r.analysis_date = ai.analysis_date
@@ -160,7 +163,10 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 'analysis_text': row[8],  # Full AI analysis from ai_analysis_individual table
                 'news_headline': row[9],
                 'news_sentiment_label': row[10],
-                'company_name': row[11]
+                'company_name': row[11],
+                'market_cap': format_market_cap(row[12]),
+                'earnings_date': row[13],
+                'industry': row[14]
             })
     except Exception as e:
         print(f"Error loading ranked results: {e}")
@@ -291,6 +297,8 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
         'accumulation_distribution': 'Detects institutional smart money buying patterns using volume indicators',
         'breakout': 'Identifies stocks breaking out above key resistance levels',
         'bull_flag': 'Finds bullish continuation patterns with consolidation after uptrend',
+        'candlestick_bullish': 'TA-Lib bullish reversal patterns - finds bottoms and new uptrends (20 patterns)',
+        'candlestick_continuation': 'TA-Lib continuation patterns - pullbacks in existing uptrends (13 patterns)',
         'momentum_burst': 'Spots explosive momentum moves with high volume',
         'tight_consolidation': 'Detects tight consolidation patterns before potential breakouts'
     }
@@ -1477,6 +1485,261 @@ def get_scanner_documentation(scanner_name):
     <li>⚠️ All signals show 50.0 score - likely threshold/default value</li>
     <li>⚠️ Manual fundamental analysis recommended (verify P/E, growth, balance sheet)</li>
 </ul>
+''',
+        'candlestick_bullish': '''
+<div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+    <h2 style="color: white; border: none;">🔄 Bullish Reversal Patterns</h2>
+    <p><strong>20 TA-Lib Patterns</strong> | Average Weight: <strong>7.4</strong> | Signal Type: <strong>Reversal</strong></p>
+</div>
+
+<h2>🎯 Overview</h2>
+<p>Detects <strong>trend reversals from bearish to bullish</strong> using TA-Lib's proven candlestick pattern recognition algorithms. Each pattern is weighted based on historical reliability and combined with volume, trend, and technical context for comprehensive signal strength scoring (0-100).</p>
+
+<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 6px;">
+    <h3 style="margin-top: 0;">💡 Key Insight</h3>
+    <p>This scanner finds <strong>bottoms and catches new uptrends starting</strong>. No uptrend required - it identifies reversal signals after downtrends or in oversold conditions. Best for finding early entries before major moves.</p>
+</div>
+
+<h2>🕯️ Top Reversal Patterns</h2>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin: 20px 0;">
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #667eea; font-size: 1.2em; font-weight: bold;">10.0</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Three White Soldiers</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Three consecutive bullish candles with higher highs and closes. Very strong reversal signal.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #667eea; font-size: 1.2em; font-weight: bold;">9.5</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Morning Star</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Three-candle pattern: bearish, small-bodied, then bullish. Classic bottom reversal.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #667eea; font-size: 1.2em; font-weight: bold;">9.0</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Bullish Engulfing</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Bullish candle completely engulfs prior bearish candle. Strong reversal confirmation.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #667eea; font-size: 1.2em; font-weight: bold;">8.7</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Piercing Pattern</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Bullish candle closes above midpoint of prior bearish candle.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #667eea; font-size: 1.2em; font-weight: bold;">8.5</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Hammer</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Long lower shadow, small body at top. Shows rejection of lower prices.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #667eea; font-size: 1.2em; font-weight: bold;">8.2</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Inverted Hammer</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Long upper shadow, small body at bottom. Tests resistance before reversal.</div>
+    </div>
+</div>
+
+<p style="color: #666; font-style: italic;">...and 14 more patterns (Doji variations, Three Inside Up, Morning Doji Star, Abandoned Baby, etc.)</p>
+
+<h2>📊 Signal Strength Calculation (0-100)</h2>
+
+<table style="width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <thead>
+        <tr style="background: #667eea; color: white;">
+            <th style="padding: 12px; text-align: left;">Component</th>
+            <th style="padding: 12px; text-align: left;">Points</th>
+            <th style="padding: 12px; text-align: left;">Calculation</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Base Pattern Weight</strong></td>
+            <td style="padding: 12px;">0-70</td>
+            <td style="padding: 12px;">Pattern Weight × 7 (5.0-10.0 → 35-70 pts)</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Multiple Patterns</strong></td>
+            <td style="padding: 12px;">0-15</td>
+            <td style="padding: 12px;">4+ = 15, 3 = 10, 2 = 5 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Volume Confirmation</strong></td>
+            <td style="padding: 12px;">0-10</td>
+            <td style="padding: 12px;">RVOL: 2.0+ = 10, 1.5+ = 7, 1.2+ = 4 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Total Score</strong></td>
+            <td style="padding: 12px;"><strong>0-100</strong></td>
+            <td style="padding: 12px;">Sum of all components</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li><strong>Pattern Detection:</strong> 1+ TA-Lib bullish reversal patterns confirmed</li>
+    <li><strong>No Trend Required:</strong> Works in downtrends, sideways, or oversold conditions</li>
+    <li><strong>Volume Preference:</strong> Higher RVOL (1.2x+) increases score</li>
+    <li><strong>Multiple Patterns:</strong> Bonus when 2+ patterns confirm same signal</li>
+</ul>
+
+<h2>🎯 Usage Guidelines</h2>
+
+<div style="background: #fff7ed; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 4px;">
+    <h4 style="color: #f59e0b; margin-top: 0;">Best For:</h4>
+    <ul>
+        <li>Finding bottoms in oversold stocks</li>
+        <li>Catching new uptrends starting</li>
+        <li>Counter-trend trades (higher risk)</li>
+        <li>Stocks breaking downtrends</li>
+    </ul>
+    <p style="margin-top: 15px;"><strong>Quality Threshold:</strong> 70+ recommended (pattern weight 8.5+)</p>
+    <p><strong>Hold Period:</strong> 1-4 weeks typical</p>
+    <p><strong>Risk Level:</strong> Medium-High (reversals can fail)</p>
+</div>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below pattern low (typically 3-5% below entry)</li>
+    <li><strong>Position Size:</strong> 90+ = 3%, 80-89 = 2%, 70-79 = 1%</li>
+    <li><strong>Time Stop:</strong> Exit if pattern doesn't work within 5-10 days</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p><strong>20 TA-Lib reversal patterns</strong> detect trend changes from bearish to bullish. Best for finding early entries at bottoms before major moves. Higher risk than continuation patterns but offers better risk/reward at reversals.</p>
+''',
+        'candlestick_continuation': '''
+<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+    <h2 style="color: white; border: none;">⬆️ Bullish Continuation Patterns</h2>
+    <p><strong>13 TA-Lib Patterns</strong> | Average Weight: <strong>6.9</strong> | Signal Type: <strong>Continuation</strong></p>
+</div>
+
+<h2>🎯 Overview</h2>
+<p>Detects <strong>trend continuation in existing uptrends</strong> using TA-Lib's proven candlestick pattern recognition. Identifies pullbacks and consolidations within strong trends for optimal re-entry points. Requires price above SMA20/50 for trend confirmation.</p>
+
+<div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 6px;">
+    <h3 style="margin-top: 0; color: #10b981;">💡 Key Insight</h3>
+    <p>This scanner finds <strong>pullbacks in trending stocks</strong> for lower-risk entries. Requires existing uptrend confirmation, making it safer than reversal trading. Best for entering during temporary weakness in strong stocks.</p>
+</div>
+
+<h2>⬆️ Top Continuation Patterns</h2>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin: 20px 0;">
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #10b981; font-size: 1.2em; font-weight: bold;">9.2</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Mat Hold</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Bullish candle, three small pullback candles, then bullish continuation. Classic continuation.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #10b981; font-size: 1.2em; font-weight: bold;">8.8</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Rising Three Methods</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Bullish candle, three small consolidation candles, bullish continuation. Very reliable.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #10b981; font-size: 1.2em; font-weight: bold;">8.0</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Separating Lines</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Bullish candle opens at same level as prior bearish candle. Trend resumes.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #10b981; font-size: 1.2em; font-weight: bold;">7.8</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Tasuki Gap</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Gap up, pullback doesn't fill gap, continuation. Gap acts as support.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #10b981; font-size: 1.2em; font-weight: bold;">7.4</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Stick Sandwich</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">Two bullish candles sandwich a bearish candle. Support confirmed.</div>
+    </div>
+    
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+        <span style="float: right; color: #10b981; font-size: 1.2em; font-weight: bold;">7.0</span>
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">Marubozu</div>
+        <div style="font-size: 0.9em; color: #666; margin-top: 8px;">No shadows, all body. Shows strong conviction in direction.</div>
+    </div>
+</div>
+
+<p style="color: #666; font-style: italic;">...and 7 more patterns (Belt Hold, Three Outside Up, Kicking, Gap Side-by-Side, etc.)</p>
+
+<h2>📊 Signal Strength Calculation (0-100)</h2>
+
+<table style="width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <thead>
+        <tr style="background: #10b981; color: white;">
+            <th style="padding: 12px; text-align: left;">Component</th>
+            <th style="padding: 12px; text-align: left;">Points</th>
+            <th style="padding: 12px; text-align: left;">Calculation</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Base Pattern Weight</strong></td>
+            <td style="padding: 12px;">0-70</td>
+            <td style="padding: 12px;">Pattern Weight × 7 (5.0-9.2 → 35-64 pts)</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Multiple Patterns</strong></td>
+            <td style="padding: 12px;">0-15</td>
+            <td style="padding: 12px;">4+ = 15, 3 = 10, 2 = 5 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Volume Confirmation</strong></td>
+            <td style="padding: 12px;">0-10</td>
+            <td style="padding: 12px;">RVOL: 2.0+ = 10, 1.5+ = 7, 1.2+ = 4 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Trend Strength Bonus</strong></td>
+            <td style="padding: 12px;">0-5</td>
+            <td style="padding: 12px;">Strong uptrend = 5, Moderate = 3, Weak = 1</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;"><strong>Total Score</strong></td>
+            <td style="padding: 12px;"><strong>0-100</strong></td>
+            <td style="padding: 12px;">Sum of all components</td>
+        </tr>
+    </tbody>
+</table>
+
+<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+    <strong>Key Difference:</strong> Continuation scanner requires existing uptrend (price above SMA20/50) and gets 0-5 point bonus for trend strength. Reversal scanner has no trend requirement.
+</div>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li><strong>Pattern Detection:</strong> 1+ TA-Lib bullish continuation patterns confirmed</li>
+    <li><strong>Trend Required:</strong> Price must be above SMA20 and/or SMA50</li>
+    <li><strong>Trend Strength:</strong> Bonus points for strong uptrends (both SMAs rising)</li>
+    <li><strong>Volume Preference:</strong> Higher RVOL (1.2x+) increases score</li>
+</ul>
+
+<h2>🎯 Usage Guidelines</h2>
+
+<div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px;">
+    <h4 style="color: #10b981; margin-top: 0;">Best For:</h4>
+    <ul>
+        <li>Entering pullbacks in uptrends</li>
+        <li>Adding to winners on dips</li>
+        <li>Trend-following trades (lower risk)</li>
+        <li>Stocks with momentum</li>
+    </ul>
+    <p style="margin-top: 15px;"><strong>Quality Threshold:</strong> 65+ recommended (pattern weight 7.5+)</p>
+    <p><strong>Hold Period:</strong> 1-3 weeks typical</p>
+    <p><strong>Risk Level:</strong> Low-Medium (trend already confirmed)</p>
+</div>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below recent swing low (typically 2-4% below entry)</li>
+    <li><strong>Position Size:</strong> 90+ = 3%, 80-89 = 2%, 65-79 = 1%</li>
+    <li><strong>Volume Stop:</strong> Exit if volume dries up significantly</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p><strong>13 TA-Lib continuation patterns</strong> confirm existing uptrends will continue. Lower risk than reversal trading since trend is already established. Best for entering pullbacks in strong stocks with momentum.</p>
 '''
     }
     
@@ -1538,7 +1801,9 @@ async def index(
         SELECT DISTINCT d.symbol, 
                COALESCE(f.company_name, d.symbol) as company,
                f.market_cap,
-               f.sector
+               f.sector,
+               f.next_earnings_date,
+               f.industry
         FROM scanner_data.daily_cache d
         LEFT JOIN scanner_data.fundamental_cache f ON d.symbol = f.symbol
         WHERE 1=1
@@ -1573,7 +1838,7 @@ async def index(
     if min_market_cap:
         filtered_rows = []
         for row in symbol_rows:
-            symbol, company, market_cap, sector = row
+            symbol, company, market_cap, sector, earnings_date, industry = row
             if market_cap:
                 try:
                     cap_str = market_cap.upper()
@@ -1587,18 +1852,20 @@ async def index(
                         cap_num = float(cap_str)
                     
                     if cap_num >= min_cap:
-                        filtered_rows.append((symbol, company, market_cap, sector))
+                        filtered_rows.append((symbol, company, market_cap, sector, earnings_date, industry))
                 except:
                     pass
-        symbol_rows = [(s, c, mc, sec) for s, c, mc, sec in filtered_rows]
+        symbol_rows = [(s, c, mc, sec, ed, ind) for s, c, mc, sec, ed, ind in filtered_rows]
     else:
-        symbol_rows = [(row[0], row[1], row[2], row[3]) for row in symbol_rows]
+        symbol_rows = [(row[0], row[1], row[2], row[3], row[4], row[5]) for row in symbol_rows]
     
-    for symbol, company, market_cap, sector in symbol_rows:
+    for symbol, company, market_cap, sector, earnings_date, industry in symbol_rows:
         stocks[symbol] = {
             'company': company, 
             'market_cap': format_market_cap(market_cap),
-            'sector': sector
+            'sector': sector,
+            'earnings_date': earnings_date,
+            'industry': industry
         }
 
     if pattern:
