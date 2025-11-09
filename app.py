@@ -189,7 +189,7 @@ async def stats(request: Request, email: str = Depends(require_login)):
 
 
 @app.get("/scanner-docs", response_class=HTMLResponse)
-async def scanner_docs(request: Request, email: str = Depends(require_login)):
+async def scanner_docs(request: Request):
     """Display documentation landing page with all scanners."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -228,7 +228,7 @@ async def scanner_docs(request: Request, email: str = Depends(require_login)):
 
 
 @app.get("/scanner-docs/{scanner_name}", response_class=HTMLResponse)
-async def scanner_detail(request: Request, scanner_name: str, email: str = Depends(require_login)):
+async def scanner_detail(request: Request, scanner_name: str):
     """Display detailed documentation for a specific scanner."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
