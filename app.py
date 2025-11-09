@@ -1776,7 +1776,7 @@ async def index(
         else:
             # Get the latest scan date
             latest_date_result = conn.execute("""
-                SELECT MAX(DATE(scan_date)) 
+                SELECT MAX(CAST(scan_date AS DATE))
                 FROM scanner_data.scanner_results
             """).fetchone()
             date_to_use = str(latest_date_result[0]) if latest_date_result and latest_date_result[0] else None
@@ -1786,7 +1786,7 @@ async def index(
             scanner_counts_query = """
                 SELECT scanner_name, COUNT(*) as count
                 FROM scanner_data.scanner_results
-                WHERE DATE(scan_date) = ?
+                WHERE CAST(scan_date AS DATE) = ?
                 GROUP BY scanner_name
                 ORDER BY scanner_name
             """
