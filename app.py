@@ -1405,6 +1405,7 @@ def get_scanner_documentation(scanner_name):
 @app.get("/", response_class=HTMLResponse)
 async def index(
     request: Request,
+    email: str = Depends(require_login),
     min_market_cap: Optional[str] = Query(None),
     sector: Optional[str] = Query(None),
     min_strength: Optional[str] = Query(None),
