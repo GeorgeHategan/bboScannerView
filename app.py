@@ -101,6 +101,79 @@ async def health_check(request: Request, email: str = Depends(require_login)):
     return {"status": "healthy", "service": "bbo-scanner-view"}
 
 
+@app.get("/ranked", response_class=HTMLResponse)
+async def ranked_results(request: Request, date: Optional[str] = Query(None)):
+    """Display AI-ranked stock analysis results."""
+    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    
+    # Get today's date or use provided date
+    today = datetime.now().strftime('%Y-%m-%d')
+    current_date = date if date else today
+    is_today = current_date == today
+    
+    # Parse current date
+    date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+    
+    # Calculate prev/next dates
+    prev_date_obj = date_obj - timedelta(days=1)
+    next_date_obj = date_obj + timedelta(days=1)
+    
+    prev_date = prev_date_obj.strftime('%Y-%m-%d')
+    next_date = next_date_obj.strftime('%Y-%m-%d') if not is_today else None
+    
+    # Get ranked results for the date
+    try:
+        results_query = """
+            SELECT 
+                analysis_date,
+                rank,
+                symbol,
+                scanner_name,
+                composite_score,
+                signal_strength,
+                price,
+                sector,
+                reasoning,
+                news_headline,
+                news_sentiment_label
+            FROM scanner_data.ranked_analysis
+            WHERE analysis_date = ?
+            ORDER BY rank ASC
+        """
+        results = conn.execute(results_query, [current_date]).fetchall()
+        
+        # Convert to list of dicts
+        ranked_results = []
+        for row in results:
+            ranked_results.append({
+                'analysis_date': row[0],
+                'rank': row[1],
+                'symbol': row[2],
+                'scanner_name': row[3],
+                'composite_score': round(row[4], 1),
+                'signal_strength': round(row[5], 1),
+                'price': row[6],
+                'sector': row[7],
+                'reasoning': row[8],
+                'news_headline': row[9],
+                'news_sentiment_label': row[10]
+            })
+    except Exception as e:
+        print(f"Error loading ranked results: {e}")
+        ranked_results = []
+    
+    conn.close()
+    
+    return templates.TemplateResponse('ranked.html', {
+        'request': request,
+        'results': ranked_results,
+        'current_date': current_date,
+        'prev_date': prev_date,
+        'next_date': next_date,
+        'is_today': is_today
+    })
+
+
 @app.get("/stats", response_class=HTMLResponse)
 async def stats(request: Request):  # email: str = Depends(require_login)):  # TODO: Re-enable login later
     """Display database statistics landing page."""
