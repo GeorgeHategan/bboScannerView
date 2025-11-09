@@ -1966,6 +1966,35 @@ async def index(
                 print(f'Bulk volume query failed: {e}')
                 volume_data_dict = {}
         
+        # Fetch ALL scanners that identified each symbol (for the same date as current scanner)
+        all_scanners_dict = {}
+        if symbols_list and selected_scan_date:
+            try:
+                placeholders = ','.join(['?' for _ in symbols_list])
+                all_scanners_query = f'''
+                    SELECT symbol, scanner_name
+                    FROM scanner_data.scanner_results
+                    WHERE symbol IN ({placeholders})
+                    AND scan_date >= CAST(? AS TIMESTAMP)
+                    AND scan_date < CAST((CAST(? AS TIMESTAMP) + INTERVAL 1 DAY) AS TIMESTAMP)
+                    ORDER BY symbol, scanner_name
+                '''
+                date_obj = datetime.strptime(selected_scan_date, '%Y-%m-%d')
+                next_day = (date_obj + timedelta(days=1)).strftime('%Y-%m-%d')
+                all_scanner_results = conn.execute(all_scanners_query, symbols_list + [selected_scan_date, selected_scan_date]).fetchall()
+                
+                for row in all_scanner_results:
+                    sym = row[0]
+                    scanner = row[1]
+                    if sym not in all_scanners_dict:
+                        all_scanners_dict[sym] = []
+                    all_scanners_dict[sym].append(scanner)
+                
+                print(f'Loaded all scanners for {len(all_scanners_dict)} symbols on {selected_scan_date}')
+            except Exception as e:
+                print(f'All scanners query failed: {e}')
+                all_scanners_dict = {}
+        
         # Fetch all scanner confirmations for each symbol
         confirmations_dict = {}
         if symbols_list:
@@ -2056,6 +2085,10 @@ async def index(
                                 stocks[symbol]['news_published'] = news_published
                             if news_url:
                                 stocks[symbol]['news_url'] = news_url
+                            
+                            # Add all scanners that identified this symbol on this date
+                            if symbol in all_scanners_dict:
+                                stocks[symbol]['picked_by_scanners'] = ','.join(all_scanners_dict[symbol])
                             
                             # Add scanner confirmations
                             if symbol in confirmations_dict:
