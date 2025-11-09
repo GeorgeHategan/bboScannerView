@@ -207,7 +207,10 @@
                 <div style="display: flex; align-items: center; gap: 20px;">
                     <div class="rank-number">#{{ result.rank }}</div>
                     <div>
-                        <div class="symbol">{{ result.symbol }}</div>
+                        <a href="https://www.tradingview.com/chart/?symbol={{ result.symbol }}" target="_blank" style="text-decoration: none;">
+                            <div class="symbol" style="color: #0066cc; cursor: pointer;">{{ result.symbol }}</div>
+                        </a>
+                        <div style="font-size: 14px; color: #666; margin-top: 2px;">{{ result.company_name }}</div>
                         <div class="scanner-name">{{ result.scanner_name.replace('_', ' ').title() }}</div>
                     </div>
                 </div>
@@ -228,9 +231,9 @@
                     <img src="https://finviz.com/chart.ashx?t={{ result.symbol }}&ty=c&ta=1&p=d&s=l" style="width: 100%; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
                 </div>
                 <div style="flex: 1;">
-                    <div class="reasoning" style="margin: 0; height: 100%;">
-                        <strong>📋 Analysis:</strong><br>
-                        {{ result.reasoning }}
+                    <div style="margin: 0; height: 100%;">
+                        <strong>📋 AI Analysis:</strong><br>
+                        <div style="width: 100%; max-height: 400px; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #fafafa; font-size: 14px; line-height: 1.6; margin-top: 5px; white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;">{{ (result.analysis_text or result.reasoning or 'No analysis available')|replace('###', '')|replace('**', '') }}</div>
                     </div>
                 </div>
             </div>

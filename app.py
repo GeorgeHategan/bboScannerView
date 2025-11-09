@@ -125,20 +125,23 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     try:
         results_query = """
             SELECT 
-                analysis_date,
-                rank,
-                symbol,
-                scanner_name,
-                composite_score,
-                signal_strength,
-                price,
-                sector,
-                reasoning,
-                news_headline,
-                news_sentiment_label
-            FROM scanner_data.ranked_analysis
-            WHERE analysis_date = ?
-            ORDER BY rank ASC
+                r.analysis_date,
+                r.rank,
+                r.symbol,
+                r.scanner_name,
+                r.composite_score,
+                r.signal_strength,
+                r.price,
+                r.sector,
+                ai.analysis_text,
+                r.news_headline,
+                r.news_sentiment_label,
+                COALESCE(f.company_name, r.symbol) as company_name
+            FROM scanner_data.ranked_analysis r
+            LEFT JOIN scanner_data.fundamental_cache f ON r.symbol = f.symbol
+            LEFT JOIN scanner_data.ai_analysis_individual ai ON r.symbol = ai.symbol AND r.analysis_date = ai.analysis_date
+            WHERE r.analysis_date = ?
+            ORDER BY r.rank ASC
         """
         results = conn.execute(results_query, [current_date]).fetchall()
         
@@ -154,9 +157,10 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 'signal_strength': round(row[5], 1),
                 'price': row[6],
                 'sector': row[7],
-                'reasoning': row[8],
+                'analysis_text': row[8],  # Full AI analysis from ai_analysis_individual table
                 'news_headline': row[9],
-                'news_sentiment_label': row[10]
+                'news_sentiment_label': row[10],
+                'company_name': row[11]
             })
     except Exception as e:
         print(f"Error loading ranked results: {e}")
