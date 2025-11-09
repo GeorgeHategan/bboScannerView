@@ -88,14 +88,14 @@
         <h1>Technical Scanner</h1>
         <div style="display: flex; gap: 10px;">
             <a href="/scanner-docs" style="background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">� Scanner Docs</a>
-            <a href="/stats" style="background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">� View Stats</a>
+            <a href="/stats" style="background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">📊 View Stats</a>
         </div>
     </div>
-    <form>
+    <form method="GET" action="/">
         <div style="display: inline-block; position: relative;">
             <input 
                 type="text" 
-                name="ticker" 
+                name="ticker"
                 id="tickerSearch" 
                 placeholder="🔍 Search ticker (e.g., AAPL)..." 
                 value="{{ selected_ticker if selected_ticker else '' }}"
