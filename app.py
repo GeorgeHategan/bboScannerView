@@ -99,7 +99,7 @@ async def health_check(request: Request, email: str = Depends(require_login)):
 
 
 @app.get("/stats", response_class=HTMLResponse)
-async def stats(request: Request, email: str = Depends(require_login)):
+async def stats(request: Request):  # email: str = Depends(require_login)):  # TODO: Re-enable login later
     """Display database statistics landing page."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -192,7 +192,7 @@ async def stats(request: Request, email: str = Depends(require_login)):
 
 
 @app.get("/scanner-docs", response_class=HTMLResponse)
-async def scanner_docs(request: Request, email: str = Depends(require_login)):
+async def scanner_docs(request: Request):  # email: str = Depends(require_login)):  # TODO: Re-enable login later
     """Display documentation landing page with all scanners."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -231,7 +231,7 @@ async def scanner_docs(request: Request, email: str = Depends(require_login)):
 
 
 @app.get("/scanner-docs/{scanner_name}", response_class=HTMLResponse)
-async def scanner_detail(request: Request, scanner_name: str, email: str = Depends(require_login)):
+async def scanner_detail(request: Request, scanner_name: str):  # email: str = Depends(require_login)):  # TODO: Re-enable login later
     """Display detailed documentation for a specific scanner."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -1406,7 +1406,7 @@ def get_scanner_documentation(scanner_name):
 @app.get("/", response_class=HTMLResponse)
 async def index(
     request: Request,
-    email: str = Depends(require_login),
+    # email: str = Depends(require_login),  # TODO: Re-enable login later
     min_market_cap: Optional[str] = Query(None),
     sector: Optional[str] = Query(None),
     min_strength: Optional[str] = Query(None),
