@@ -57,11 +57,12 @@ templates = Jinja2Templates(directory="templates")
 # For production (Render), use environment variable
 motherduck_token = os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN', '')
 if motherduck_token:
-    DUCKDB_PATH = os.environ.get('DUCKDB_PATH', f'md:scanner_data?motherduck_token={motherduck_token}')
+    # Always use scanner_data database in MotherDuck
+    DUCKDB_PATH = f'md:scanner_data?motherduck_token={motherduck_token}'
     print("INFO: Connecting to MotherDuck production database")
 else:
     # Fallback to local DB if no MotherDuck token
-    DUCKDB_PATH = os.environ.get('DUCKDB_PATH', '/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.duckdb')
+    DUCKDB_PATH = '/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.duckdb'
     print("WARNING: No motherduck_token found, using local database (may not have scanner_results)")
 
 # Skip slow database initialization on startup - connect lazily when needed
