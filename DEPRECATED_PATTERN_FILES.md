@@ -14,12 +14,11 @@ All scanner files have been removed. This app is now view-only and does not perf
 - `pattern_detect.py` - Pattern detection testing (already disabled)
 
 ## Other Analysis Files (DEPRECATED)
-- `chartlib.py` - Chart analysis utilities
 - `cleanup_delisted.py` - Database cleanup
 - `bulk_scan.py` - Bulk scanning operations
-- `fix_motherduck_remote.py` - Database fixes
-- `fix_motherduck_schema.py` - Schema fixes
-- `upload_to_motherduck.py` - Data upload utilities
+- `fix_motherduck_remote.py` - Database fixes (still available for maintenance)
+- `fix_motherduck_schema.py` - Schema fixes (still available for maintenance)
+- `upload_to_motherduck.py` - Data upload utilities (still available for maintenance)
 
 ## Current Active Files
 - `app.py` - FastAPI web viewer (ACTIVE)
