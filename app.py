@@ -1557,10 +1557,13 @@ async def index(
         
         # Add date filter
         if selected_scan_date:
-            # Use date range instead of DATE() function to allow index usage
+            # Use date range with CAST to ensure type compatibility
             date_obj = datetime.strptime(selected_scan_date, '%Y-%m-%d')
             next_day = (date_obj + timedelta(days=1)).strftime('%Y-%m-%d')
-            scanner_query += ' AND scan_date >= ? AND scan_date < ?'
+            scanner_query += (
+                ' AND scan_date >= CAST(? AS TIMESTAMP) '
+                'AND scan_date < CAST(? AS TIMESTAMP)'
+            )
             query_params.extend([selected_scan_date, next_day])
 
         scanner_dict = {}
