@@ -114,28 +114,28 @@
             {% endif %}
         </div>
 
-        <select name="pattern" id="patternSelect" onchange="showLoading(); this.form.submit()">
+        <select name="pattern" id="patternSelect" onchange="showLoading(); this.form.submit()" style="padding: 10px 15px; font-size: 14px; border: 2px solid #0066cc; border-radius: 5px; background: white; cursor: pointer; min-width: 250px;">
             <option value="">-- Select a Scanner --</option>
             {% for key in candlestick_patterns %}
                 <option value="{{ key }}" {% if pattern == key %}selected="selected"{% endif %} data-is-scanner="{% if key in available_scanners %}true{% else %}false{% endif %}">{{ candlestick_patterns[key] }}</option>
             {% endfor %}
         </select>
 
-        <select name="scan_date" onchange="showLoading(); this.form.submit()">
+        <select name="scan_date" onchange="showLoading(); this.form.submit()" style="padding: 10px 15px; font-size: 14px; border: 2px solid #ddd; border-radius: 5px; background: white; cursor: pointer;">
             <option value="">-- Latest Scan --</option>
             {% for date, count in available_scan_dates %}
                 <option value="{{ date }}" {% if selected_scan_date == date %}selected{% endif %}>{{ date }} ({{ count }} setups)</option>
             {% endfor %}
         </select>
 
-        <select name="sector" onchange="showLoading(); this.form.submit()">
+        <select name="sector" onchange="showLoading(); this.form.submit()" style="padding: 10px 15px; font-size: 14px; border: 2px solid #ddd; border-radius: 5px; background: white; cursor: pointer;">
             <option value="">-- All Sectors --</option>
             {% for sector in available_sectors %}
                 <option value="{{ sector }}" {% if selected_sector == sector %}selected="selected"{% endif %}>{{ sector }}</option>
             {% endfor %}
         </select>
 
-        <select name="min_market_cap" onchange="showLoading(); this.form.submit()">
+        <select name="min_market_cap" onchange="showLoading(); this.form.submit()" style="padding: 10px 15px; font-size: 14px; border: 2px solid #ddd; border-radius: 5px; background: white; cursor: pointer;">
             <option value="">-- Min Market Cap --</option>
             <option value="100M" {% if selected_market_cap == '100M' %}selected{% endif %}>$100M+</option>
             <option value="500M" {% if selected_market_cap == '500M' %}selected{% endif %}>$500M+</option>
@@ -146,7 +146,7 @@
             <option value="100B" {% if selected_market_cap == '100B' %}selected{% endif %}>$100B+</option>
         </select>
 
-        <select name="min_strength" onchange="showLoading(); this.form.submit()">
+        <select name="min_strength" onchange="showLoading(); this.form.submit()" style="padding: 10px 15px; font-size: 14px; border: 2px solid #ddd; border-radius: 5px; background: white; cursor: pointer;">
             <option value="">-- Min Strength --</option>
             <option value="50" {% if selected_min_strength == '50' %}selected{% endif %}>50+ (Any)</option>
             <option value="60" {% if selected_min_strength == '60' %}selected{% endif %}>60+ (Moderate)</option>
