@@ -2094,32 +2094,34 @@ async def index(
                                 # Parse and format the metadata nicely
                                 try:
                                     import json
+                                    metadata_dict = None
+                                    
                                     # Handle both string and dict types
                                     if isinstance(metadata, str):
                                         try:
                                             metadata_dict = json.loads(metadata)
                                         except:
-                                            # If JSON parsing fails, treat as plain text
+                                            # If JSON parsing fails, just show the string
                                             stocks[symbol][f'{pattern}_patterns'] = metadata
-                                            metadata_dict = None
                                     elif isinstance(metadata, dict):
                                         metadata_dict = metadata
-                                    else:
-                                        metadata_dict = {}
                                     
                                     # Format as "Pattern Name (weight) - date" 
-                                    if metadata_dict and 'pattern_name' in metadata_dict:
+                                    if metadata_dict and isinstance(metadata_dict, dict) and 'pattern_name' in metadata_dict:
                                         pattern_name = metadata_dict.get('pattern_name', 'Unknown')
-                                        pattern_weight = metadata_dict.get('pattern_weight', '0')
+                                        pattern_weight = metadata_dict.get('pattern_weight', 0)
                                         pattern_date = metadata_dict.get('pattern_date', scan_date)
+                                        # Format cleanly
                                         stocks[symbol][f'{pattern}_patterns'] = f"{pattern_name} ({pattern_weight}) - {pattern_date}"
-                                    elif metadata_dict is not None:
-                                        # Show raw metadata if it exists but doesn't have expected structure
-                                        stocks[symbol][f'{pattern}_patterns'] = str(metadata_dict)
+                                    elif metadata_dict:
+                                        # Show raw metadata for debugging if structure is unexpected
+                                        stocks[symbol][f'{pattern}_patterns'] = f"Debug: {str(metadata_dict)[:200]}"
                                 except Exception as e:
-                                    # If parsing fails, show raw metadata
-                                    print(f"Warning: Could not parse metadata for {symbol}: {e}")
-                                    stocks[symbol][f'{pattern}_patterns'] = str(metadata)
+                                    # If parsing fails, show error
+                                    print(f"ERROR parsing metadata for {symbol}: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    stocks[symbol][f'{pattern}_patterns'] = f"Error: {str(e)}"
                             
                             # Add all scanners that identified this symbol on this date
                             if symbol in all_scanners_dict:
