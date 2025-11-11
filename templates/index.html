@@ -231,17 +231,17 @@
                     {{ stocks[stock]['company'] }}
                 </td>
                 <td class="{{ stocks[stock][pattern] }}">
-                        {{ stocks[stock][pattern]}}
-                        {% if stocks[stock].get('picked_by_scanners') %}
-                            {% set scanners = stocks[stock]['picked_by_scanners'].split(',') %}
-                            {% if scanners|length > 1 %}
-                                <ul style="margin: 6px 0 0 0; padding-left: 18px; font-size: 13px; color: #0066cc;">
-                                    {% for scanner in scanners %}
-                                        <li>{{ scanner.strip().replace('_', ' ')|title }}</li>
-                                    {% endfor %}
-                                </ul>
+                        {# For candlestick scanners, hide the generic signal type (like "bullish") and show pattern info instead #}
+                        {% if pattern and 'candlestick' in pattern %}
+                            {% if stocks[stock].get(pattern + '_patterns') %}
+                                <span style="color: #28a745; font-weight: bold;">Pattern Detected</span>
+                            {% else %}
+                                {{ stocks[stock][pattern]}}
                             {% endif %}
+                        {% else %}
+                            {{ stocks[stock][pattern]}}
                         {% endif %}
+                        {# Removed scanner bullet list - this info is shown in "Confirmed by other scanners" section below #}
                 </td>
                 <td class="strength">
                     {{ stocks[stock][pattern + '_strength'] }}
@@ -275,8 +275,8 @@
                         <strong>Setup Stage:</strong> {{ stocks[stock][pattern + '_setup_stage'] }}<br>
                         {% endif %}
                         
-                        {# Display candlestick patterns if available #}
-                        {% if stocks[stock].get(pattern + '_patterns') %}
+                        {# Display candlestick patterns ONLY for candlestick scanners #}
+                        {% if pattern and 'candlestick' in pattern and stocks[stock].get(pattern + '_patterns') %}
                         <br>
                         <strong>🕯️ Patterns Detected:</strong><br>
                         <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; color: #0066cc;">
