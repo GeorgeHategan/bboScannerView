@@ -2091,7 +2091,27 @@ async def index(
                             
                             # Add candlestick patterns metadata ONLY for candlestick scanners
                             if metadata and pattern and ('candlestick' in pattern.lower()):
-                                stocks[symbol][f'{pattern}_patterns'] = metadata
+                                # Parse and format the metadata nicely
+                                try:
+                                    import json
+                                    if isinstance(metadata, str):
+                                        metadata_dict = json.loads(metadata)
+                                    else:
+                                        metadata_dict = metadata
+                                    
+                                    # Format as "Pattern Name (weight) - date" 
+                                    if isinstance(metadata_dict, dict) and 'pattern_name' in metadata_dict:
+                                        pattern_name = metadata_dict.get('pattern_name', '')
+                                        pattern_weight = metadata_dict.get('pattern_weight', '')
+                                        pattern_date = metadata_dict.get('pattern_date', scan_date)
+                                        formatted = f"{pattern_name} ({pattern_weight}) - {pattern_date}"
+                                        stocks[symbol][f'{pattern}_patterns'] = formatted
+                                    else:
+                                        # Fallback to raw metadata
+                                        stocks[symbol][f'{pattern}_patterns'] = str(metadata)
+                                except:
+                                    # If parsing fails, use raw metadata
+                                    stocks[symbol][f'{pattern}_patterns'] = str(metadata)
                             
                             # Add all scanners that identified this symbol on this date
                             if symbol in all_scanners_dict:
