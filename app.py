@@ -2255,10 +2255,15 @@ async def index(
             scanner_counts = conn.execute(scanner_counts_query).fetchall()
         
         # Create patterns dict with scanner_name and count
+        # Filter out deprecated/invalid scanner names
+        deprecated_scanners = ['bullish', 'Candlestick Bullish', 'Fundamental Swing']
         all_patterns = {}
         for row in scanner_counts:
             scanner_name = row[0]
             count = row[1]
+            # Skip deprecated scanner names
+            if scanner_name in deprecated_scanners:
+                continue
             display_name = f"{scanner_name.replace('_', ' ').title()} ({count})"
             all_patterns[scanner_name] = display_name
         
