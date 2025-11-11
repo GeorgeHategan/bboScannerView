@@ -303,11 +303,18 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
         'tight_consolidation': 'Detects tight consolidation patterns before potential breakouts'
     }
     
+    # Custom display names for specific scanners
+    custom_display_names = {
+        'candlestick_bullish': 'Candlestick Bullish (Reversal)',
+        'candlestick_continuation': 'Candlestick Bullish (Continuation)'
+    }
+    
     scanners = []
     for name, count in scanner_data:
+        display_name = custom_display_names.get(name, name.replace('_', ' ').title())
         scanners.append({
             'name': name,
-            'display_name': name.replace('_', ' ').title(),
+            'display_name': display_name,
             'short_desc': scanner_descriptions.get(name, 'Technical pattern scanner'),
             'count': count
         })
@@ -1488,7 +1495,7 @@ def get_scanner_documentation(scanner_name):
 ''',
         'candlestick_bullish': '''
 <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">🔄 Bullish Reversal Patterns</h2>
+    <h2 style="color: white; border: none;">🔄 Candlestick Bullish (Reversal Patterns)</h2>
     <p><strong>20 TA-Lib Patterns</strong> | Average Weight: <strong>7.4</strong> | Signal Type: <strong>Reversal</strong></p>
 </div>
 
@@ -1611,7 +1618,7 @@ def get_scanner_documentation(scanner_name):
 ''',
         'candlestick_continuation': '''
 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">⬆️ Bullish Continuation Patterns</h2>
+    <h2 style="color: white; border: none;">⬆️ Candlestick Bullish (Continuation Patterns)</h2>
     <p><strong>13 TA-Lib Patterns</strong> | Average Weight: <strong>6.9</strong> | Signal Type: <strong>Continuation</strong></p>
 </div>
 
@@ -2089,9 +2096,66 @@ async def index(
                             if news_url:
                                 stocks[symbol]['news_url'] = news_url
                             
-                            # Add candlestick patterns metadata
+                            # Add candlestick patterns metadata (parse JSON if string)
                             if metadata:
-                                stocks[symbol][f'{pattern}_patterns'] = metadata
+                                import json
+                                import ast
+                                from datetime import datetime
+                                try:
+                                    # Try to parse as JSON first
+                                    if isinstance(metadata, str):
+                                        try:
+                                            metadata_dict = json.loads(metadata)
+                                        except json.JSONDecodeError:
+                                            # If JSON fails, try Python literal eval
+                                            metadata_dict = ast.literal_eval(metadata)
+                                    else:
+                                        metadata_dict = metadata
+                                    
+                                    # Extract pattern names - try all_patterns first, then pattern_name
+                                    all_patterns = (metadata_dict.get('all_patterns') or 
+                                                   metadata_dict.get('pattern_name') or
+                                                   metadata_dict.get('pattern') or '')
+                                    
+                                    # Try different field names for the date
+                                    pattern_date = (metadata_dict.get('pattern_date') or 
+                                                  metadata_dict.get('date') or 
+                                                  metadata_dict.get('signal_date') or
+                                                  scan_date)  # fallback to scan_date
+                                    
+                                    # Format all patterns nicely
+                                    if all_patterns:
+                                        # Split by comma and format each pattern
+                                        if ',' in all_patterns:
+                                            pattern_list = [p.strip() for p in all_patterns.split(',')]
+                                            # Convert CDL codes to readable names
+                                            readable_patterns = []
+                                            for p in pattern_list:
+                                                # Remove CDL prefix and format
+                                                readable = p.replace('CDL', '').replace('_', ' ').title()
+                                                readable_patterns.append(readable)
+                                            pattern_display = ', '.join(readable_patterns)
+                                        else:
+                                            # Single pattern
+                                            pattern_display = all_patterns.replace('CDL', '').replace('_', ' ').title()
+                                        
+                                        # Calculate days ago from pattern_date
+                                        if pattern_date:
+                                            pattern_dt = datetime.strptime(str(pattern_date), '%Y-%m-%d')
+                                            today = datetime.now()
+                                            days_ago = (today - pattern_dt).days
+                                            
+                                            if days_ago == 0:
+                                                pattern_display += " (today)"
+                                            elif days_ago == 1:
+                                                pattern_display += " (yesterday)"
+                                            else:
+                                                pattern_display += f" ({days_ago}d ago)"
+                                        
+                                        stocks[symbol][f'{pattern}_patterns'] = pattern_display
+                                except Exception as e:
+                                    # If parsing fails, skip pattern display
+                                    pass
                             
                             # Add all scanners that identified this symbol on this date
                             if symbol in all_scanners_dict:
