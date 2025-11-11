@@ -11,6 +11,44 @@ from typing import Optional
 # Load environment variables from .env file
 load_dotenv()
 
+# Candlestick pattern strength weights (out of 10)
+PATTERN_WEIGHTS = {
+    # Strong reversal patterns (8-10)
+    'CDLMORNINGSTAR': 9.5, 'CDLEVENINGSTAR': 9.5,
+    'CDL3WHITESOLDIERS': 9.0, 'CDL3BLACKCROWS': 9.0,
+    'CDLABANDONEDBABY': 10.0,
+    'CDLENGULFING': 8.5, 'CDLPIERCING': 8.0,
+    'CDLHAMMER': 8.0, 'CDLHANGINGMAN': 8.0,
+    'CDLINVERTEDHAMMER': 7.5, 'CDLSHOOTINGSTAR': 7.5,
+    
+    # Moderate reversal patterns (6-7.5)
+    'CDLHARAMI': 7.0, 'CDLHARAMICROSS': 7.5,
+    'CDLDARKCLOUDCOVER': 7.5,
+    'CDLMORNINGDOJISTAR': 8.0, 'CDLEVENINGDOJISTAR': 8.0,
+    'CDL3INSIDE': 6.5, 'CDL3OUTSIDE': 7.0,
+    'CDLKICKING': 8.5,
+    
+    # Continuation patterns (6-8)
+    'CDLRISEFALL3METHODS': 7.5, 'CDLMATHOLD': 7.0,
+    'CDLSEPARATINGLINES': 6.5, 'CDLIDENTICAL3CROWS': 7.5,
+    'CDLBREAKAWAY': 7.0, 'CDLCONCEALBABYSWALL': 6.5,
+    
+    # Single candle patterns (5-7)
+    'CDLMARUBOZU': 6.5, 'CDLCLOSINGMARUBOZU': 6.0,
+    'CDLBELTHOLD': 6.5, 'CDLSPINNINGTOP': 5.0,
+    'CDLDOJI': 6.0, 'CDLDRAGONFLYDOJI': 7.0,
+    'CDLGRAVESTONEDOJI': 7.0, 'CDLLONGLEGGEDDOJI': 5.5,
+    'CDLRICKSHAWMAN': 5.0,
+    
+    # Other patterns (4-6)
+    'CDLHIGHWAVE': 5.5, 'CDLSHORTLINE': 4.0,
+    'CDLTAKURI': 6.5, 'CDLHOMINGPIGEON': 6.0,
+    'CDLLADDERBOTTOM': 7.5, 'CDLSTICKSANDWICH': 6.0,
+    'CDLTRISTAR': 7.5, 'CDLUNIQUE3RIVER': 7.0,
+    'CDL2CROWS': 6.5, 'CDL3LINESTRIKE': 7.0,
+    'CDLADVANCEBLOCK': 6.5, 'CDLGAPSIDESIDEWHITE': 6.0,
+}
+
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
 # Helper: get allowed emails from env
@@ -2112,32 +2150,38 @@ async def index(
                                     else:
                                         metadata_dict = metadata
                                     
-                                    # Extract pattern names - try all_patterns first, then pattern_name
+                                    # Extract pattern names
                                     all_patterns = (metadata_dict.get('all_patterns') or 
                                                    metadata_dict.get('pattern_name') or
                                                    metadata_dict.get('pattern') or '')
+                                    
+                                    # Get pattern weighting info
+                                    pattern_weight = metadata_dict.get('pattern_weight', 0)
                                     
                                     # Try different field names for the date
                                     pattern_date = (metadata_dict.get('pattern_date') or 
                                                   metadata_dict.get('date') or 
                                                   metadata_dict.get('signal_date') or
-                                                  scan_date)  # fallback to scan_date
+                                                  scan_date)
                                     
-                                    # Format all patterns nicely
+                                    # Format all patterns nicely with weights
                                     if all_patterns:
                                         # Split by comma and format each pattern
                                         if ',' in all_patterns:
                                             pattern_list = [p.strip() for p in all_patterns.split(',')]
-                                            # Convert CDL codes to readable names
                                             readable_patterns = []
                                             for p in pattern_list:
-                                                # Remove CDL prefix and format
                                                 readable = p.replace('CDL', '').replace('_', ' ').title()
+                                                # Add weight from pattern weights dictionary
+                                                weight = PATTERN_WEIGHTS.get(p, 5.0)
+                                                readable += f" ({weight})"
                                                 readable_patterns.append(readable)
                                             pattern_display = ', '.join(readable_patterns)
                                         else:
                                             # Single pattern
                                             pattern_display = all_patterns.replace('CDL', '').replace('_', ' ').title()
+                                            weight = PATTERN_WEIGHTS.get(all_patterns, 5.0)
+                                            pattern_display += f" ({weight})"
                                         
                                         # Calculate days ago from pattern_date
                                         if pattern_date:
@@ -2146,11 +2190,11 @@ async def index(
                                             days_ago = (today - pattern_dt).days
                                             
                                             if days_ago == 0:
-                                                pattern_display += " (today)"
+                                                pattern_display += " - today"
                                             elif days_ago == 1:
-                                                pattern_display += " (yesterday)"
+                                                pattern_display += " - yesterday"
                                             else:
-                                                pattern_display += f" ({days_ago}d ago)"
+                                                pattern_display += f" - {days_ago}d ago"
                                         
                                         stocks[symbol][f'{pattern}_patterns'] = pattern_display
                                 except Exception as e:
