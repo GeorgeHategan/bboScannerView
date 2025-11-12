@@ -171,12 +171,11 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 r.signal_strength,
                 r.price,
                 r.sector,
-                ai.analysis_text,
+                COALESCE(ai.analysis_text, r.reasoning) as analysis_text,
                 r.news_headline,
                 r.news_sentiment_label,
                 COALESCE(f.company_name, r.symbol) as company_name,
                 f.market_cap,
-                f.next_earnings_date,
                 f.industry
             FROM scanner_data.ranked_analysis r
             LEFT JOIN scanner_data.fundamental_cache f ON r.symbol = f.symbol
@@ -203,8 +202,7 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 'news_sentiment_label': row[10],
                 'company_name': row[11],
                 'market_cap': format_market_cap(row[12]),
-                'earnings_date': row[13],
-                'industry': row[14]
+                'industry': row[13]
             })
     except Exception as e:
         print(f"Error loading ranked results: {e}")
@@ -1847,7 +1845,6 @@ async def index(
                COALESCE(f.company_name, d.symbol) as company,
                f.market_cap,
                f.sector,
-               f.next_earnings_date,
                f.industry
         FROM scanner_data.daily_cache d
         LEFT JOIN scanner_data.fundamental_cache f ON d.symbol = f.symbol
@@ -1897,19 +1894,18 @@ async def index(
                         cap_num = float(cap_str)
                     
                     if cap_num >= min_cap:
-                        filtered_rows.append((symbol, company, market_cap, sector, earnings_date, industry))
-                except:
+                        filtered_rows.append((symbol, company, market_cap, sector, industry))
+                except Exception:
                     pass
-        symbol_rows = [(s, c, mc, sec, ed, ind) for s, c, mc, sec, ed, ind in filtered_rows]
+        symbol_rows = [(s, c, mc, sec, ind) for s, c, mc, sec, ind in filtered_rows]
     else:
-        symbol_rows = [(row[0], row[1], row[2], row[3], row[4], row[5]) for row in symbol_rows]
+        symbol_rows = [(row[0], row[1], row[2], row[3], row[4]) for row in symbol_rows]
     
-    for symbol, company, market_cap, sector, earnings_date, industry in symbol_rows:
+    for symbol, company, market_cap, sector, industry in symbol_rows:
         stocks[symbol] = {
-            'company': company, 
+            'company': company,
             'market_cap': format_market_cap(market_cap),
             'sector': sector,
-            'earnings_date': earnings_date,
             'industry': industry
         }
 
