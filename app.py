@@ -335,12 +335,10 @@ async def scanner_performance(request: Request):
                 SELECT 
                     sr.symbol,
                     sr.scan_date,
-                    sr.entry_price,
                     sr.signal_strength,
                     sr.quality_score
                 FROM scanner_data.scanner_results sr
                 WHERE sr.scanner_name = ?
-                AND sr.entry_price IS NOT NULL
                 ORDER BY sr.scan_date, sr.symbol
             """
             picks = conn.execute(picks_query, [scanner]).fetchall()
@@ -351,19 +349,33 @@ async def scanner_performance(request: Request):
             # Calculate performance for each pick
             pick_performances = []
             
-            for symbol, scan_date, entry_price, strength, quality in picks:
+            for symbol, scan_date, strength, quality in picks:
+                # Get entry price (closing price on pick date)
+                entry_query = """
+                    SELECT close
+                    FROM scanner_data.daily_cache
+                    WHERE symbol = ?
+                    AND date = ?
+                """
+                entry_result = conn.execute(entry_query, [symbol, scan_date]).fetchone()
+                
+                if not entry_result:
+                    continue
+                
+                entry_price = entry_result[0]
+                
                 # Get price history after pick date
                 price_query = """
                     SELECT date, close, high, low
                     FROM scanner_data.daily_cache
                     WHERE symbol = ?
-                    AND date >= ?
+                    AND date > ?
                     ORDER BY date
                     LIMIT 60
                 """
                 prices = conn.execute(price_query, [symbol, scan_date]).fetchall()
                 
-                if not prices or len(prices) < 2:
+                if not prices:
                     continue
                 
                 # Calculate metrics
