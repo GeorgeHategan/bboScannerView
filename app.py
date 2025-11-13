@@ -335,8 +335,7 @@ async def scanner_performance(request: Request):
                 SELECT 
                     sr.symbol,
                     sr.scan_date,
-                    sr.signal_strength,
-                    sr.quality_score
+                    sr.signal_strength
                 FROM scanner_data.scanner_results sr
                 WHERE sr.scanner_name = ?
                 ORDER BY sr.scan_date, sr.symbol
@@ -349,7 +348,7 @@ async def scanner_performance(request: Request):
             # Calculate performance for each pick
             pick_performances = []
             
-            for symbol, scan_date, strength, quality in picks:
+            for symbol, scan_date, strength in picks:
                 # Get entry price (closing price on pick date)
                 entry_query = """
                     SELECT close
@@ -412,8 +411,7 @@ async def scanner_performance(request: Request):
                     'max_drawdown': max_drawdown,
                     'current_pnl': current_pnl,
                     'days_held': days_held,
-                    'strength': strength,
-                    'quality': quality
+                    'strength': strength
                 })
             
             if not pick_performances:
