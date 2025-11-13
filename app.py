@@ -313,6 +313,141 @@ async def stats(request: Request):  # email: str = Depends(require_login)):  # T
     })
 
 
+@app.get("/scanner-performance", response_class=HTMLResponse)
+async def scanner_performance(request: Request):
+    """Display performance analytics for each scanner."""
+    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    
+    try:
+        # Get all scanners
+        scanners_query = """
+            SELECT DISTINCT scanner_name
+            FROM scanner_data.scanner_results
+            ORDER BY scanner_name
+        """
+        scanners = [row[0] for row in conn.execute(scanners_query).fetchall()]
+        
+        performance_data = []
+        
+        for scanner in scanners:
+            # Get all picks for this scanner
+            picks_query = """
+                SELECT 
+                    sr.symbol,
+                    sr.scan_date,
+                    sr.entry_price,
+                    sr.signal_strength,
+                    sr.quality_score
+                FROM scanner_data.scanner_results sr
+                WHERE sr.scanner_name = ?
+                AND sr.entry_price IS NOT NULL
+                ORDER BY sr.scan_date, sr.symbol
+            """
+            picks = conn.execute(picks_query, [scanner]).fetchall()
+            
+            if not picks:
+                continue
+            
+            # Calculate performance for each pick
+            pick_performances = []
+            
+            for symbol, scan_date, entry_price, strength, quality in picks:
+                # Get price history after pick date
+                price_query = """
+                    SELECT date, close, high, low
+                    FROM scanner_data.daily_cache
+                    WHERE symbol = ?
+                    AND date >= ?
+                    ORDER BY date
+                    LIMIT 60
+                """
+                prices = conn.execute(price_query, [symbol, scan_date]).fetchall()
+                
+                if not prices or len(prices) < 2:
+                    continue
+                
+                # Calculate metrics
+                max_gain = 0
+                max_drawdown = 0
+                current_price = prices[-1][1]  # Last close
+                
+                peak_price = entry_price
+                for date, close, high, low in prices:
+                    # Max gain (from entry to peak)
+                    gain_pct = ((high - entry_price) / entry_price) * 100
+                    max_gain = max(max_gain, gain_pct)
+                    
+                    # Track peak for drawdown calculation
+                    peak_price = max(peak_price, high)
+                    
+                    # Max drawdown (from peak to low)
+                    if peak_price > entry_price:
+                        drawdown_pct = ((low - peak_price) / peak_price) * 100
+                        max_drawdown = min(max_drawdown, drawdown_pct)
+                
+                # Current P&L
+                current_pnl = ((current_price - entry_price) / entry_price) * 100
+                
+                # Days held
+                days_held = len(prices)
+                
+                pick_performances.append({
+                    'symbol': symbol,
+                    'scan_date': str(scan_date)[:10],
+                    'entry_price': entry_price,
+                    'current_price': current_price,
+                    'max_gain': max_gain,
+                    'max_drawdown': max_drawdown,
+                    'current_pnl': current_pnl,
+                    'days_held': days_held,
+                    'strength': strength,
+                    'quality': quality
+                })
+            
+            if not pick_performances:
+                continue
+            
+            # Calculate scanner summary stats
+            total_picks = len(pick_performances)
+            avg_max_gain = sum(p['max_gain'] for p in pick_performances) / total_picks
+            avg_drawdown = sum(p['max_drawdown'] for p in pick_performances) / total_picks
+            avg_current_pnl = sum(p['current_pnl'] for p in pick_performances) / total_picks
+            
+            # Best and worst picks
+            best_pick = max(pick_performances, key=lambda x: x['max_gain'])
+            worst_pick = min(pick_performances, key=lambda x: x['max_drawdown'])
+            
+            # Win rate (picks with positive current P&L)
+            winners = [p for p in pick_performances if p['current_pnl'] > 0]
+            win_rate = (len(winners) / total_picks) * 100 if total_picks > 0 else 0
+            
+            performance_data.append({
+                'scanner_name': scanner,
+                'total_picks': total_picks,
+                'avg_max_gain': round(avg_max_gain, 2),
+                'avg_drawdown': round(avg_drawdown, 2),
+                'avg_current_pnl': round(avg_current_pnl, 2),
+                'win_rate': round(win_rate, 1),
+                'best_pick': best_pick,
+                'worst_pick': worst_pick,
+                'all_picks': sorted(pick_performances, key=lambda x: x['max_gain'], reverse=True)
+            })
+        
+        # Sort by avg max gain
+        performance_data.sort(key=lambda x: x['avg_max_gain'], reverse=True)
+        
+    except Exception as e:
+        print(f"Error calculating scanner performance: {e}")
+        performance_data = []
+    
+    conn.close()
+    
+    return templates.TemplateResponse('scanner_performance.html', {
+        'request': request,
+        'performance_data': performance_data
+    })
+
+
 @app.get("/scanner-docs", response_class=HTMLResponse)
 async def scanner_docs(request: Request):  # email: str = Depends(require_login)):  # TODO: Re-enable login later
     """Display documentation landing page with all scanners."""

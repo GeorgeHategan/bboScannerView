@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Performance Analytics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .nav-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .nav-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .nav-btn:hover {
+            background: #5568d3;
+        }
+        
+        .scanner-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .scanner-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #f0f0f0;
+        }
+        
+        .scanner-name {
+            font-size: 1.8em;
+            color: #333;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+        
+        .total-picks {
+            font-size: 1.2em;
+            color: #666;
+            background: #f8f9fa;
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+        }
+        
+        .metric-box.positive {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .metric-box.negative {
+            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: 700;
+        }
+        
+        .best-worst-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .pick-highlight {
+            background: #f8f9fa;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .pick-highlight.best {
+            border-left-color: #38ef7d;
+            background: #e8fff3;
+        }
+        
+        .pick-highlight.worst {
+            border-left-color: #ff6a00;
+            background: #ffe8e8;
+        }
+        
+        .pick-highlight h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .pick-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .pick-detail:last-child {
+            border-bottom: none;
+        }
+        
+        .pick-detail .label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .pick-detail .value {
+            font-weight: 700;
+            color: #333;
+        }
+        
+        .gain-positive {
+            color: #11998e;
+        }
+        
+        .gain-negative {
+            color: #ee0979;
+        }
+        
+        .all-picks-toggle {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        
+        .all-picks-toggle:hover {
+            background: #5568d3;
+        }
+        
+        .all-picks-table {
+            display: none;
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .all-picks-table.show {
+            display: table;
+        }
+        
+        .all-picks-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+        
+        .all-picks-table td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .all-picks-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Scanner Performance Analytics</h1>
+            <p>Track performance from pick date to today - Max P&L, Drawdowns, Win Rates</p>
+            <div class="nav-buttons">
+                <a href="/" class="nav-btn">🏠 Home</a>
+                <a href="/stats" class="nav-btn">📈 Stats</a>
+                <a href="/ranked" class="nav-btn">🏆 Ranked</a>
+                <a href="/scanner-docs" class="nav-btn">📚 Docs</a>
+            </div>
+        </div>
+        
+        {% if performance_data %}
+            {% for scanner in performance_data %}
+            <div class="scanner-card">
+                <div class="scanner-header">
+                    <div class="scanner-name">{{ scanner.scanner_name.replace('_', ' ') }}</div>
+                    <div class="total-picks">{{ scanner.total_picks }} Picks</div>
+                </div>
+                
+                <div class="metrics-grid">
+                    <div class="metric-box {% if scanner.avg_max_gain > 0 %}positive{% else %}negative{% endif %}">
+                        <div class="metric-label">Avg Max Gain</div>
+                        <div class="metric-value">{{ "%.1f"|format(scanner.avg_max_gain) }}%</div>
+                    </div>
+                    
+                    <div class="metric-box negative">
+                        <div class="metric-label">Avg Max Drawdown</div>
+                        <div class="metric-value">{{ "%.1f"|format(scanner.avg_drawdown) }}%</div>
+                    </div>
+                    
+                    <div class="metric-box {% if scanner.avg_current_pnl > 0 %}positive{% else %}negative{% endif %}">
+                        <div class="metric-label">Avg Current P&L</div>
+                        <div class="metric-value">{{ "%.1f"|format(scanner.avg_current_pnl) }}%</div>
+                    </div>
+                    
+                    <div class="metric-box {% if scanner.win_rate > 50 %}positive{% else %}negative{% endif %}">
+                        <div class="metric-label">Win Rate</div>
+                        <div class="metric-value">{{ "%.1f"|format(scanner.win_rate) }}%</div>
+                    </div>
+                </div>
+                
+                <div class="best-worst-section">
+                    <div class="pick-highlight best">
+                        <h3>🏆 Best Pick</h3>
+                        <div class="pick-detail">
+                            <span class="label">Symbol:</span>
+                            <span class="value">{{ scanner.best_pick.symbol }}</span>
+                        </div>
+                        <div class="pick-detail">
+                            <span class="label">Pick Date:</span>
+                            <span class="value">{{ scanner.best_pick.scan_date }}</span>
+                        </div>
+                        <div class="pick-detail">
+                            <span class="label">Entry:</span>
+                            <span class="value">${{ "%.2f"|format(scanner.best_pick.entry_price) }}</span>
+                        </div>
+                        <div class="pick-detail">
+                            <span class="label">Max Gain:</span>
+                            <span class="value gain-positive">+{{ "%.1f"|format(scanner.best_pick.max_gain) }}%</span>
+                        </div>
+                        <div class="pick-detail">
+                            <span class="label">Current P&L:</span>
+                            <span class="value {% if scanner.best_pick.current_pnl > 0 %}gain-positive{% else %}gain-negative{% endif %}">
+                                {{ "%.1f"|format(scanner.best_pick.current_pnl) }}%
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="pick-highlight worst">
+                        <h3>📉 Worst Drawdown</h3>
+                        <div class="pick-detail">
+                            <span class="label">Symbol:</span>
+                            <span class="value">{{ scanner.worst_pick.symbol }}</span>
+                        </div>
+                        <div class="pick-detail">
+                            <span class="label">Pick Date:</span>
+                            <span class="value">{{ scanner.worst_pick.scan_date }}</span>
+                        </div>
+                        <div class="pick-detail">
+                            <span class="label">Entry:</span>
+                            <span class="value">${{ "%.2f"|format(scanner.worst_pick.entry_price) }}</span>
+                        </div>
+                        <div class="pick-detail">
+                            <span class="label">Max Drawdown:</span>
+                            <span class="value gain-negative">{{ "%.1f"|format(scanner.worst_pick.max_drawdown) }}%</span>
+                        </div>
+                        <div class="pick-detail">
+                            <span class="label">Current P&L:</span>
+                            <span class="value {% if scanner.worst_pick.current_pnl > 0 %}gain-positive{% else %}gain-negative{% endif %}">
+                                {{ "%.1f"|format(scanner.worst_pick.current_pnl) }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="all-picks-toggle" onclick="togglePicks('{{ scanner.scanner_name }}')">
+                    📋 Show All {{ scanner.total_picks }} Picks
+                </button>
+                
+                <table class="all-picks-table" id="picks-{{ scanner.scanner_name }}">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Pick Date</th>
+                            <th>Entry</th>
+                            <th>Current</th>
+                            <th>Max Gain</th>
+                            <th>Max DD</th>
+                            <th>Current P&L</th>
+                            <th>Days</th>
+                            <th>Strength</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pick in scanner.all_picks %}
+                        <tr>
+                            <td><strong>{{ pick.symbol }}</strong></td>
+                            <td>{{ pick.scan_date }}</td>
+                            <td>${{ "%.2f"|format(pick.entry_price) }}</td>
+                            <td>${{ "%.2f"|format(pick.current_price) }}</td>
+                            <td class="gain-positive">+{{ "%.1f"|format(pick.max_gain) }}%</td>
+                            <td class="gain-negative">{{ "%.1f"|format(pick.max_drawdown) }}%</td>
+                            <td class="{% if pick.current_pnl > 0 %}gain-positive{% else %}gain-negative{% endif %}">
+                                {{ "%.1f"|format(pick.current_pnl) }}%
+                            </td>
+                            <td>{{ pick.days_held }}</td>
+                            <td>{{ "%.0f"|format(pick.strength) if pick.strength else 'N/A' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="scanner-card">
+                <div class="no-data">
+                    No performance data available. Scanners need historical picks with entry prices.
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        function togglePicks(scannerName) {
+            const table = document.getElementById('picks-' + scannerName);
+            table.classList.toggle('show');
+            
+            const button = event.target;
+            if (table.classList.contains('show')) {
+                button.textContent = '📋 Hide All Picks';
+            } else {
+                const scanner = {{ performance_data | tojson }}.find(s => s.scanner_name === scannerName);
+                button.textContent = `📋 Show All ${scanner.total_picks} Picks`;
+            }
+        }
+    </script>
+</body>
+</html>
