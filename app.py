@@ -316,9 +316,11 @@ async def stats(request: Request):  # email: str = Depends(require_login)):  # T
 @app.get("/scanner-performance", response_class=HTMLResponse)
 async def scanner_performance(request: Request):
     """Display performance analytics for each scanner."""
-    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
     try:
+        # Use a fresh connection for this request
+        conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+        
         # Get all scanners
         scanners_query = """
             SELECT DISTINCT scanner_name
@@ -326,10 +328,14 @@ async def scanner_performance(request: Request):
             ORDER BY scanner_name
         """
         scanners = [row[0] for row in conn.execute(scanners_query).fetchall()]
+        conn.close()
         
         performance_data = []
         
         for scanner in scanners:
+            # Reconnect for each scanner to avoid timeout
+            conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+            
             # Get all picks for this scanner
             picks_query = """
                 SELECT 
@@ -343,6 +349,7 @@ async def scanner_performance(request: Request):
             picks = conn.execute(picks_query, [scanner]).fetchall()
             
             if not picks:
+                conn.close()
                 continue
             
             # Calculate performance for each pick
@@ -415,6 +422,7 @@ async def scanner_performance(request: Request):
                 })
             
             if not pick_performances:
+                conn.close()
                 continue
             
             # Calculate scanner summary stats
@@ -442,15 +450,18 @@ async def scanner_performance(request: Request):
                 'worst_pick': worst_pick,
                 'all_picks': sorted(pick_performances, key=lambda x: x['max_gain'], reverse=True)
             })
+            
+            # Close connection after processing each scanner
+            conn.close()
         
         # Sort by avg max gain
         performance_data.sort(key=lambda x: x['avg_max_gain'], reverse=True)
         
     except Exception as e:
         print(f"Error calculating scanner performance: {e}")
+        import traceback
+        traceback.print_exc()
         performance_data = []
-    
-    conn.close()
     
     return templates.TemplateResponse('scanner_performance.html', {
         'request': request,
@@ -1947,12 +1958,27 @@ async def index(
     pattern: Optional[str] = Query(None)
 ):
     sector_filter = sector or ''
-    selected_scan_date = scan_date or ''
     selected_ticker = ticker.strip().upper() if ticker else ''
     stocks = {}
 
     # Connect to DuckDB and get list of symbols
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    
+    # Get latest scan date if none provided
+    selected_scan_date = scan_date
+    if not selected_scan_date:
+        try:
+            latest_date = conn.execute("""
+                SELECT CAST(MAX(scan_date) AS DATE)
+                FROM scanner_data.scanner_results
+                WHERE scan_date IS NOT NULL
+            """).fetchone()
+            if latest_date and latest_date[0]:
+                selected_scan_date = str(latest_date[0])
+                print(f"INFO: Auto-selected latest scan date: {selected_scan_date}")
+        except Exception as e:
+            print(f"Could not get latest scan date: {e}")
+            selected_scan_date = ''
     
     # Get list of all available tickers for autocomplete
     available_tickers = []
@@ -2019,12 +2045,14 @@ async def index(
     
     symbols_query += ' ORDER BY d.symbol'
     
-    symbol_rows = conn.execute(symbols_query, params).fetchall()
+    # Don't populate stocks yet - wait until we know which symbols have scanner results
+    # This prevents showing extra rows in the table
+    all_symbols_query_result = conn.execute(symbols_query, params).fetchall()
     
-    # Filter by market cap if needed (since market_cap is stored as string)
+    # Create a lookup dict for symbol metadata (don't add to stocks yet)
+    symbol_metadata = {}
     if min_market_cap:
-        filtered_rows = []
-        for row in symbol_rows:
+        for row in all_symbols_query_result:
             symbol, company, market_cap, sector, earnings_date, industry = row
             if market_cap:
                 try:
@@ -2039,20 +2067,23 @@ async def index(
                         cap_num = float(cap_str)
                     
                     if cap_num >= min_cap:
-                        filtered_rows.append((symbol, company, market_cap, sector, industry))
+                        symbol_metadata[symbol] = {
+                            'company': company,
+                            'market_cap': format_market_cap(market_cap),
+                            'sector': sector,
+                            'industry': industry
+                        }
                 except Exception:
                     pass
-        symbol_rows = [(s, c, mc, sec, ind) for s, c, mc, sec, ind in filtered_rows]
     else:
-        symbol_rows = [(row[0], row[1], row[2], row[3], row[4]) for row in symbol_rows]
-    
-    for symbol, company, market_cap, sector, industry in symbol_rows:
-        stocks[symbol] = {
-            'company': company,
-            'market_cap': format_market_cap(market_cap),
-            'sector': sector,
-            'industry': industry
-        }
+        for row in all_symbols_query_result:
+            symbol, company, market_cap, sector, industry = row[:5]
+            symbol_metadata[symbol] = {
+                'company': company,
+                'market_cap': format_market_cap(market_cap),
+                'sector': sector,
+                'industry': industry
+            }
 
     if pattern:
         # Use pattern name directly as scanner name
@@ -2125,7 +2156,8 @@ async def index(
             scanner_dict = {}
         
         # Optimization: Fetch ALL volume data in one query instead of N queries
-        symbols_list = list(stocks.keys())
+        # Use scanner_dict keys since those are the symbols with actual results
+        symbols_list = list(scanner_dict.keys())
         volume_data_dict = {}
         
         if symbols_list:
@@ -2247,6 +2279,18 @@ async def index(
                             avg_volume_20 = vol_data['avg_volume_20']
                             volume_ratio = latest_volume / avg_volume_20 if avg_volume_20 > 0 else 0
                             
+                            # Initialize stock entry if not exists (only for symbols with results)
+                            if symbol not in stocks:
+                                if symbol in symbol_metadata:
+                                    stocks[symbol] = symbol_metadata[symbol].copy()
+                                else:
+                                    stocks[symbol] = {
+                                        'company': symbol,
+                                        'market_cap': None,
+                                        'sector': None,
+                                        'industry': None
+                                    }
+                            
                             stocks[symbol][pattern] = result
                             stocks[symbol][f'{pattern}_strength'] = strength
                             stocks[symbol][f'{pattern}_quality'] = quality
@@ -2279,7 +2323,6 @@ async def index(
                             if metadata:
                                 import json
                                 import ast
-                                from datetime import datetime
                                 try:
                                     # Try to parse as JSON first
                                     if isinstance(metadata, str):
@@ -2360,15 +2403,14 @@ async def index(
                             stocks[symbol][f'{pattern}_sentiment_score'] = None
                             stocks[symbol][f'{pattern}_sentiment_label'] = None
                             stocks[symbol][f'{pattern}_sentiment_articles'] = None
-                        else:
-                            stocks[symbol][pattern] = None
+                        # Don't add symbol if no volume data
                     except Exception as e:
                         print(f'failed on {symbol}: {e}')
-                        stocks[symbol][pattern] = None
-                else:
-                    stocks[symbol][pattern] = None
-            else:
-                stocks[symbol][pattern] = None
+                        # Don't add symbol to stocks if there was an error
+                # Symbol doesn't meet minimum strength - skip it
+            # Symbol not in scanner_dict - skip it
+    
+    print(f'INFO: After processing, stocks dict has {len(stocks)} symbols with pattern data')
     
     # Apply confirmed_only filter
     if confirmed_only == 'yes' and pattern:
