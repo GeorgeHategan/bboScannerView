@@ -1992,23 +1992,8 @@ async def index(
     except Exception as e:
         print(f"Could not fetch ticker list: {e}")
     
-    # Get default pattern (scanner with lowest count) if none selected
-    if not pattern:
-        try:
-            default_scanner = conn.execute("""
-                SELECT scanner_name, COUNT(*) as count
-                FROM scanner_data.scanner_results
-                GROUP BY scanner_name
-                ORDER BY count ASC, scanner_name
-                LIMIT 1
-            """).fetchone()
-            pattern = default_scanner[0] if default_scanner else False
-            print(f"INFO: Set default scanner to: {pattern} ({default_scanner[1] if default_scanner else 0} setups)")
-        except Exception as e:
-            print(f"ERROR: Could not get default scanner: {e}")
-            pattern = False
-    else:
-        pattern = pattern if pattern != '' else False
+    # Don't auto-select a scanner - show all by default
+    pattern = pattern if pattern and pattern != '' else False
     
     # Build query with filters
     symbols_query = '''
@@ -2485,6 +2470,7 @@ async def index(
         # Filter out deprecated/invalid scanner names
         deprecated_scanners = ['bullish', 'Candlestick Bullish', 'Fundamental Swing']
         all_patterns = {}
+        scanner_distribution = []  # For pie chart
         for row in scanner_counts:
             scanner_name = row[0]
             count = row[1]
@@ -2493,6 +2479,10 @@ async def index(
                 continue
             display_name = f"{scanner_name.replace('_', ' ').title()} ({count})"
             all_patterns[scanner_name] = display_name
+            scanner_distribution.append({
+                'name': scanner_name.replace('_', ' ').title(),
+                'count': count
+            })
         
         available_scanners = list(all_patterns.keys())
         print(f"INFO: Loaded {len(all_patterns)} scanner patterns")
@@ -2502,6 +2492,7 @@ async def index(
         traceback.print_exc()
         all_patterns = {}
         available_scanners = []
+        scanner_distribution = []
     
     # Get available scan dates with setup counts
     available_scan_dates = []
@@ -2547,7 +2538,8 @@ async def index(
         'selected_min_strength': min_strength,
         'selected_ticker': selected_ticker,
         'confirmed_only': confirmed_only,
-        'last_updated': last_updated
+        'last_updated': last_updated,
+        'scanner_distribution': scanner_distribution
     })
 
 

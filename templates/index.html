@@ -1,5 +1,6 @@
 <html>
 <head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: arial; margin: 20px; }
         td { padding: 5px; }
@@ -11,6 +12,17 @@
         .moderate { color: #FFA500; }
         .weak { color: #FF6347; }
         .very_weak { color: #8B0000; }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            margin: 20px auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 600px;
+        }
+        .chart-container canvas {
+            cursor: pointer;
+        }
         .tradingview-link {
             position: absolute;
             top: 10px;
@@ -185,6 +197,101 @@
             <span style="font-weight: bold; color: #0066cc;">✓ Confirmed by other scanners</span>
         </label>
     </form>
+
+    {% if scanner_distribution %}
+    <div class="chart-container">
+        <h3 style="margin-top: 0; color: #333;">📊 Scanner Results Distribution
+            {% if selected_scan_date %}
+                <span style="font-size: 14px; color: #666; font-weight: normal;"> - {{ selected_scan_date }}</span>
+            {% else %}
+                <span style="font-size: 14px; color: #666; font-weight: normal;"> - Latest Scan</span>
+            {% endif %}
+        </h3>
+        <canvas id="scannerChart" width="400" height="400"></canvas>
+    </div>
+    <script>
+        const ctx = document.getElementById('scannerChart').getContext('2d');
+        const scannerData = {{ scanner_distribution | tojson }};
+        
+        // Store original scanner names (convert from "Title Case" to "snake_case")
+        const scannerNames = scannerData.map(item => item.name.toLowerCase().replace(/ /g, '_'));
+        
+        const labels = scannerData.map(item => item.name + ' (' + item.count + ')');
+        const data = scannerData.map(item => item.count);
+        const colors = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+            '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF9F40'
+        ];
+        
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors.slice(0, data.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                onClick: (event, activeElements) => {
+                    if (activeElements.length > 0) {
+                        const index = activeElements[0].index;
+                        const scannerName = scannerNames[index];
+                        // Update dropdown and submit form
+                        const dropdown = document.querySelector('select[name="pattern"]');
+                        if (dropdown) {
+                            dropdown.value = scannerName;
+                            dropdown.form.submit();
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        },
+                        onClick: (event, legendItem, legend) => {
+                            const index = legendItem.index;
+                            const scannerName = scannerNames[index];
+                            // Update dropdown and submit form
+                            const dropdown = document.querySelector('select[name="pattern"]');
+                            if (dropdown) {
+                                dropdown.value = scannerName;
+                                dropdown.form.submit();
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += context.parsed + ' setups';
+                                
+                                // Calculate percentage
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                label += ' (' + percentage + '%)';
+                                
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
 
     {% if pattern %}
     {% set result_count = namespace(value=0) %}
