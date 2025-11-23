@@ -522,14 +522,48 @@ async def scanner_detail(request: Request, scanner_name: str):  # email: str = D
     """Display detailed documentation for a specific scanner."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
-    # Get scanner stats
+    # Get overall scanner stats
     stats = conn.execute("""
         SELECT 
             COUNT(*) as total,
             AVG(signal_strength) as avg_strength,
-            COUNT(DISTINCT symbol) as unique_symbols
+            COUNT(DISTINCT symbol) as unique_symbols,
+            SUM(CASE WHEN signal_strength >= 90 THEN 1 ELSE 0 END) as excellent,
+            SUM(CASE WHEN signal_strength >= 80 AND signal_strength < 90 THEN 1 ELSE 0 END) as very_good,
+            SUM(CASE WHEN signal_strength >= 70 AND signal_strength < 80 THEN 1 ELSE 0 END) as good,
+            SUM(CASE WHEN signal_strength >= 60 AND signal_strength < 70 THEN 1 ELSE 0 END) as fair,
+            SUM(CASE WHEN signal_strength < 60 THEN 1 ELSE 0 END) as weak
         FROM scanner_data.scanner_results
         WHERE scanner_name = ?
+    """, [scanner_name]).fetchone()
+    
+    # Get latest scan date
+    latest_date = conn.execute("""
+        SELECT CAST(MAX(scan_date) AS DATE)
+        FROM scanner_data.scanner_results
+        WHERE scanner_name = ?
+    """, [scanner_name]).fetchone()
+    
+    # Get current performance (from latest scan date)
+    current_perf = None
+    if latest_date and latest_date[0]:
+        current_perf = conn.execute("""
+            SELECT 
+                COUNT(*) as current_total,
+                AVG(signal_strength) as current_avg_strength
+            FROM scanner_data.scanner_results
+            WHERE scanner_name = ? 
+            AND CAST(scan_date AS DATE) = ?
+        """, [scanner_name, str(latest_date[0])]).fetchone()
+    
+    # Get recent 30-day performance
+    recent_perf = conn.execute("""
+        SELECT 
+            COUNT(*) as recent_total,
+            AVG(signal_strength) as recent_avg_strength
+        FROM scanner_data.scanner_results
+        WHERE scanner_name = ? 
+        AND CAST(scan_date AS DATE) >= CURRENT_DATE - INTERVAL '30 days'
     """, [scanner_name]).fetchone()
     
     conn.close()
@@ -539,7 +573,16 @@ async def scanner_detail(request: Request, scanner_name: str):  # email: str = D
         'display_name': scanner_name.replace('_', ' ').title(),
         'total_setups': stats[0] if stats else 0,
         'avg_strength': f"{stats[1]:.1f}" if stats and stats[1] else "N/A",
-        'unique_symbols': stats[2] if stats else 0
+        'unique_symbols': stats[2] if stats else 0,
+        'excellent': stats[3] if stats else 0,
+        'very_good': stats[4] if stats else 0,
+        'good': stats[5] if stats else 0,
+        'fair': stats[6] if stats else 0,
+        'weak': stats[7] if stats else 0,
+        'current_total': current_perf[0] if current_perf else 0,
+        'current_avg_strength': f"{current_perf[1]:.1f}" if current_perf and current_perf[1] else "N/A",
+        'recent_total': recent_perf[0] if recent_perf else 0,
+        'recent_avg_strength': f"{recent_perf[1]:.1f}" if recent_perf and recent_perf[1] else "N/A"
     }
     
     # Load scanner-specific content
@@ -640,28 +683,6 @@ def get_scanner_documentation(scanner_name):
     
     docs = {
         'accumulation_distribution': '''
-<div class="stats-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 8px; margin: 30px 0;">
-    <h3 style="color: white; margin-top: 0;">Current Performance Metrics</h3>
-    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
-        <div style="text-align: center;">
-            <span style="font-size: 2.5em; font-weight: bold; display: block;">310</span>
-            <span style="font-size: 0.9em; opacity: 0.9; margin-top: 5px;">Active Signals</span>
-        </div>
-        <div style="text-align: center;">
-            <span style="font-size: 2.5em; font-weight: bold; display: block;">79.4</span>
-            <span style="font-size: 0.9em; opacity: 0.9; margin-top: 5px;">Avg Quality Score</span>
-        </div>
-        <div style="text-align: center;">
-            <span style="font-size: 2.5em; font-weight: bold; display: block;">39%</span>
-            <span style="font-size: 0.9em; opacity: 0.9; margin-top: 5px;">Success Rate (10-day)</span>
-        </div>
-        <div style="text-align: center;">
-            <span style="font-size: 2.5em; font-weight: bold; display: block;">51.4%</span>
-            <span style="font-size: 0.9em; opacity: 0.9; margin-top: 5px;">Success Rate (20-day)</span>
-        </div>
-    </div>
-</div>
-
 <h2>🎯 What It Does</h2>
 <p>The Accumulation/Distribution scanner detects <strong>institutional smart money buying patterns</strong> by analyzing volume-based indicators that reveal hidden accumulation before major price moves.</p>
 
@@ -900,11 +921,6 @@ def get_scanner_documentation(scanner_name):
 </div>
 ''',
         'breakout': '''
-<div class="stats-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">📊 Current Performance</h2>
-    <p>Total Signals: <strong>25</strong> | Signal Strength: <strong>N/A</strong></p>
-</div>
-
 <h2>📈 Strategy Overview</h2>
 <p>The Breakout Scanner implements <strong>Kristjan Qullamaggie's breakout methodology</strong> - one of the most respected short-term trading strategies. It uses both daily and hourly data to catch breakouts above 20-day highs with volume confirmation.</p>
 
@@ -1196,29 +1212,6 @@ def get_scanner_documentation(scanner_name):
 </ul>
 ''',
         'momentum_burst': '''
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none; margin-bottom: 10px;">📊 Current Performance</h2>
-    <p style="opacity: 0.9;">Recent scan results from MotherDuck database</p>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
-            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">Total Signals</div>
-            <div style="font-size: 1.8em; font-weight: bold;">36</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
-            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">Avg Quality</div>
-            <div style="font-size: 1.8em; font-weight: bold;">80.9</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
-            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">Quality 85+</div>
-            <div style="font-size: 1.8em; font-weight: bold;">47%</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
-            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">Quality 90+</div>
-            <div style="font-size: 1.8em; font-weight: bold;">22%</div>
-        </div>
-    </div>
-</div>
-
 <h2>📈 Strategy Overview</h2>
 <p>The Momentum Burst Scanner identifies <strong>explosive short-term momentum moves</strong> based on Stockbee's methodology. It looks for stocks that have made significant price gains (4-8%+) in 1-5 days with strong volume confirmation.</p>
 
@@ -1392,11 +1385,6 @@ def get_scanner_documentation(scanner_name):
 </ul>
 ''',
         'tight_consolidation': '''
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">📊 Current Performance</h2>
-    <p>Total Signals: <strong>1</strong> | Average Quality: <strong>72</strong></p>
-</div>
-
 <h2>📈 What is Tight Consolidation?</h2>
 <p>A <strong>tight consolidation</strong> (also called a "coil" or "flat base") occurs when a stock trades in an extremely narrow price range for an extended period. This pattern suggests:</p>
 <ul>
@@ -1467,21 +1455,6 @@ def get_scanner_documentation(scanner_name):
 </ul>
 ''',
         'supertrend': '''
-<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none; margin-bottom: 10px;">📊 Current Performance</h2>
-    <p style="opacity: 0.9;">SuperTrend indicator-based trend follower</p>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
-            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">Total Signals</div>
-            <div style="font-size: 1.8em; font-weight: bold;">Varies</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
-            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">Avg Quality</div>
-            <div style="font-size: 1.8em; font-weight: bold;">~80</div>
-        </div>
-    </div>
-</div>
-
 <h2>📈 Strategy Overview</h2>
 <p>The SuperTrend Scanner identifies stocks that have <strong>just entered a bullish trend</strong> on the daily timeframe. SuperTrend is a trend-following indicator that automatically adjusts stop loss levels based on price volatility (ATR).</p>
 
@@ -1526,12 +1499,6 @@ def get_scanner_documentation(scanner_name):
 </ul>
 ''',
         'golden_cross': '''
-<div style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">📊 Current Performance</h2>
-    <p>Total Signals: <strong>10</strong> | Average Strength: <strong>95.6</strong></p>
-    <p>Excellent (90+): <strong>8</strong> | Very Good (80-89): <strong>2</strong></p>
-</div>
-
 <h2>📈 Strategy Overview</h2>
 <p>The Golden Cross Scanner identifies one of the most powerful bullish signals in technical analysis: when the <strong>50-day moving average crosses above the 200-day moving average</strong>. This is considered a major long-term trend change.</p>
 
@@ -1584,11 +1551,6 @@ def get_scanner_documentation(scanner_name):
 </ul>
 ''',
         'wyckoff': '''
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">📊 Current Performance</h2>
-    <p>Total Signals: <strong>4</strong> | Average Strength: <strong>63.8</strong></p>
-</div>
-
 <h2>📈 What is Wyckoff Accumulation?</h2>
 <p>The Wyckoff Method is a <strong>sophisticated institutional trading approach</strong> developed by Richard Wyckoff in the 1930s. It identifies phases where "smart money" (institutions) are accumulating shares before major price advances.</p>
 
@@ -1635,11 +1597,6 @@ def get_scanner_documentation(scanner_name):
 </ul>
 ''',
         'fundamental_swing': '''
-<div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">📊 Current Performance</h2>
-    <p>Total Signals: <strong>56</strong> | Average Score: <strong>50.0</strong></p>
-</div>
-
 <h2>📈 Strategy Overview</h2>
 <p>The Fundamental Swing Scanner combines <strong>fundamental analysis with technical entry points</strong> for longer-term swing trades (14+ days). It identifies undervalued stocks with strong fundamentals that are showing technical strength.</p>
 
@@ -1686,11 +1643,6 @@ def get_scanner_documentation(scanner_name):
 </ul>
 ''',
         'candlestick_bullish': '''
-<div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">🔄 Candlestick Bullish (Reversal Patterns)</h2>
-    <p><strong>20 TA-Lib Patterns</strong> | Average Weight: <strong>7.4</strong> | Signal Type: <strong>Reversal</strong></p>
-</div>
-
 <h2>🎯 Overview</h2>
 <p>Detects <strong>trend reversals from bearish to bullish</strong> using TA-Lib's proven candlestick pattern recognition algorithms. Each pattern is weighted based on historical reliability and combined with volume, trend, and technical context for comprehensive signal strength scoring (0-100).</p>
 
@@ -1809,11 +1761,6 @@ def get_scanner_documentation(scanner_name):
 <p><strong>20 TA-Lib reversal patterns</strong> detect trend changes from bearish to bullish. Best for finding early entries at bottoms before major moves. Higher risk than continuation patterns but offers better risk/reward at reversals.</p>
 ''',
         'candlestick_continuation': '''
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
-    <h2 style="color: white; border: none;">⬆️ Candlestick Bullish (Continuation Patterns)</h2>
-    <p><strong>13 TA-Lib Patterns</strong> | Average Weight: <strong>6.9</strong> | Signal Type: <strong>Continuation</strong></p>
-</div>
-
 <h2>🎯 Overview</h2>
 <p>Detects <strong>trend continuation in existing uptrends</strong> using TA-Lib's proven candlestick pattern recognition. Identifies pullbacks and consolidations within strong trends for optimal re-entry points. Requires price above SMA20/50 for trend confirmation.</p>
 
@@ -1964,21 +1911,26 @@ async def index(
     # Connect to DuckDB and get list of symbols
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
-    # Get latest scan date if none provided
-    selected_scan_date = scan_date
-    if not selected_scan_date:
-        try:
-            latest_date = conn.execute("""
-                SELECT CAST(MAX(scan_date) AS DATE)
-                FROM scanner_data.scanner_results
-                WHERE scan_date IS NOT NULL
-            """).fetchone()
-            if latest_date and latest_date[0]:
-                selected_scan_date = str(latest_date[0])
-                print(f"INFO: Auto-selected latest scan date: {selected_scan_date}")
-        except Exception as e:
-            print(f"Could not get latest scan date: {e}")
-            selected_scan_date = ''
+    # For ticker-only searches, ignore date filter to show all historical results
+    if selected_ticker and not pattern:
+        selected_scan_date = ''
+        print(f"INFO: Ticker-only search - clearing date filter to show all results")
+    else:
+        # Get latest scan date if none provided
+        selected_scan_date = scan_date
+        if not selected_scan_date:
+            try:
+                latest_date = conn.execute("""
+                    SELECT CAST(MAX(scan_date) AS DATE)
+                    FROM scanner_data.scanner_results
+                    WHERE scan_date IS NOT NULL
+                """).fetchone()
+                if latest_date and latest_date[0]:
+                    selected_scan_date = str(latest_date[0])
+                    print(f"INFO: Auto-selected latest scan date: {selected_scan_date}")
+            except Exception as e:
+                print(f"Could not get latest scan date: {e}")
+                selected_scan_date = ''
     
     # Get list of all available tickers for autocomplete
     available_tickers = []
@@ -2257,137 +2209,145 @@ async def index(
                 min_strength_value = float(min_strength) if min_strength else 0
                 if strength >= min_strength_value:
                     try:
-                        # Get pre-fetched volume data
+                        # Initialize stock entry if not exists
+                        if symbol not in stocks:
+                            if symbol in symbol_metadata:
+                                stocks[symbol] = symbol_metadata[symbol].copy()
+                            else:
+                                stocks[symbol] = {
+                                    'company': symbol,
+                                    'market_cap': None,
+                                    'sector': None,
+                                    'industry': None
+                                }
+                        
+                        # Get pre-fetched volume data if available
                         if symbol in volume_data_dict:
                             vol_data = volume_data_dict[symbol]
                             latest_volume = vol_data['volume']
                             avg_volume_20 = vol_data['avg_volume_20']
                             volume_ratio = latest_volume / avg_volume_20 if avg_volume_20 > 0 else 0
                             
-                            # Initialize stock entry if not exists (only for symbols with results)
-                            if symbol not in stocks:
-                                if symbol in symbol_metadata:
-                                    stocks[symbol] = symbol_metadata[symbol].copy()
-                                else:
-                                    stocks[symbol] = {
-                                        'company': symbol,
-                                        'market_cap': None,
-                                        'sector': None,
-                                        'industry': None
-                                    }
-                            
-                            stocks[symbol][pattern] = result
-                            stocks[symbol][f'{pattern}_strength'] = strength
-                            stocks[symbol][f'{pattern}_quality'] = quality
-                            stocks[symbol][f'{pattern}_scan_date'] = scan_date
                             stocks[symbol][f'{pattern}_volume'] = latest_volume
                             stocks[symbol][f'{pattern}_avg_volume'] = avg_volume_20
                             stocks[symbol][f'{pattern}_volume_ratio'] = round(volume_ratio, 2)
-                            if entry_price is not None:
-                                stocks[symbol][f'{pattern}_entry_price'] = entry_price
-                            if picked_by_scanners is not None:
-                                stocks[symbol][f'{pattern}_picked_count'] = picked_by_scanners
-                            if setup_stage:
-                                stocks[symbol][f'{pattern}_setup_stage'] = setup_stage
-                            
-                            # Add news sentiment data from database
-                            if news_sentiment is not None:
-                                stocks[symbol]['news_sentiment'] = news_sentiment
-                            if news_sentiment_label:
-                                stocks[symbol]['news_sentiment_label'] = news_sentiment_label
-                            if news_relevance is not None:
-                                stocks[symbol]['news_relevance'] = news_relevance
-                            if news_headline:
-                                stocks[symbol]['news_headline'] = news_headline
-                            if news_published:
-                                stocks[symbol]['news_published'] = news_published
-                            if news_url:
-                                stocks[symbol]['news_url'] = news_url
-                            
-                            # Add candlestick patterns metadata (parse JSON if string)
-                            if metadata:
-                                import json
-                                import ast
-                                try:
-                                    # Try to parse as JSON first
-                                    if isinstance(metadata, str):
-                                        try:
-                                            metadata_dict = json.loads(metadata)
-                                        except json.JSONDecodeError:
-                                            # If JSON fails, try Python literal eval
-                                            metadata_dict = ast.literal_eval(metadata)
+                        else:
+                            # No volume data available - use placeholders
+                            stocks[symbol][f'{pattern}_volume'] = 0
+                            stocks[symbol][f'{pattern}_avg_volume'] = 0
+                            stocks[symbol][f'{pattern}_volume_ratio'] = 0
+                        
+                        stocks[symbol][pattern] = result
+                        stocks[symbol][f'{pattern}_strength'] = strength
+                        stocks[symbol][f'{pattern}_quality'] = quality
+                        stocks[symbol][f'{pattern}_scan_date'] = scan_date
+                        if entry_price is not None:
+                            stocks[symbol][f'{pattern}_entry_price'] = entry_price
+                        if picked_by_scanners is not None:
+                            stocks[symbol][f'{pattern}_picked_count'] = picked_by_scanners
+                        if setup_stage:
+                            stocks[symbol][f'{pattern}_setup_stage'] = setup_stage
+                        
+                        # Add news sentiment data from database
+                        if news_sentiment is not None:
+                            stocks[symbol]['news_sentiment'] = news_sentiment
+                        if news_sentiment_label:
+                            stocks[symbol]['news_sentiment_label'] = news_sentiment_label
+                        if news_relevance is not None:
+                            stocks[symbol]['news_relevance'] = news_relevance
+                        if news_headline:
+                            stocks[symbol]['news_headline'] = news_headline
+                        if news_published:
+                            stocks[symbol]['news_published'] = news_published
+                        if news_url:
+                            stocks[symbol]['news_url'] = news_url
+                        
+                        # Add candlestick patterns metadata (parse JSON if string)
+                        if metadata:
+                            import json
+                            import ast
+                            try:
+                                # Try to parse as JSON first
+                                if isinstance(metadata, str):
+                                    try:
+                                        metadata_dict = json.loads(metadata)
+                                    except json.JSONDecodeError:
+                                        # If JSON fails, try Python literal eval
+                                        metadata_dict = ast.literal_eval(metadata)
+                                else:
+                                    metadata_dict = metadata
+                                
+                                # Extract pattern names
+                                all_patterns = (metadata_dict.get('all_patterns') or 
+                                               metadata_dict.get('pattern_name') or
+                                               metadata_dict.get('pattern') or '')
+                                
+                                # Get pattern weighting info
+                                pattern_weight = metadata_dict.get('pattern_weight', 0)
+                                
+                                # Try different field names for the date
+                                pattern_date = (metadata_dict.get('pattern_date') or 
+                                              metadata_dict.get('date') or 
+                                              metadata_dict.get('signal_date') or
+                                              scan_date)
+                                
+                                # Format all patterns nicely with weights
+                                if all_patterns:
+                                    # Split by comma and format each pattern
+                                    if ',' in all_patterns:
+                                        pattern_list = [p.strip() for p in all_patterns.split(',')]
+                                        readable_patterns = []
+                                        for p in pattern_list:
+                                            readable = p.replace('CDL', '').replace('_', ' ').title()
+                                            # Add weight from pattern weights dictionary
+                                            weight = PATTERN_WEIGHTS.get(p, 5.0)
+                                            readable += f" ({weight})"
+                                            readable_patterns.append(readable)
+                                        pattern_display = ', '.join(readable_patterns)
                                     else:
-                                        metadata_dict = metadata
+                                        # Single pattern
+                                        pattern_display = all_patterns.replace('CDL', '').replace('_', ' ').title()
+                                        weight = PATTERN_WEIGHTS.get(all_patterns, 5.0)
+                                        pattern_display += f" ({weight})"
                                     
-                                    # Extract pattern names
-                                    all_patterns = (metadata_dict.get('all_patterns') or 
-                                                   metadata_dict.get('pattern_name') or
-                                                   metadata_dict.get('pattern') or '')
-                                    
-                                    # Get pattern weighting info
-                                    pattern_weight = metadata_dict.get('pattern_weight', 0)
-                                    
-                                    # Try different field names for the date
-                                    pattern_date = (metadata_dict.get('pattern_date') or 
-                                                  metadata_dict.get('date') or 
-                                                  metadata_dict.get('signal_date') or
-                                                  scan_date)
-                                    
-                                    # Format all patterns nicely with weights
-                                    if all_patterns:
-                                        # Split by comma and format each pattern
-                                        if ',' in all_patterns:
-                                            pattern_list = [p.strip() for p in all_patterns.split(',')]
-                                            readable_patterns = []
-                                            for p in pattern_list:
-                                                readable = p.replace('CDL', '').replace('_', ' ').title()
-                                                # Add weight from pattern weights dictionary
-                                                weight = PATTERN_WEIGHTS.get(p, 5.0)
-                                                readable += f" ({weight})"
-                                                readable_patterns.append(readable)
-                                            pattern_display = ', '.join(readable_patterns)
+                                    # Calculate days ago from pattern_date
+                                    if pattern_date:
+                                        pattern_dt = datetime.strptime(str(pattern_date), '%Y-%m-%d')
+                                        today = datetime.now()
+                                        days_ago = (today - pattern_dt).days
+                                        
+                                        if days_ago == 0:
+                                            pattern_display += " - today"
+                                        elif days_ago == 1:
+                                            pattern_display += " - yesterday"
                                         else:
-                                            # Single pattern
-                                            pattern_display = all_patterns.replace('CDL', '').replace('_', ' ').title()
-                                            weight = PATTERN_WEIGHTS.get(all_patterns, 5.0)
-                                            pattern_display += f" ({weight})"
-                                        
-                                        # Calculate days ago from pattern_date
-                                        if pattern_date:
-                                            pattern_dt = datetime.strptime(str(pattern_date), '%Y-%m-%d')
-                                            today = datetime.now()
-                                            days_ago = (today - pattern_dt).days
-                                            
-                                            if days_ago == 0:
-                                                pattern_display += " - today"
-                                            elif days_ago == 1:
-                                                pattern_display += " - yesterday"
-                                            else:
-                                                pattern_display += f" - {days_ago}d ago"
-                                        
-                                        stocks[symbol][f'{pattern}_patterns'] = pattern_display
-                                except Exception as e:
-                                    # If parsing fails, skip pattern display
-                                    pass
-                            
-                            # Add all scanners that identified this symbol on this date
-                            if symbol in all_scanners_dict:
-                                stocks[symbol]['picked_by_scanners'] = ','.join(all_scanners_dict[symbol])
-                            
-                            # Add scanner confirmations
-                            if symbol in confirmations_dict:
-                                stocks[symbol][f'{pattern}_confirmations'] = confirmations_dict[symbol]
-                            else:
-                                stocks[symbol][f'{pattern}_confirmations'] = []
-                            
-                            # Skip external API calls - too slow for Render
-                            stocks[symbol][f'{pattern}_earnings_date'] = None
-                            stocks[symbol][f'{pattern}_earnings_days'] = None
-                            
-                            # Skip sentiment API calls - too slow
-                            stocks[symbol][f'{pattern}_sentiment_score'] = None
-                            stocks[symbol][f'{pattern}_sentiment_label'] = None
-                            stocks[symbol][f'{pattern}_sentiment_articles'] = None
+                                            pattern_display += f" - {days_ago}d ago"
+                                    
+                                    stocks[symbol][f'{pattern}_patterns'] = pattern_display
+                            except Exception as e:
+                                # If parsing fails, skip pattern display
+                                pass
+                        
+                        # Add all scanners that identified this symbol on this date
+                        if symbol in all_scanners_dict:
+                            stocks[symbol]['picked_by_scanners'] = ','.join(all_scanners_dict[symbol])
+                        else:
+                            stocks[symbol]['picked_by_scanners'] = ''
+                        
+                        # Add scanner confirmations
+                        if symbol in confirmations_dict:
+                            stocks[symbol][f'{pattern}_confirmations'] = confirmations_dict[symbol]
+                        else:
+                            stocks[symbol][f'{pattern}_confirmations'] = []
+                        
+                        # Skip external API calls - too slow for Render
+                        stocks[symbol][f'{pattern}_earnings_date'] = None
+                        stocks[symbol][f'{pattern}_earnings_days'] = None
+                        
+                        # Skip sentiment API calls - too slow
+                        stocks[symbol][f'{pattern}_sentiment_score'] = None
+                        stocks[symbol][f'{pattern}_sentiment_label'] = None
+                        stocks[symbol][f'{pattern}_sentiment_articles'] = None
                         # Don't add symbol if no volume data
                     except Exception as e:
                         print(f'failed on {symbol}: {e}')
@@ -2397,12 +2357,100 @@ async def index(
     
     print(f'INFO: After processing, stocks dict has {len(stocks)} symbols with pattern data')
     
+    # Handle ticker-only search (no scanner selected)
+    if selected_ticker and not pattern:
+        print(f"DEBUG: Ticker search for {selected_ticker} without scanner selection")
+        print(f"DEBUG: selected_ticker={selected_ticker}, pattern={pattern}")
+        try:
+            # Query all scanners that have this ticker
+            ticker_query = '''
+                SELECT scanner_name,
+                       signal_type,
+                       COALESCE(signal_strength, 75) as signal_strength,
+                       COALESCE(setup_stage, 'N/A') as quality_placeholder,
+                       scan_date,
+                       metadata
+                FROM scanner_data.scanner_results
+                WHERE symbol = ?
+            '''
+            query_params = [selected_ticker]
+            print(f"DEBUG: Running ticker query with params: {query_params}")
+            
+            # Ticker-only searches should show ALL historical results
+            # Don't filter by date at all
+            print(f"DEBUG: Showing all historical results (no date filter)")
+            
+            ticker_query += ' ORDER BY scan_date DESC, scanner_name'
+            
+            print(f"DEBUG: Executing query: {ticker_query}")
+            ticker_results = conn.execute(ticker_query, query_params).fetchall()
+            print(f"DEBUG: Query returned {len(ticker_results)} results")
+            
+            if ticker_results:
+                # Initialize stock entry
+                if selected_ticker in symbol_metadata:
+                    stocks[selected_ticker] = symbol_metadata[selected_ticker].copy()
+                else:
+                    stocks[selected_ticker] = {
+                        'company': selected_ticker,
+                        'market_cap': None,
+                        'sector': None,
+                        'industry': None
+                    }
+                
+                # Add each scanner as a separate "pattern"
+                for row in ticker_results:
+                    scanner_name = row[0]
+                    signal_type = row[1]
+                    strength = row[2]
+                    quality = row[3]
+                    scan_date = str(row[4])[:10] if row[4] else ''
+                    metadata = row[5]
+                    
+                    # Parse metadata JSON
+                    if metadata:
+                        try:
+                            import json
+                            meta = json.loads(metadata) if isinstance(metadata, str) else metadata
+                            picked_by = meta.get('picked_by_scanners')
+                            setup_stage = meta.get('setup_stage')
+                        except:
+                            picked_by = None
+                            setup_stage = quality
+                    else:
+                        picked_by = None
+                        setup_stage = quality
+                    
+                    stocks[selected_ticker][scanner_name] = signal_type
+                    stocks[selected_ticker][f'{scanner_name}_strength'] = strength
+                    stocks[selected_ticker][f'{scanner_name}_quality'] = quality
+                    stocks[selected_ticker][f'{scanner_name}_scan_date'] = scan_date
+                    if picked_by:
+                        stocks[selected_ticker][f'{scanner_name}_picked_count'] = picked_by
+                    if setup_stage:
+                        stocks[selected_ticker][f'{scanner_name}_setup_stage'] = setup_stage
+                    print(f"DEBUG: Added {scanner_name}: {signal_type}, str={strength}")
+                
+                print(f"DEBUG: Stocks keys: {list(stocks.keys())}")
+                print(f"DEBUG: {selected_ticker} keys: {list(stocks[selected_ticker].keys())}")
+                print(f"INFO: Found {len(ticker_results)} scanner results for {selected_ticker}")
+            else:
+                print(f"INFO: No scanner results found for {selected_ticker}")
+        except Exception as e:
+            print(f"ERROR: Ticker search failed: {e}")
+    
     # Apply confirmed_only filter
     if confirmed_only == 'yes' and pattern:
         filtered_stocks = {}
         for symbol, data in stocks.items():
-            if data.get(f'{pattern}_confirmations') and len(data[f'{pattern}_confirmations']) > 0:
-                filtered_stocks[symbol] = data
+            # Check if symbol was detected by other scanners on the SAME date
+            # Use the 'picked_by_scanners' field which contains all scanners
+            picked_by = data.get('picked_by_scanners', '')
+            if picked_by:
+                scanners_list = [s.strip() for s in picked_by.split(',')]
+                # Filter to show only symbols picked by 2+ scanners
+                if len(scanners_list) > 1:
+                    filtered_stocks[symbol] = data
         stocks = filtered_stocks
         print(f'Filtered to {len(stocks)} stocks confirmed by other scanners')
     
@@ -2521,6 +2569,54 @@ async def index(
     except Exception as e:
         print(f"Could not get last update time: {e}")
 
+    # Get historical scanner data for line chart (last 30 days)
+    scanner_history = []
+    try:
+        history_query = """
+            SELECT 
+                CAST(scan_date AS DATE) as date,
+                scanner_name,
+                COUNT(*) as count
+            FROM scanner_data.scanner_results
+            WHERE scan_date >= CURRENT_DATE - INTERVAL '30 days'
+                AND scanner_name NOT IN ('bullish', 'Candlestick Bullish', 'Fundamental Swing')
+            GROUP BY CAST(scan_date AS DATE), scanner_name
+            ORDER BY date ASC, scanner_name
+        """
+        history_results = conn.execute(history_query).fetchall()
+        
+        # Organize data by date
+        from collections import defaultdict
+        dates_dict = defaultdict(dict)
+        all_scanner_names = set()
+        
+        for row in history_results:
+            date_str = str(row[0])
+            scanner_name = row[1]
+            count = row[2]
+            dates_dict[date_str][scanner_name] = count
+            all_scanner_names.add(scanner_name)
+        
+        # Convert to format suitable for Chart.js
+        dates = sorted(dates_dict.keys())
+        scanner_history = {
+            'dates': dates,
+            'scanners': {}
+        }
+        
+        for scanner_name in sorted(all_scanner_names):
+            scanner_history['scanners'][scanner_name] = {
+                'name': scanner_name.replace('_', ' ').title(),
+                'data': [dates_dict[date].get(scanner_name, 0) for date in dates]
+            }
+        
+        print(f"INFO: Loaded historical data for {len(dates)} dates and {len(all_scanner_names)} scanners")
+    except Exception as e:
+        print(f"ERROR: Could not load scanner history: {e}")
+        import traceback
+        traceback.print_exc()
+        scanner_history = {'dates': [], 'scanners': {}}
+
     conn.close()
 
     return templates.TemplateResponse('index.html', {
@@ -2539,7 +2635,8 @@ async def index(
         'selected_ticker': selected_ticker,
         'confirmed_only': confirmed_only,
         'last_updated': last_updated,
-        'scanner_distribution': scanner_distribution
+        'scanner_distribution': scanner_distribution,
+        'scanner_history': scanner_history
     })
 
 

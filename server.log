@@ -1,4 +1,541 @@
-  File "/Users/george/Documents/GitHub/candlestick-screener/app.py", line 321
-    scanner_dict = {}
-                     ^
-IndentationError: unindent does not match any outer indentation level
+INFO:     Will watch for changes in these directories: ['/Users/george/Documents/GitHub/bboScannerView']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [97504] using StatReload
+INFO:     Started server process [97562]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+DEBUG: motherduck_token found: True
+INFO: Connecting to MotherDuck production database
+INFO: Database path: md:scanner_data?motherduck_token=***
+INFO: Database path configured: md:scanner_data?motherduck_token=***
+INFO: Auto-selected latest scan date: 2025-11-22
+INFO: After processing, stocks dict has 0 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61313 - "GET /?id=f5ea3c34-27ab-4723-b19e-28c422dce068&vscodeBrowserReqId=1763933061354 HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61334 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61335 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+Filtered to 0 stocks confirmed by other scanners
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61341 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength=&confirmed_only=yes HTTP/1.1" 200 OK
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+Loaded all scanners for 119 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAL confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'candlestick_bullish', 'cup_and_handle']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_bullish', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+Filtered to 0 stocks confirmed by other scanners
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61374 - "GET /?pattern=candlestick_continuation&confirmed_only=yes HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61390 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+Filtered to 0 stocks confirmed by other scanners
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61390 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength=&confirmed_only=yes HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [97562]
+INFO:     Started server process [98575]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+DEBUG: motherduck_token found: True
+INFO: Connecting to MotherDuck production database
+INFO: Database path: md:scanner_data?motherduck_token=***
+INFO: Database path configured: md:scanner_data?motherduck_token=***
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+Loaded all scanners for 119 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAL confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'candlestick_bullish', 'cup_and_handle']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_bullish', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+DEBUG CHECK: VFC picked_by_scanners=""
+DEBUG CHECK: GLOB picked_by_scanners=""
+DEBUG CHECK: INSP picked_by_scanners=""
+Filtered to 0 stocks confirmed by other scanners (checked 119 symbols)
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61423 - "GET /?pattern=candlestick_continuation&confirmed_only=yes HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61438 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+DEBUG CHECK: ICLR picked_by_scanners=""
+DEBUG CHECK: ACHC picked_by_scanners=""
+DEBUG CHECK: PDD picked_by_scanners=""
+Filtered to 0 stocks confirmed by other scanners (checked 72 symbols)
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61438 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength=&confirmed_only=yes HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [98575]
+INFO:     Started server process [98912]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+DEBUG: motherduck_token found: True
+INFO: Connecting to MotherDuck production database
+INFO: Database path: md:scanner_data?motherduck_token=***
+INFO: Database path configured: md:scanner_data?motherduck_token=***
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+DEBUG ALL_SCANNERS: A has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: AAPL has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: ALGN has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61469 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+DEBUG ALL_SCANNERS: A has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: AAPL has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: ALGN has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+DEBUG CHECK: ICLR picked_by_scanners=""
+DEBUG CHECK: ACHC picked_by_scanners=""
+DEBUG CHECK: PDD picked_by_scanners=""
+Filtered to 0 stocks confirmed by other scanners (checked 72 symbols)
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61469 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength=&confirmed_only=yes HTTP/1.1" 200 OK
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+DEBUG ALL_SCANNERS: A has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: AAPL has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: ADMA has 2 scanners: ['candlestick_continuation', 'fundamental_swing']
+Loaded all scanners for 119 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAL confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'candlestick_bullish', 'cup_and_handle']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_bullish', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+DEBUG CHECK: VFC picked_by_scanners=""
+DEBUG CHECK: GLOB picked_by_scanners=""
+DEBUG CHECK: INSP picked_by_scanners=""
+Filtered to 0 stocks confirmed by other scanners (checked 119 symbols)
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61497 - "GET /?pattern=candlestick_continuation&confirmed_only=yes HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [98912]
+INFO:     Started server process [99340]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [99340]
+INFO:     Started server process [99352]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+DEBUG: motherduck_token found: True
+INFO: Connecting to MotherDuck production database
+INFO: Database path: md:scanner_data?motherduck_token=***
+INFO: Database path configured: md:scanner_data?motherduck_token=***
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+DEBUG ALL_SCANNERS: A has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: AAPL has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: ADMA has 2 scanners: ['candlestick_continuation', 'fundamental_swing']
+Loaded all scanners for 119 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAL confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'candlestick_bullish', 'cup_and_handle']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_bullish', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+DEBUG CHECK: VFC picked_by_scanners=""
+DEBUG CHECK: GLOB picked_by_scanners=""
+DEBUG CHECK: INSP picked_by_scanners=""
+Filtered to 0 stocks confirmed by other scanners (checked 119 symbols)
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61598 - "GET /?pattern=candlestick_continuation&confirmed_only=yes HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [99352]
+INFO:     Started server process [99700]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+DEBUG: motherduck_token found: True
+INFO: Connecting to MotherDuck production database
+INFO: Database path: md:scanner_data?motherduck_token=***
+INFO: Database path configured: md:scanner_data?motherduck_token=***
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+DEBUG ALL_SCANNERS: A has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: AAPL has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: ADMA has 2 scanners: ['candlestick_continuation', 'fundamental_swing']
+DEBUG: all_scanners_dict has 37 multi-scanner symbols and 82 single-scanner symbols
+Loaded all scanners for 119 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAL confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'candlestick_bullish', 'cup_and_handle']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_bullish', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+DEBUG CHECK: VFC picked_by_scanners=""
+DEBUG CHECK: GLOB picked_by_scanners=""
+DEBUG CHECK: INSP picked_by_scanners=""
+Filtered to 0 stocks confirmed by other scanners (checked 119 symbols)
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61652 - "GET /?pattern=candlestick_continuation&confirmed_only=yes HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [99700]
+INFO:     Started server process [141]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+DEBUG: motherduck_token found: True
+INFO: Connecting to MotherDuck production database
+INFO: Database path: md:scanner_data?motherduck_token=***
+INFO: Database path configured: md:scanner_data?motherduck_token=***
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+DEBUG ALL_SCANNERS: A has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: AAPL has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: ADMA has 2 scanners: ['candlestick_continuation', 'fundamental_swing']
+DEBUG: all_scanners_dict has 37 multi-scanner symbols and 82 single-scanner symbols
+Loaded all scanners for 119 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAL confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'candlestick_bullish', 'cup_and_handle']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_bullish', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+DEBUG CHECK: VFC picked_by_scanners=""
+DEBUG CHECK: GLOB picked_by_scanners=""
+DEBUG CHECK: INSP picked_by_scanners=""
+Filtered to 0 stocks confirmed by other scanners (checked 119 symbols)
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61700 - "GET /?pattern=candlestick_continuation&confirmed_only=yes HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [141]
+INFO:     Started server process [683]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+DEBUG: motherduck_token found: True
+INFO: Connecting to MotherDuck production database
+INFO: Database path: md:scanner_data?motherduck_token=***
+INFO: Database path configured: md:scanner_data?motherduck_token=***
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+DEBUG ALL_SCANNERS: A has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: AAPL has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: ADMA has 2 scanners: ['candlestick_continuation', 'fundamental_swing']
+DEBUG: all_scanners_dict has 37 multi-scanner symbols and 82 single-scanner symbols
+Loaded all scanners for 119 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAL confirmed by: ['candlestick_bullish', 'candlestick_bullish', 'candlestick_bullish', 'cup_and_handle']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_bullish', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 119 symbols
+DEBUG ASSIGN: VFC -> "candlestick_continuation,supertrend"
+DEBUG ASSIGN: GLOB -> "candlestick_continuation"
+DEBUG ASSIGN: INSP -> "candlestick_bullish,candlestick_continuation"
+INFO: After processing, stocks dict has 119 symbols with pattern data
+DEBUG CHECK: VFC picked_by_scanners="candlestick_continuation,supertrend"
+DEBUG: VFC picked by 2 scanners: ['candlestick_continuation', 'supertrend']
+DEBUG CHECK: GLOB picked_by_scanners="candlestick_continuation"
+DEBUG CHECK: INSP picked_by_scanners="candlestick_bullish,candlestick_continuation"
+DEBUG: INSP picked by 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG: MEC picked by 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+Filtered to 37 stocks confirmed by other scanners (checked 119 symbols)
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61809 - "GET /?pattern=candlestick_continuation&confirmed_only=yes HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+DEBUG ALL_SCANNERS: A has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: AAPL has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG ALL_SCANNERS: ALGN has 2 scanners: ['candlestick_bullish', 'candlestick_continuation']
+DEBUG: all_scanners_dict has 31 multi-scanner symbols and 41 single-scanner symbols
+Loaded all scanners for 72 symbols on 2025-11-22
+DEBUG LOAD: A confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'wyckoff_accumulation', 'wyckoff_accumulation']
+DEBUG LOAD: AAON confirmed by: ['supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend', 'momentum_burst', 'supertrend']
+DEBUG LOAD: AAPL confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61844 - "GET /?ticker=&pattern=candlestick_bullish&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+Loading scanner results for: breakout
+Found 1 results for breakout
+Loaded volume data for 1 symbols in single query
+DEBUG ALL_SCANNERS: HLF has 2 scanners: ['breakout', 'candlestick_continuation']
+DEBUG: all_scanners_dict has 1 multi-scanner symbols and 0 single-scanner symbols
+Loaded all scanners for 1 symbols on 2025-11-22
+DEBUG LOAD: HLF confirmed by: ['candlestick_continuation']
+Loaded scanner confirmations for 1 symbols
+INFO: After processing, stocks dict has 1 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61864 - "GET /?ticker=&pattern=breakout&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+Loading scanner results for: momentum_burst
+Found 13 results for momentum_burst
+Loaded volume data for 13 symbols in single query
+DEBUG ALL_SCANNERS: BRBR has 2 scanners: ['momentum_burst', 'supertrend']
+DEBUG ALL_SCANNERS: JNPR has 2 scanners: ['candlestick_continuation', 'momentum_burst']
+DEBUG ALL_SCANNERS: MMS has 2 scanners: ['momentum_burst', 'supertrend']
+DEBUG: all_scanners_dict has 4 multi-scanner symbols and 9 single-scanner symbols
+Loaded all scanners for 13 symbols on 2025-11-22
+DEBUG LOAD: BRBR confirmed by: ['supertrend', 'candlestick_bullish', 'fundamental_swing', 'supertrend', 'candlestick_bullish', 'supertrend']
+DEBUG LOAD: CWAN confirmed by: ['fundamental_swing', 'supertrend', 'fundamental_swing', 'supertrend', 'candlestick_continuation', 'fundamental_swing', 'supertrend', 'accumulation_distribution']
+DEBUG LOAD: GOOG confirmed by: ['candlestick_continuation', 'candlestick_continuation', 'accumulation_distribution', 'accumulation_distribution']
+Loaded scanner confirmations for 9 symbols
+INFO: After processing, stocks dict has 13 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61872 - "GET /?ticker=&pattern=momentum_burst&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [683]
+INFO:     Started server process [1198]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+DEBUG: motherduck_token found: True
+INFO: Connecting to MotherDuck production database
+INFO: Database path: md:scanner_data?motherduck_token=***
+INFO: Database path configured: md:scanner_data?motherduck_token=***
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+Loaded all scanners for 119 symbols on 2025-11-22
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+Filtered to 37 stocks confirmed by other scanners
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61987 - "GET /?pattern=candlestick_continuation&confirmed_only=yes HTTP/1.1" 200 OK
+Loading scanner results for: supertrend
+Found 20 results for supertrend
+Loaded volume data for 20 symbols in single query
+Loaded all scanners for 20 symbols on 2025-11-22
+Loaded scanner confirmations for 14 symbols
+INFO: After processing, stocks dict has 20 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:61997 - "GET /?ticker=&pattern=supertrend&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_bullish
+Found 72 results for candlestick_bullish
+Loaded volume data for 72 symbols in single query
+Loaded all scanners for 72 symbols on 2025-11-22
+Loaded scanner confirmations for 72 symbols
+INFO: After processing, stocks dict has 72 symbols with pattern data
+Filtered to 31 stocks confirmed by other scanners
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:62044 - "GET /?pattern=candlestick_bullish&confirmed_only=yes HTTP/1.1" 200 OK
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: fundamental_swing
+Found 36 results for fundamental_swing
+Loaded volume data for 36 symbols in single query
+Loaded all scanners for 36 symbols on 2025-11-22
+Loaded scanner confirmations for 34 symbols
+INFO: After processing, stocks dict has 36 symbols with pattern data
+Filtered to 19 stocks confirmed by other scanners
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:62066 - "GET /?pattern=fundamental_swing&confirmed_only=yes HTTP/1.1" 200 OK
+INFO: Auto-selected latest scan date: 2025-11-22
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+Loaded all scanners for 119 symbols on 2025-11-22
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+Filtered to 37 stocks confirmed by other scanners
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:62085 - "GET /?pattern=candlestick_continuation&confirmed_only=yes&id=f5ea3c34-27ab-4723-b19e-28c422dce068&vscodeBrowserReqId=1763933510363 HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+Loaded all scanners for 119 symbols on 2025-11-22
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:62124 - "GET /?ticker=&pattern=candlestick_continuation&scan_date=2025-11-22&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+Loading scanner results for: candlestick_continuation
+Found 119 results for candlestick_continuation
+Loaded volume data for 119 symbols in single query
+Loaded all scanners for 119 symbols on 2025-11-22
+Loaded scanner confirmations for 119 symbols
+INFO: After processing, stocks dict has 119 symbols with pattern data
+Filtered to 37 stocks confirmed by other scanners
+INFO: Using selected date: 2025-11-22
+INFO: Found 7 scanners for date 2025-11-22
+INFO: Loaded 7 scanner patterns
+INFO: Loaded historical data for 17 dates and 13 scanners
+INFO:     127.0.0.1:62134 - "GET /?ticker=&pattern=candlestick_continuation&scan_date=2025-11-22&sector=&min_market_cap=&min_strength=&confirmed_only=yes HTTP/1.1" 200 OK

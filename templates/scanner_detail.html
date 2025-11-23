@@ -25,10 +25,11 @@
         }
         h2 {
             color: #34495e;
-            margin-top: 30px;
-            margin-bottom: 15px;
+            margin-top: 20px;
+            margin-bottom: 10px;
             border-left: 4px solid #3498db;
             padding-left: 15px;
+            font-size: 1.2em;
         }
         h3 {
             color: #7f8c8d;
@@ -62,17 +63,17 @@
         .stat-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
             text-align: center;
         }
         .stat-number {
-            font-size: 32px;
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
         .stat-label {
-            font-size: 14px;
+            font-size: 11px;
             opacity: 0.9;
         }
         table {
@@ -130,6 +131,7 @@
         
         <h1>{{ scanner_info.display_name }}</h1>
         
+        <h2>📊 All-Time Performance</h2>
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-number">{{ scanner_info.total_setups }}</div>
@@ -144,6 +146,81 @@
                 <div class="stat-label">Unique Stocks</div>
             </div>
         </div>
+
+        <h2>🔥 Recent Performance (30 Days)</h2>
+        <div class="stats-grid">
+            <div class="stat-card" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);">
+                <div class="stat-number">{{ scanner_info.recent_total }}</div>
+                <div class="stat-label">Recent Signals</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);">
+                <div class="stat-number">{{ scanner_info.recent_avg_strength }}</div>
+                <div class="stat-label">Recent Avg Strength</div>
+            </div>
+        </div>
+
+        {% if scanner_info.current_total > 0 %}
+        <h2>✨ Today's Active Signals</h2>
+        <div class="stats-grid">
+            <div class="stat-card" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
+                <div class="stat-number">{{ scanner_info.current_total }}</div>
+                <div class="stat-label">Active Today</div>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
+                <div class="stat-number">{{ scanner_info.current_avg_strength }}</div>
+                <div class="stat-label">Today's Avg Strength</div>
+            </div>
+        </div>
+        {% else %}
+        <div style="background: #f8f9fa; border-left: 4px solid #6c757d; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #6c757d; font-size: 1em;">No Current Active Signals</h3>
+            <p style="font-size: 0.9em; margin: 5px 0;">This scanner has no active signals from the latest scan.</p>
+        </div>
+        {% endif %}
+
+        <h2>📈 Signal Strength Distribution (All Time)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Quality Range</th>
+                    <th>Count</th>
+                    <th>Percentage</th>
+                    <th>Rating</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>90-100</td>
+                    <td>{{ scanner_info.excellent }}</td>
+                    <td>{{ "%.1f"|format((scanner_info.excellent / scanner_info.total_setups * 100) if scanner_info.total_setups > 0 else 0) }}%</td>
+                    <td><span style="background: #2ecc71; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">Excellent</span></td>
+                </tr>
+                <tr>
+                    <td>80-89</td>
+                    <td>{{ scanner_info.very_good }}</td>
+                    <td>{{ "%.1f"|format((scanner_info.very_good / scanner_info.total_setups * 100) if scanner_info.total_setups > 0 else 0) }}%</td>
+                    <td><span style="background: #3498db; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">Very Good</span></td>
+                </tr>
+                <tr>
+                    <td>70-79</td>
+                    <td>{{ scanner_info.good }}</td>
+                    <td>{{ "%.1f"|format((scanner_info.good / scanner_info.total_setups * 100) if scanner_info.total_setups > 0 else 0) }}%</td>
+                    <td><span style="background: #f39c12; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">Good</span></td>
+                </tr>
+                <tr>
+                    <td>60-69</td>
+                    <td>{{ scanner_info.fair }}</td>
+                    <td>{{ "%.1f"|format((scanner_info.fair / scanner_info.total_setups * 100) if scanner_info.total_setups > 0 else 0) }}%</td>
+                    <td><span style="background: #e67e22; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">Fair</span></td>
+                </tr>
+                <tr>
+                    <td>Below 60</td>
+                    <td>{{ scanner_info.weak }}</td>
+                    <td>{{ "%.1f"|format((scanner_info.weak / scanner_info.total_setups * 100) if scanner_info.total_setups > 0 else 0) }}%</td>
+                    <td><span style="background: #95a5a6; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">Weak</span></td>
+                </tr>
+            </tbody>
+        </table>
 
         {{ content|safe }}
     </div>
