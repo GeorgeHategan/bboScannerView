@@ -304,30 +304,48 @@
     </div>
     
     <script>
-        // Historical Line Chart
-        {% if scanner_history and scanner_history.dates %}
-        const historyCtx = document.getElementById('historyChart').getContext('2d');
-        const historyData = {{ scanner_history | tojson }};
-        
+        // Global color palette - consistent across all visualizations
         const chartColors = [
             '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
             '#FF9F40', '#E57373', '#81C784', '#FFD54F', '#64B5F6'
         ];
         
+        // Create a global scanner-to-color mapping
+        const scannerColorMap = {};
+        const allScannerNames = [
+            'candlestick_bullish', 'candlestick_continuation', 'momentum_burst',
+            'fundamental_swing', 'accumulation_distribution', 'volume_surge',
+            'breakout_scanner', 'swing_trade', 'day_trade', 'position_trade'
+        ];
+        
+        allScannerNames.forEach((name, index) => {
+            scannerColorMap[name] = chartColors[index % chartColors.length];
+        });
+        
+        // Helper function to get color by scanner name
+        function getScannerColor(scannerName) {
+            const normalized = scannerName.toLowerCase().replace(/ /g, '_');
+            return scannerColorMap[normalized] || chartColors[0];
+        }
+        
+        // Historical Line Chart
+        {% if scanner_history and scanner_history.dates %}
+        const historyCtx = document.getElementById('historyChart').getContext('2d');
+        const historyData = {{ scanner_history | tojson }};
+        
         const datasets = [];
-        let colorIndex = 0;
         
         for (const [scannerKey, scannerData] of Object.entries(historyData.scanners)) {
+            const color = getScannerColor(scannerKey);
             datasets.push({
                 label: scannerData.name,
                 data: scannerData.data,
-                borderColor: chartColors[colorIndex % chartColors.length],
-                backgroundColor: chartColors[colorIndex % chartColors.length],
+                borderColor: color,
+                backgroundColor: color,
                 borderWidth: 1,
                 fill: true,
                 tension: 0.4
             });
-            colorIndex++;
         }
         
         new Chart(historyCtx, {
@@ -405,10 +423,9 @@
         
         const labels = scannerData.map(item => item.name + ' (' + item.count + ')');
         const data = scannerData.map(item => item.count);
-        const colors = [
-            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-            '#FF9F40', '#E57373', '#81C784', '#FFD54F', '#64B5F6'
-        ];
+        
+        // Use the global color mapping function
+        const pieColors = scannerNames.map(name => getScannerColor(name));
         
         new Chart(ctx, {
             type: 'pie',
@@ -416,7 +433,7 @@
                 labels: labels,
                 datasets: [{
                     data: data,
-                    backgroundColor: colors.slice(0, data.length),
+                    backgroundColor: pieColors,
                     borderWidth: 2,
                     borderColor: '#fff'
                 }]
@@ -543,6 +560,14 @@
                         <div style="font-size: 10px; color: #666; padding: 2px 5px; font-weight: bold;">Scanner Detection Timeline:</div>
                         <div style="position: relative; height: 34px; margin: 0 5px;">
                             {% set colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E57373', '#81C784', '#FFD54F', '#64B5F6'] %}
+                            {% set scanner_color_map = {} %}
+                            {% set unique_scanners = [] %}
+                            {% for conf in stocks[stock][pattern + '_confirmations'] %}
+                                {% if conf.scanner not in unique_scanners %}
+                                    {% set _ = unique_scanners.append(conf.scanner) %}
+                                    {% set _ = scanner_color_map.update({conf.scanner: colors[unique_scanners|length - 1]}) %}
+                                {% endif %}
+                            {% endfor %}
                             {% for conf in stocks[stock][pattern + '_confirmations'] %}
                             {# Calculate position: chart shows ~9 months ending today (Nov 26), so Mar 1 = 0%, Nov 26 = 100% #}
                             {% set year = conf.date[0:4]|int %}
@@ -557,7 +582,7 @@
                             {% set position = [95, position]|min %}
                             {# Offset dots vertically if they overlap #}
                             {% set vertical_offset = (loop.index0 % 3) * 10 %}
-                            <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ colors[loop.index0 % colors|length] }}; border-radius: 50%; top: {{ 4 + vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: {{ 100 - loop.index0 }};" 
+                            <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ scanner_color_map[conf.scanner] }}; border-radius: 50%; top: {{ 4 + vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: {{ 100 - loop.index0 }};" 
                                  title="{{ conf.scanner.replace('_', ' ').title() }} - {{ conf.date }}"></div>
                             {% if loop.index0 < 3 or loop.index0 % 3 == 0 %}
                             <div style="position: absolute; left: {{ position }}%; font-size: 9px; color: #333; font-weight: bold; top: {{ 16 + vertical_offset }}px; transform: translateX(-50%); white-space: nowrap; background: rgba(255,255,255,0.8); padding: 0 2px; border-radius: 2px;">
@@ -627,8 +652,16 @@
                         <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
                         <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9;">
                         {% set colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E57373', '#81C784', '#FFD54F', '#64B5F6'] %}
+                        {% set scanner_color_map = {} %}
+                        {% set unique_scanners = [] %}
                         {% for conf in stocks[stock][pattern + '_confirmations'] %}
-                            <span style="color: {{ colors[loop.index0 % colors|length] }}; font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
+                            {% if conf.scanner not in unique_scanners %}
+                                {% set _ = unique_scanners.append(conf.scanner) %}
+                                {% set _ = scanner_color_map.update({conf.scanner: colors[unique_scanners|length - 1]}) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% for conf in stocks[stock][pattern + '_confirmations'] %}
+                            <span style="color: {{ scanner_color_map[conf.scanner] }}; font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
                             <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
                         {% endfor %}
                         </div>
