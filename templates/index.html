@@ -659,9 +659,9 @@
                                     {% set chart_end_day = 330 %}
                                     {% set days_from_chart_start = detection_day - chart_start_day %}
                                     {% set total_chart_days = chart_end_day - chart_start_day %}
-                                    {% set position = (days_from_chart_start / total_chart_days * 88) + 6 %}
+                                    {% set position = (days_from_chart_start / total_chart_days * 92) + 3 %}
                                     {% set position = [3, position]|max %}
-                                    {% set position = [97, position]|min %}
+                                    {% set position = [96, position]|min %}
                                     
                                     {# Stack dots vertically for same date #}
                                     {% for c in same_date_confs %}
