@@ -585,7 +585,7 @@
                                 {% set day = conf.date[8:10]|int %}
                                 {# Chart shows ~9 months: Mar to Nov #}
                                 {# Simple calculation: map month directly to position #}
-                                {# Mar(3)=2%, Apr(4)=13%, May(5)=24%, Jun(6)=35%, Jul(7)=46%, Aug(8)=57%, Sep(9)=68%, Oct(10)=79%, Nov(11)=88-95% #}
+                                {# Mar(3)=2%, Apr(4)=13%, May(5)=24%, Jun(6)=35%, Jul(7)=46%, Aug(8)=57%, Sep(9)=68%, Oct(10)=79%, Nov(11)=88-94% #}
                                 {% if month <= 3 %}
                                     {% set base_position = 2 %}
                                 {% elif month == 4 %}
@@ -603,20 +603,20 @@
                                 {% elif month == 10 %}
                                     {% set base_position = 79 %}
                                 {% else %}
-                                    {# November: map days 1-26 across 88-95% range (last bar at ~95%) #}
+                                    {# November: map days 1-26 across 88-94% range (last bar at ~94%) #}
                                     {% set base_position = 88 %}
                                 {% endif %}
                                 {# Add day offset within the month #}
                                 {% if month == 11 %}
-                                    {# For November, map day 1-26 to remaining 7% (88% to 95%) so Nov 26 = ~95% #}
-                                    {% set day_offset = (day / 26.0 * 7) %}
+                                    {# For November, map day 1-26 to remaining 6% (88% to 94%) so Nov 26 = ~94% #}
+                                    {% set day_offset = (day / 26.0 * 6) %}
                                 {% else %}
                                     {# Other months: each month gets ~11% of timeline #}
                                     {% set day_offset = (day / 30.0 * 10) %}
                                 {% endif %}
                                 {% set position = base_position + day_offset %}
                                 {% set position = [2, position]|max %}
-                                {% set position = [95, position]|min %}
+                                {% set position = [94, position]|min %}
                                 
                                 {# Stack dots vertically for same date #}
                                 {% for c in same_date_confs %}
@@ -624,11 +624,6 @@
                                 <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ scanner_colors[c.scanner] }}; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
                                      title="{{ c.scanner.replace('_', ' ').title() }} - {{ c.date }}"></div>
                                 {% endfor %}
-                                
-                                {# Show date label once per date group #}
-                                <div style="position: absolute; left: {{ position }}%; font-size: 9px; color: #333; font-weight: bold; top: {{ (same_date_confs|length * 12) + 2 }}px; transform: translateX(-50%); white-space: nowrap; background: rgba(255,255,255,0.9); padding: 1px 3px; border-radius: 2px; border: 1px solid #ddd;">
-                                    {{ conf.date[-5:] }}
-                                </div>
                             {% endif %}
                             {% endfor %}
                         </div>
