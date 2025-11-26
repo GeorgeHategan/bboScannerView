@@ -211,7 +211,13 @@
                             <div class="symbol" style="color: #0066cc; cursor: pointer;">{{ result.symbol }}</div>
                         </a>
                         <div style="font-size: 14px; color: #666; margin-top: 2px;">{{ result.company_name }}</div>
-                        <div class="scanner-name">{{ result.scanner_name.replace('_', ' ').title() }}</div>
+                        <div class="scanner-name">
+                            {% if result.scanner_name == 'volatility_macd' %}
+                                Volatility MACD
+                            {% else %}
+                                {{ result.scanner_name.replace('_', ' ').title() }}
+                            {% endif %}
+                        </div>
                             {% if result.picked_by_scanners %}
                                 {% set scanners = result.picked_by_scanners.split(',') %}
                                 {% if scanners|length > 1 %}

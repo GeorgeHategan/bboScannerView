@@ -134,8 +134,22 @@
         
         function handleTickerInput(event) {
             if (event.key === 'Enter') {
+                clearFiltersForTicker();
                 showLoading();
                 document.querySelector('form').submit();
+            }
+        }
+        
+        function clearFiltersForTicker() {
+            // Clear all filters when a ticker is selected
+            document.getElementById('patternSelect').value = '';
+            document.querySelector('select[name="scan_date"]').value = '';
+            document.querySelector('select[name="sector"]').value = '';
+            document.querySelector('select[name="min_market_cap"]').value = '';
+            document.querySelector('select[name="min_strength"]').value = '';
+            const confirmedCheckbox = document.querySelector('input[name="confirmed_only"]');
+            if (confirmedCheckbox) {
+                confirmedCheckbox.checked = false;
             }
         }
         
@@ -190,7 +204,7 @@
                         list="tickerList"
                         autocomplete="off"
                         onkeypress="handleTickerInput(event)"
-                        onchange="showLoading(); this.form.submit();"
+                        onchange="clearFiltersForTicker(); showLoading(); this.form.submit();"
                     >
                     <datalist id="tickerList">
                         {% for ticker in available_tickers %}
@@ -505,10 +519,11 @@
         <tr>
             <th>symbol</th>
             <th>company</th>
+            <th>scan date</th>
+            <th>price</th>
             {% if pattern %}<th>signal</th>{% else %}<th>scanner</th>{% endif %}
             <th>strength</th>
             <th>quality</th>
-            {% if not pattern %}<th>scan date</th>{% endif %}
         </tr>
         {% if pattern %}
         {# Pattern-based display: show all stocks with this pattern #}
@@ -516,7 +531,7 @@
             {% if stocks[stock][pattern] %}
             {% if not loop.first %}
             <tr class="result-separator">
-                <td colspan="6" style="padding:0;">
+                <td colspan="7" style="padding:0;">
                     <div style="height:1px;background:#e0e0e0;margin:32px 0 12px 0;"></div>
                 </td>
             </tr>
@@ -531,6 +546,17 @@
                 </td>
                 <td>
                     {{ stocks[stock]['company'] }}
+                </td>
+                <td>
+                    {{ stocks[stock].get(pattern + '_scan_date', 'N/A') }}
+                </td>
+                <td>
+                    {% set entry_price_key = pattern + '_entry_price' %}
+                    {% if stocks[stock].get(entry_price_key) is not none %}
+                        ${{ "%.2f"|format(stocks[stock][entry_price_key]) }}
+                    {% else %}
+                        N/A
+                    {% endif %}
                 </td>
                 <td class="{{ stocks[stock][pattern] }}">
                         {# For candlestick scanners, hide the generic signal type (like "bullish") and show pattern info instead #}
@@ -552,7 +578,7 @@
                     {{ stocks[stock][pattern + '_quality'] }}
                 </td>
             <tr>
-                <td colspan="3" style="position: relative;">
+                <td colspan="4" style="position: relative;">
                     <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
                     
                     {# Timeline showing scanner detection dates #}
@@ -630,7 +656,7 @@
                     </div>
                     {% endif %}
                 </td>
-                <td colspan="2" style="vertical-align: top; padding-left: 20px;">
+                <td colspan="3" style="vertical-align: top; padding-left: 20px;">
                     <div style="font-size: 14px; line-height: 1.8;">
                         <strong>Volume Analysis:</strong><br>
                         <strong>Volume:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}<br>
@@ -792,7 +818,7 @@
             </tr>
             {% if loop.last %}
             <tr class="result-separator-end">
-                <td colspan="5" style="padding:0;">
+                <td colspan="7" style="padding:0;">
                     <div style="height:1px;background:#e0e0e0;margin:32px 0 4px 0;"></div>
                 </td>
             </tr>
@@ -813,10 +839,18 @@
                         </a>
                     </td>
                     <td>{{ stocks[stock]['company'] }}</td>
+                    <td>{{ stocks[stock].get(key + '_scan_date', 'N/A') }}</td>
+                    <td>
+                        {% set entry_price_key = key + '_entry_price' %}
+                        {% if stocks[stock].get(entry_price_key) is not none %}
+                            ${{ "%.2f"|format(stocks[stock][entry_price_key]) }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
                     <td>{{ key.replace('_', ' ').title() }}</td>
                     <td class="strength">{{ stocks[stock].get(key + '_strength', 'N/A') }}</td>
                     <td>{{ stocks[stock].get(key + '_quality', 'N/A') }}</td>
-                    <td>{{ stocks[stock].get(key + '_scan_date', 'N/A') }}</td>
                 </tr>
                 {% endif %}
             {% endfor %}

@@ -7,9 +7,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from typing import Optional
+from authlib.integrations.starlette_client import OAuth, OAuthError
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Initialize OAuth
+oauth = OAuth()
 
 # HARDCODED SCANNER COLOR MAPPING - Single source of truth
 # This must match the JavaScript SCANNER_COLORS in index.html
@@ -70,40 +74,99 @@ PATTERN_WEIGHTS = {
 
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
+
+# Configure Google OAuth
+oauth.register(
+    name='google',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
+
 # Helper: get allowed emails from env
 def get_allowed_emails():
     return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
 
 # Dependency: require login and allowed email
 def require_login(request: Request):
-    email = request.session.get('email')
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authenticated')
+    
+    email = user.get('email')
     allowed = get_allowed_emails()
     if not email or email not in allowed:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authorized')
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Access denied - not in authorized user list')
     return email
 
-# Login page
+# Login page - redirect to Google OAuth
 @app.get('/login', response_class=HTMLResponse)
 async def login_form(request: Request):
+    # Check if user is already logged in
+    user = request.session.get('user')
+    if user:
+        email = user.get('email')
+        if email in get_allowed_emails():
+            return RedirectResponse('/', status_code=302)
+    
+    # Show login page with Google button
     return templates.TemplateResponse('login.html', {'request': request, 'error': None})
 
-# Login POST
-@app.post('/login', response_class=HTMLResponse)
-async def login_submit(request: Request, email: str = Form(...)):
-    allowed = get_allowed_emails()
-    print(f"DEBUG: Login attempt with email: '{email.strip()}'")
-    print(f"DEBUG: Allowed emails: {allowed}")
-    if email.strip() in allowed:
-        request.session['email'] = email.strip()
-        print(f"DEBUG: Login successful, redirecting to /")
+# Google OAuth login redirect
+@app.get('/auth/google')
+async def google_login(request: Request):
+    redirect_uri = request.url_for('google_callback')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+# Google OAuth callback
+@app.get('/auth/google/callback')
+async def google_callback(request: Request):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+        
+        if not user_info:
+            return templates.TemplateResponse('login.html', {
+                'request': request, 
+                'error': 'Failed to get user information from Google'
+            })
+        
+        email = user_info.get('email')
+        allowed = get_allowed_emails()
+        
+        print(f"DEBUG: Google OAuth callback - Email: {email}")
+        print(f"DEBUG: Allowed emails: {allowed}")
+        
+        if email not in allowed:
+            return templates.TemplateResponse('login.html', {
+                'request': request,
+                'error': f'Access denied. Email {email} is not authorized to access this application.'
+            })
+        
+        # Store user info in session
+        request.session['user'] = {
+            'email': email,
+            'name': user_info.get('name'),
+            'picture': user_info.get('picture')
+        }
+        
+        print(f"DEBUG: Login successful for {email}")
         return RedirectResponse('/', status_code=302)
-    print(f"DEBUG: Login failed - email not in allowed list")
-    return templates.TemplateResponse('login.html', {'request': request, 'error': 'Access denied'})
+        
+    except OAuthError as e:
+        print(f"ERROR: OAuth error: {e}")
+        return templates.TemplateResponse('login.html', {
+            'request': request,
+            'error': f'Authentication failed: {str(e)}'
+        })
 
 # Logout
 @app.get('/logout')
 async def logout(request: Request):
-    request.session.pop('email', None)
+    request.session.clear()
     return RedirectResponse('/login', status_code=302)
 
 # Setup templates
@@ -240,7 +303,7 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
 
 
 @app.get("/stats", response_class=HTMLResponse)
-async def stats(request: Request):  # email: str = Depends(require_login)):  # TODO: Re-enable login later
+async def stats(request: Request):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display database statistics landing page."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -489,7 +552,7 @@ async def scanner_performance(request: Request):
 
 
 @app.get("/scanner-docs", response_class=HTMLResponse)
-async def scanner_docs(request: Request):  # email: str = Depends(require_login)):  # TODO: Re-enable login later
+async def scanner_docs(request: Request):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display documentation landing page with all scanners."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -537,7 +600,7 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
 
 
 @app.get("/scanner-docs/{scanner_name}", response_class=HTMLResponse)
-async def scanner_detail(request: Request, scanner_name: str):  # email: str = Depends(require_login)):  # TODO: Re-enable login later
+async def scanner_detail(request: Request, scanner_name: str):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display detailed documentation for a specific scanner."""
     conn = duckdb.connect(DUCKDB_PATH, read_only=True)
     
@@ -1914,7 +1977,7 @@ def get_scanner_documentation(scanner_name):
 @app.get("/", response_class=HTMLResponse)
 async def index(
     request: Request,
-    # email: str = Depends(require_login),  # TODO: Re-enable login later
+    # email: str = Depends(require_login),  # TODO: Re-enable after OAuth setup
     min_market_cap: Optional[str] = Query(None),
     sector: Optional[str] = Query(None),
     min_strength: Optional[str] = Query(None),
@@ -2262,6 +2325,8 @@ async def index(
                         stocks[symbol][f'{pattern}_scan_date'] = scan_date
                         if entry_price is not None:
                             stocks[symbol][f'{pattern}_entry_price'] = entry_price
+                        else:
+                            stocks[symbol][f'{pattern}_entry_price'] = None
                         if picked_by_scanners is not None:
                             stocks[symbol][f'{pattern}_picked_count'] = picked_by_scanners
                         if setup_stage:
