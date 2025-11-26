@@ -561,6 +561,11 @@
                     <div style="position: relative; height: 65px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 5px;">
                         <div style="font-size: 10px; color: #666; font-weight: bold; margin-bottom: 3px;">📅 Scanner Detection Timeline:</div>
                         <div style="position: relative; height: 50px;">
+                            {# Add subtle vertical reference lines at 25%, 50%, 75% #}
+                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.1);"></div>
+                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.15);"></div>
+                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.1);"></div>
+                            
                             {# Sort and render dots by date #}
                             {% set ns = namespace(processed_dates=[]) %}
                             {% for conf in stocks[stock][pattern + '_confirmations'] | sort(attribute='date') %}
@@ -580,7 +585,7 @@
                                 {% set day = conf.date[8:10]|int %}
                                 {# Chart shows ~9 months: Mar to Nov #}
                                 {# Simple calculation: map month directly to position #}
-                                {# Mar(3)=2%, Apr(4)=13%, May(5)=24%, Jun(6)=35%, Jul(7)=46%, Aug(8)=57%, Sep(9)=68%, Oct(10)=79%, Nov(11)=88-93% #}
+                                {# Mar(3)=2%, Apr(4)=13%, May(5)=24%, Jun(6)=35%, Jul(7)=46%, Aug(8)=57%, Sep(9)=68%, Oct(10)=79%, Nov(11)=88-95% #}
                                 {% if month <= 3 %}
                                     {% set base_position = 2 %}
                                 {% elif month == 4 %}
@@ -598,20 +603,20 @@
                                 {% elif month == 10 %}
                                     {% set base_position = 79 %}
                                 {% else %}
-                                    {# November: map days 1-26 across 88-93% range (last bar at ~93%) #}
+                                    {# November: map days 1-26 across 88-95% range (last bar at ~95%) #}
                                     {% set base_position = 88 %}
                                 {% endif %}
                                 {# Add day offset within the month #}
                                 {% if month == 11 %}
-                                    {# For November, map day 1-26 to remaining 5% (88% to 93%) so Nov 26 = ~93% #}
-                                    {% set day_offset = (day / 26.0 * 5) %}
+                                    {# For November, map day 1-26 to remaining 7% (88% to 95%) so Nov 26 = ~95% #}
+                                    {% set day_offset = (day / 26.0 * 7) %}
                                 {% else %}
                                     {# Other months: each month gets ~11% of timeline #}
                                     {% set day_offset = (day / 30.0 * 10) %}
                                 {% endif %}
                                 {% set position = base_position + day_offset %}
                                 {% set position = [2, position]|max %}
-                                {% set position = [93, position]|min %}
+                                {% set position = [95, position]|min %}
                                 
                                 {# Stack dots vertically for same date #}
                                 {% for c in same_date_confs %}
