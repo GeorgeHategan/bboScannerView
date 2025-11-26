@@ -580,7 +580,7 @@
                                 {% set day = conf.date[8:10]|int %}
                                 {# Chart shows ~9 months: Mar to Nov #}
                                 {# Simple calculation: map month directly to position #}
-                                {# Mar(3)=0%, Apr(4)=11%, May(5)=22%, Jun(6)=33%, Jul(7)=44%, Aug(8)=56%, Sep(9)=67%, Oct(10)=78%, Nov(11)=89-98% #}
+                                {# Mar(3)=2%, Apr(4)=13%, May(5)=24%, Jun(6)=35%, Jul(7)=46%, Aug(8)=57%, Sep(9)=68%, Oct(10)=79%, Nov(11)=88-98% #}
                                 {% if month <= 3 %}
                                     {% set base_position = 2 %}
                                 {% elif month == 4 %}
@@ -598,10 +598,17 @@
                                 {% elif month == 10 %}
                                     {% set base_position = 79 %}
                                 {% else %}
-                                    {% set base_position = 90 %}
+                                    {# November: map days 1-26 across 88-98% range #}
+                                    {% set base_position = 88 %}
                                 {% endif %}
-                                {# Add day offset within the month (each month gets ~10% of timeline) #}
-                                {% set day_offset = (day / 30.0 * 10) %}
+                                {# Add day offset within the month #}
+                                {% if month == 11 %}
+                                    {# For November, map day 1-26 to remaining 10% (88% to 98%) #}
+                                    {% set day_offset = (day / 26.0 * 10) %}
+                                {% else %}
+                                    {# Other months: each month gets ~11% of timeline #}
+                                    {% set day_offset = (day / 30.0 * 10) %}
+                                {% endif %}
                                 {% set position = base_position + day_offset %}
                                 {% set position = [2, position]|max %}
                                 {% set position = [98, position]|min %}
