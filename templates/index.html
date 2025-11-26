@@ -306,16 +306,16 @@
     <script>
         // Global color palette - high contrast and easily distinguishable
         const chartColors = [
-            '#D68989', // Dusty Rose
-            '#6B9BD1', // Soft Blue
-            '#E8A657', // Soft Orange
-            '#7ABF7A', // Sage Green
-            '#B084CC', // Lavender
-            '#E6D55C', // Muted Yellow
-            '#5DBEBD', // Soft Teal
-            '#E67B9C', // Dusty Pink
-            '#A68A6D', // Taupe
-            '#6BA894'  // Seafoam Green
+            '#C83F5F', // Deep Pink/Red
+            '#4AAFD5', // Sky Blue (complementary to orange)
+            '#E88659', // Tiger Orange
+            '#71B379', // Sage Green
+            '#A254A1', // Plum Purple
+            '#F6C845', // Butterscotch Yellow
+            '#78589F', // Eggplant Purple
+            '#E26274', // Coral Pink
+            '#8B6914', // Dark Gold/Brown
+            '#5ADFDF'  // Bright Teal
         ];
         
         // Create a global scanner-to-color mapping
@@ -564,7 +564,7 @@
                     
                     {# Timeline showing scanner detection dates #}
                     {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
-                    {% set colors = ['#D68989', '#6B9BD1', '#E8A657', '#7ABF7A', '#B084CC', '#E6D55C', '#5DBEBD', '#E67B9C', '#A68A6D', '#6BA894'] %}
+                    {% set colors = ['#C83F5F', '#4AAFD5', '#E88659', '#71B379', '#A254A1', '#F6C845', '#78589F', '#E26274', '#8B6914', '#5ADFDF'] %}
                     {% set scanner_color_map = {} %}
                     {% set unique_scanners = [] %}
                     {% for conf in stocks[stock][pattern + '_confirmations'] %}
@@ -695,7 +695,7 @@
                         <br>
                         <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
                         <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9;">
-                        {% set colors = ['#D68989', '#6B9BD1', '#E8A657', '#7ABF7A', '#B084CC', '#E6D55C', '#5DBEBD', '#E67B9C', '#A68A6D', '#6BA894'] %}
+                        {% set colors = ['#C83F5F', '#4AAFD5', '#E88659', '#71B379', '#A254A1', '#F6C845', '#78589F', '#E26274', '#8B6914', '#5ADFDF'] %}
                         {% set scanner_color_map = {} %}
                         {% set unique_scanners = [] %}
                         {% for conf in stocks[stock][pattern + '_confirmations'] %}
