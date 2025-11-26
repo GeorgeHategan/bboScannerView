@@ -568,44 +568,50 @@
                                     {% set _ = scanner_color_map.update({conf.scanner: colors[unique_scanners|length - 1]}) %}
                                 {% endif %}
                             {% endfor %}
-                            {# Group confirmations by date #}
-                            {% set date_groups = {} %}
-                            {% for conf in stocks[stock][pattern + '_confirmations'] %}
-                                {% if conf.date not in date_groups %}
-                                    {% set _ = date_groups.update({conf.date: []}) %}
-                                {% endif %}
-                                {% set _ = date_groups[conf.date].append(conf) %}
-                            {% endfor %}
-                            {# Render dots grouped by date #}
-                            {% for date, confs in date_groups.items() %}
-                            {# Calculate position based on actual date - Finviz shows ~9 months ending today (Feb 26 to Nov 26) #}
-                            {% set year = date[0:4]|int %}
-                            {% set month = date[5:7]|int %}
-                            {% set day = date[8:10]|int %}
-                            {# Calculate day of year for accurate positioning #}
-                            {% set days_in_months = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] %}
-                            {% set detection_day = day %}
-                            {% for m in range(1, month) %}
-                                {% set detection_day = detection_day + days_in_months[m] %}
-                            {% endfor %}
-                            {# Chart spans Feb 26 (day 57) to Nov 26 (day 330) = 273 days #}
-                            {% set chart_start_day = 57 %}
-                            {% set chart_end_day = 330 %}
-                            {% set days_from_chart_start = detection_day - chart_start_day %}
-                            {% set total_chart_days = chart_end_day - chart_start_day %}
-                            {% set position = (days_from_chart_start / total_chart_days * 88) + 6 %}
-                            {% set position = [3, position]|max %}
-                            {% set position = [97, position]|min %}
-                            {# Stack dots vertically for same date #}
-                            {% for conf in confs %}
-                            {% set vertical_offset = loop.index0 * 12 %}
-                            <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ scanner_color_map[conf.scanner] }}; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
-                                 title="{{ conf.scanner.replace('_', ' ').title() }} - {{ conf.date }}"></div>
-                            {% endfor %}
-                            {# Show date label once per date group #}
-                            <div style="position: absolute; left: {{ position }}%; font-size: 9px; color: #333; font-weight: bold; top: {{ (confs|length * 12) + 2 }}px; transform: translateX(-50%); white-space: nowrap; background: rgba(255,255,255,0.9); padding: 1px 3px; border-radius: 2px; border: 1px solid #ddd;">
-                                {{ date[-5:] }}
-                            </div>
+                            {# Sort and render dots by date #}
+                            {% set ns = namespace(processed_dates=[]) %}
+                            {% for conf in stocks[stock][pattern + '_confirmations'] | sort(attribute='date') %}
+                            {% if conf.date not in ns.processed_dates %}
+                                {% set _ = ns.processed_dates.append(conf.date) %}
+                                {# Get all confirmations for this date #}
+                                {% set same_date_confs = [] %}
+                                {% for c in stocks[stock][pattern + '_confirmations'] %}
+                                    {% if c.date == conf.date %}
+                                        {% set _ = same_date_confs.append(c) %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {# Calculate position based on actual date #}
+                                {% set year = conf.date[0:4]|int %}
+                                {% set month = conf.date[5:7]|int %}
+                                {% set day = conf.date[8:10]|int %}
+                                {# Calculate day of year for accurate positioning #}
+                                {% set days_in_months = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] %}
+                                {% set detection_day = day %}
+                                {% for m in range(1, month) %}
+                                    {% set detection_day = detection_day + days_in_months[m] %}
+                                {% endfor %}
+                                {# Chart spans Feb 26 (day 57) to Nov 26 (day 330) = 273 days #}
+                                {% set chart_start_day = 57 %}
+                                {% set chart_end_day = 330 %}
+                                {% set days_from_chart_start = detection_day - chart_start_day %}
+                                {% set total_chart_days = chart_end_day - chart_start_day %}
+                                {% set position = (days_from_chart_start / total_chart_days * 88) + 6 %}
+                                {% set position = [3, position]|max %}
+                                {% set position = [97, position]|min %}
+                                
+                                {# Stack dots vertically for same date #}
+                                {% for c in same_date_confs %}
+                                {% set vertical_offset = loop.index0 * 12 %}
+                                <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ scanner_color_map[c.scanner] }}; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
+                                     title="{{ c.scanner.replace('_', ' ').title() }} - {{ c.date }}"></div>
+                                {% endfor %}
+                                
+                                {# Show date label once per date group #}
+                                <div style="position: absolute; left: {{ position }}%; font-size: 9px; color: #333; font-weight: bold; top: {{ (same_date_confs|length * 12) + 2 }}px; transform: translateX(-50%); white-space: nowrap; background: rgba(255,255,255,0.9); padding: 1px 3px; border-radius: 2px; border: 1px solid #ddd;">
+                                    {{ conf.date[-5:] }}
+                                </div>
+                            {% endif %}
                             {% endfor %}
                         </div>
                     </div>
