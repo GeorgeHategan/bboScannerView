@@ -539,23 +539,31 @@
                     
                     {# Timeline showing scanner detection dates #}
                     {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
-                    <div style="position: relative; height: 40px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px;">
+                    <div style="position: relative; height: 50px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px;">
                         <div style="font-size: 10px; color: #666; padding: 2px 5px; font-weight: bold;">Scanner Detection Timeline:</div>
-                        <div style="position: relative; height: 24px; margin: 0 5px;">
+                        <div style="position: relative; height: 34px; margin: 0 5px;">
                             {% set colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E57373', '#81C784', '#FFD54F', '#64B5F6'] %}
                             {% for conf in stocks[stock][pattern + '_confirmations'] %}
-                            {# Calculate position based on date (assuming 9 months of chart data, chart starts ~Feb, ends ~Nov) #}
+                            {# Calculate position: chart shows ~9 months ending today (Nov 26), so Mar 1 = 0%, Nov 26 = 100% #}
+                            {% set year = conf.date[0:4]|int %}
                             {% set month = conf.date[5:7]|int %}
                             {% set day = conf.date[8:10]|int %}
-                            {# Approximate position: Feb=0%, Nov=100% (9 months) #}
-                            {% set position = ((month - 2) * 100 / 9) + (day * 100 / 9 / 30) %}
+                            {# Days from March 1, 2025 (chart start) #}
+                            {% set chart_start_month = 3 %}
+                            {% set days_from_start = (month - chart_start_month) * 30 + day %}
+                            {% set total_days = 9 * 30 %}
+                            {% set position = (days_from_start / total_days * 90) + 5 %}
                             {% set position = [5, position]|max %}
                             {% set position = [95, position]|min %}
-                            <div style="position: absolute; left: {{ position }}%; width: 8px; height: 8px; background: {{ colors[loop.index0 % colors|length] }}; border-radius: 50%; top: 8px; border: 1px solid white;" 
+                            {# Offset dots vertically if they overlap #}
+                            {% set vertical_offset = (loop.index0 % 3) * 10 %}
+                            <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ colors[loop.index0 % colors|length] }}; border-radius: 50%; top: {{ 4 + vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: {{ 100 - loop.index0 }};" 
                                  title="{{ conf.scanner.replace('_', ' ').title() }} - {{ conf.date }}"></div>
-                            <div style="position: absolute; left: {{ position }}%; font-size: 8px; color: #666; top: 18px; transform: translateX(-50%) rotate(-45deg); white-space: nowrap; transform-origin: left bottom;">
+                            {% if loop.index0 < 3 or loop.index0 % 3 == 0 %}
+                            <div style="position: absolute; left: {{ position }}%; font-size: 9px; color: #333; font-weight: bold; top: {{ 16 + vertical_offset }}px; transform: translateX(-50%); white-space: nowrap; background: rgba(255,255,255,0.8); padding: 0 2px; border-radius: 2px;">
                                 {{ conf.date[-5:] }}
                             </div>
+                            {% endif %}
                             {% endfor %}
                         </div>
                     </div>
