@@ -585,20 +585,22 @@
                                 {% set year = conf.date[0:4]|int %}
                                 {% set month = conf.date[5:7]|int %}
                                 {% set day = conf.date[8:10]|int %}
-                                {# Calculate day of year for accurate positioning #}
+                                {# Chart shows Mar 1 to Nov 26 (Finviz default daily view = ~9 months) #}
+                                {# Calculate days from March 1 (day 60 of year) to detection date #}
                                 {% set days_in_months = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] %}
                                 {% set detection_day = day %}
                                 {% for m in range(1, month) %}
                                     {% set detection_day = detection_day + days_in_months[m] %}
                                 {% endfor %}
-                                {# Chart spans Feb 26 (day 57) to Nov 26 (day 330) = 273 days #}
-                                {% set chart_start_day = 57 %}
+                                {# Chart spans Mar 1 (day 60) to Nov 26 (day 330) = 270 days #}
+                                {% set chart_start_day = 60 %}
                                 {% set chart_end_day = 330 %}
                                 {% set days_from_chart_start = detection_day - chart_start_day %}
                                 {% set total_chart_days = chart_end_day - chart_start_day %}
-                                {% set position = (days_from_chart_start / total_chart_days * 92) + 3 %}
-                                {% set position = [3, position]|max %}
-                                {% set position = [96, position]|min %}
+                                {# Position from 2% (left edge) to 98% (right edge) #}
+                                {% set position = (days_from_chart_start / total_chart_days * 96) + 2 %}
+                                {% set position = [2, position]|max %}
+                                {% set position = [98, position]|min %}
                                 
                                 {# Stack dots vertically for same date #}
                                 {% for c in same_date_confs %}
