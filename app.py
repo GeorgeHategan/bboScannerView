@@ -18,18 +18,18 @@ oauth = OAuth()
 # HARDCODED SCANNER COLOR MAPPING - Single source of truth
 # This must match the JavaScript SCANNER_COLORS in index.html
 SCANNER_COLORS = {
-    'accumulation_distribution': '#C85A5A',  # Muted Red
-    'breakout':                  '#5A8FC8',  # Muted Blue
-    'bull_flag':                 '#D8905A',  # Muted Orange
-    'candlestick_bullish':       '#6BAA6B',  # Muted Green
-    'candlestick_continuation':  '#9A7BB8',  # Muted Purple
-    'cup_and_handle':            '#C8B857',  # Muted Gold
-    'fundamental_swing':         '#5AB3B3',  # Muted Teal
-    'golden_cross':              '#C76B9C',  # Muted Pink
-    'momentum_burst':            '#997A5A',  # Muted Brown
-    'supertrend':                '#6BB89E',  # Muted Mint
-    'tight_consolidation':       '#C85A5A',  # Muted Red
-    'volatility_macd':           '#5A8FC8',  # Muted Blue
+    'accumulation_distribution': '#F2AE7F',  # salmon
+    'breakout':                  '#96FFBD',  # florescent green
+    'bull_flag':                 '#DC3E26',  # bloodWeist
+    'candlestick_bullish':       '#CEE4B3',  # mint Green
+    'candlestick_continuation':  '#F9EC7E',  # blondeYello
+    'cup_and_handle':            '#D5CAE4',  # liiac
+    'fundamental_swing':         '#80C4B7',  # teal
+    'golden_cross':              '#9EE8E1',  # neonBlue
+    'momentum_burst':            '#EC6D67',  # colral
+    'supertrend':                '#4AAFD5',  # bkue
+    'tight_consolidation':       '#E59462',  # orangfe
+    'volatility_macd':           '#E3CCB2',  # beige
     'wyckoff':                   '#D8905A',  # Muted Orange
     'wyckoff_accumulation':      '#6BAA6B'   # Muted Green
 }

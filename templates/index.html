@@ -289,6 +289,33 @@
         </div>
     </div>
     
+    <script>
+        // HARDCODED SCANNER COLOR MAPPING - Single source of truth for all colors
+        // Edit this object to change any scanner's color throughout the entire page
+        const SCANNER_COLORS = {
+            'accumulation_distribution': '#F2AE7F',  // salmon
+            'breakout':                  '#96FFBD',  // florescent green
+            'bull_flag':                 '#DC3E26',  // bloodWeist
+            'candlestick_bullish':       '#CEE4B3',  // mint Green
+            'candlestick_continuation':  '#F9EC7E',  // blondeYello
+            'cup_and_handle':            '#D5CAE4',  // liiac
+            'fundamental_swing':         '#80C4B7',  // teal
+            'golden_cross':              '#9EE8E1',  // neonBlue
+            'momentum_burst':            '#EC6D67',  // colral
+            'supertrend':                '#4AAFD5',  // bkue
+            'tight_consolidation':       '#E59462',  // orangfe
+            'volatility_macd':           '#E3CCB2',  // beige
+            'wyckoff':                   '#D8905A',  // Muted Orange
+            'wyckoff_accumulation':      '#6BAA6B'   // Muted Green
+        };
+        
+        // Helper function to get color by scanner name
+        function getScannerColor(scannerName) {
+            const normalized = scannerName.toLowerCase().replace(/ /g, '_');
+            return SCANNER_COLORS[normalized] || '#999999'; // Default gray if scanner not found
+        }
+    </script>
+    
     <div style="padding: 0 20px;">
     {% if scanner_distribution and not pattern %}
     <div class="charts-wrapper">
@@ -318,31 +345,6 @@
     </div>
     
     <script>
-        // HARDCODED SCANNER COLOR MAPPING - Single source of truth for all colors
-        // Edit this object to change any scanner's color throughout the entire page
-        const SCANNER_COLORS = {
-            'accumulation_distribution': '#F2AE7F',  // salmon
-            'breakout':                  '#96FFBD',  // florescent green
-            'bull_flag':                 '#DC3E26',  // bloodWeist
-            'candlestick_bullish':       '#CEE4B3',  // mint Green
-            'candlestick_continuation':  '#F9EC7E',  // blondeYello 
-            'cup_and_handle':            '#D5CAE4',  // liiac
-            'fundamental_swing':         '#80C4B7',  // teal
-            'golden_cross':              '#9EE8E1,',  // neonBlue
-            'momentum_burst':            '#EC6D67',  // colral
-            'supertrend':                '#4AAFD5',  // bkue
-            'tight_consolidation':       '#E59462',  // orangfe
-            'volatility_macd':           '#E3CCB2',  // beige
-            'wyckoff':                   '#D8905A',  // Muted Orange
-            'wyckoff_accumulation':      '#6BAA6B'   // Muted Green
-        };
-        
-        // Helper function to get color by scanner name
-        function getScannerColor(scannerName) {
-            const normalized = scannerName.toLowerCase().replace(/ /g, '_');
-            return SCANNER_COLORS[normalized] || '#999999'; // Default gray if scanner not found
-        }
-        
         // Historical Line Chart
         {% if scanner_history and scanner_history.dates %}
         const historyCtx = document.getElementById('historyChart').getContext('2d');
@@ -652,14 +654,6 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <script>
-                        // Apply colors from JavaScript SCANNER_COLORS to timeline dots
-                        document.querySelectorAll('.timeline-dot').forEach(dot => {
-                            const scanner = dot.getAttribute('data-scanner');
-                            const color = getScannerColor(scanner);
-                            dot.style.backgroundColor = color;
-                        });
-                    </script>
                     {% endif %}
                 </td>
                 <td colspan="3" style="vertical-align: top; padding-left: 20px;">
@@ -718,10 +712,9 @@
                         {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
                         <br>
                         <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
-                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9;">
-                        {# Use the hardcoded SCANNER_COLORS mapping passed from backend #}
+                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9;">
                         {% for conf in stocks[stock][pattern + '_confirmations'] %}
-                            <span style="color: {{ scanner_colors[conf.scanner] }}; font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
+                            <span class="conf-dot" data-scanner="{{ conf.scanner }}" style="font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
                             <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
                         {% endfor %}
                         </div>
@@ -865,5 +858,24 @@
     </table>
     {% endif %}
     </div>
+    
+    <script>
+        // Apply SCANNER_COLORS to all timeline dots and confirmation dots after page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Color timeline dots
+            document.querySelectorAll('.timeline-dot').forEach(dot => {
+                const scanner = dot.getAttribute('data-scanner');
+                const color = getScannerColor(scanner);
+                dot.style.backgroundColor = color;
+            });
+            
+            // Color confirmation dots
+            document.querySelectorAll('.conf-dot').forEach(dot => {
+                const scanner = dot.getAttribute('data-scanner');
+                const color = getScannerColor(scanner);
+                dot.style.color = color;
+            });
+        });
+    </script>
 </body>
 </html>
