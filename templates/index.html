@@ -583,10 +583,8 @@
                     
                     {# Timeline showing scanner detection dates #}
                     {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
-                    {# Use the hardcoded SCANNER_COLORS mapping passed from backend #}
-                    <div style="position: relative; height: 65px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 5px;">
-                        <div style="font-size: 10px; color: #666; font-weight: bold; margin-bottom: 3px;">📅 Scanner Detection Timeline:</div>
-                        <div style="position: relative; height: 50px;">
+                    <div style="position: relative; height: 32px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 3px;">
+                        <div style="position: relative; height: 25px;">
                             {# Add subtle vertical reference lines at 25%, 50%, 75% #}
                             <div style="position: absolute; left: 25%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.1);"></div>
                             <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.15);"></div>
@@ -605,7 +603,7 @@
                                     {% endif %}
                                 {% endfor %}
                                 
-                                {# Calculate position based on actual date - Debug version #}
+                                {# Calculate position based on actual date #}
                                 {% set year = conf.date[0:4]|int %}
                                 {% set month = conf.date[5:7]|int %}
                                 {% set day = conf.date[8:10]|int %}
@@ -644,16 +642,24 @@
                                 {% set position = [2, position]|max %}
                                 {% set position = [94, position]|min %}
                                 
-                                {# Stack dots vertically for same date #}
+                                {# Stack dots vertically for same date - use JavaScript color mapping #}
                                 {% for c in same_date_confs %}
                                 {% set vertical_offset = loop.index0 * 12 %}
-                                <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ scanner_colors[c.scanner] }}; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
+                                <div class="timeline-dot" data-scanner="{{ c.scanner }}" style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
                                      title="{{ c.scanner.replace('_', ' ').title() }} - {{ c.date }}"></div>
                                 {% endfor %}
                             {% endif %}
                             {% endfor %}
                         </div>
                     </div>
+                    <script>
+                        // Apply colors from JavaScript SCANNER_COLORS to timeline dots
+                        document.querySelectorAll('.timeline-dot').forEach(dot => {
+                            const scanner = dot.getAttribute('data-scanner');
+                            const color = getScannerColor(scanner);
+                            dot.style.backgroundColor = color;
+                        });
+                    </script>
                     {% endif %}
                 </td>
                 <td colspan="3" style="vertical-align: top; padding-left: 20px;">
