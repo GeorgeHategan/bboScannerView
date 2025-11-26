@@ -304,47 +304,29 @@
     </div>
     
     <script>
-        // Global color palette - high contrast and easily distinguishable
-        const chartColors = [
-            '#C85A5A', // Muted Red
-            '#5A8FC8', // Muted Blue
-            '#D8905A', // Muted Orange
-            '#6BAA6B', // Muted Green
-            '#9A7BB8', // Muted Purple
-            '#C8B857', // Muted Gold
-            '#5AB3B3', // Muted Teal
-            '#C76B9C', // Muted Pink
-            '#997A5A', // Muted Brown
-            '#6BB89E'  // Muted Mint
-        ];
-        
-        // Create a global scanner-to-color mapping
-        const scannerColorMap = {};
-        const allScannerNames = [
-            'accumulation_distribution',
-            'breakout',
-            'bull_flag',
-            'candlestick_bullish',
-            'candlestick_continuation',
-            'cup_and_handle',
-            'fundamental_swing',
-            'golden_cross',
-            'momentum_burst',
-            'supertrend',
-            'tight_consolidation',
-            'volatility_macd',
-            'wyckoff',
-            'wyckoff_accumulation'
-        ];
-        
-        allScannerNames.forEach((name, index) => {
-            scannerColorMap[name] = chartColors[index % chartColors.length];
-        });
+        // HARDCODED SCANNER COLOR MAPPING - Single source of truth for all colors
+        // Edit this object to change any scanner's color throughout the entire page
+        const SCANNER_COLORS = {
+            'accumulation_distribution': '#F2EC9B',  // sunshineYello
+            'breakout':                  '#96FFBD',  // florescent green
+            'bull_flag':                 '#D8905A',  // Muted Orange
+            'candlestick_bullish':       '#6BAA6B',  // Muted Green
+            'candlestick_continuation':  '#F9EC7E',  // blondeYello 
+            'cup_and_handle':            '#D5CAE4',  // liiac
+            'fundamental_swing':         '#80C4B7',  // teal
+            'golden_cross':              '#C76B9C',  // Muted Pink
+            'momentum_burst':            '#997A5A',  // Muted Brown
+            'supertrend':                '#4AAFD5',  // bkue
+            'tight_consolidation':       '#E59462',  // orangfe
+            'volatility_macd':           '#E3CCB2',  // beige
+            'wyckoff':                   '#D8905A',  // Muted Orange
+            'wyckoff_accumulation':      '#6BAA6B'   // Muted Green
+        };
         
         // Helper function to get color by scanner name
         function getScannerColor(scannerName) {
             const normalized = scannerName.toLowerCase().replace(/ /g, '_');
-            return scannerColorMap[normalized] || chartColors[0];
+            return SCANNER_COLORS[normalized] || '#999999'; // Default gray if scanner not found
         }
         
         // Historical Line Chart
@@ -575,15 +557,7 @@
                     
                     {# Timeline showing scanner detection dates #}
                     {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
-                    {% set colors = ['#C85A5A', '#5A8FC8', '#D8905A', '#6BAA6B', '#9A7BB8', '#C8B857', '#5AB3B3', '#C76B9C', '#997A5A', '#6BB89E'] %}
-                    {% set scanner_color_map = {} %}
-                    {% set unique_scanners = [] %}
-                    {% for conf in stocks[stock][pattern + '_confirmations'] %}
-                        {% if conf.scanner not in unique_scanners %}
-                            {% set _ = unique_scanners.append(conf.scanner) %}
-                            {% set _ = scanner_color_map.update({conf.scanner: colors[unique_scanners|length - 1]}) %}
-                        {% endif %}
-                    {% endfor %}
+                    {# Use the hardcoded SCANNER_COLORS mapping passed from backend #}
                     <div style="position: relative; height: 65px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 5px;">
                         <div style="font-size: 10px; color: #666; font-weight: bold; margin-bottom: 3px;">📅 Scanner Detection Timeline:</div>
                         <div style="position: relative; height: 50px;">
@@ -635,7 +609,7 @@
                                 {# Stack dots vertically for same date #}
                                 {% for c in same_date_confs %}
                                 {% set vertical_offset = loop.index0 * 12 %}
-                                <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ scanner_color_map[c.scanner] }}; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
+                                <div style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; background: {{ scanner_colors[c.scanner] }}; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
                                      title="{{ c.scanner.replace('_', ' ').title() }} - {{ c.date }}"></div>
                                 {% endfor %}
                                 
@@ -706,17 +680,9 @@
                         <br>
                         <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
                         <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9;">
-                        {% set colors = ['#C85A5A', '#5A8FC8', '#D8905A', '#6BAA6B', '#9A7BB8', '#C8B857', '#5AB3B3', '#C76B9C', '#997A5A', '#6BB89E'] %}
-                        {% set scanner_color_map = {} %}
-                        {% set unique_scanners = [] %}
+                        {# Use the hardcoded SCANNER_COLORS mapping passed from backend #}
                         {% for conf in stocks[stock][pattern + '_confirmations'] %}
-                            {% if conf.scanner not in unique_scanners %}
-                                {% set _ = unique_scanners.append(conf.scanner) %}
-                                {% set _ = scanner_color_map.update({conf.scanner: colors[unique_scanners|length - 1]}) %}
-                            {% endif %}
-                        {% endfor %}
-                        {% for conf in stocks[stock][pattern + '_confirmations'] %}
-                            <span style="color: {{ scanner_color_map[conf.scanner] }}; font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
+                            <span style="color: {{ scanner_colors[conf.scanner] }}; font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
                             <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
                         {% endfor %}
                         </div>

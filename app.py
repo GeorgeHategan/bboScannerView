@@ -11,6 +11,25 @@ from typing import Optional
 # Load environment variables from .env file
 load_dotenv()
 
+# HARDCODED SCANNER COLOR MAPPING - Single source of truth
+# This must match the JavaScript SCANNER_COLORS in index.html
+SCANNER_COLORS = {
+    'accumulation_distribution': '#C85A5A',  # Muted Red
+    'breakout':                  '#5A8FC8',  # Muted Blue
+    'bull_flag':                 '#D8905A',  # Muted Orange
+    'candlestick_bullish':       '#6BAA6B',  # Muted Green
+    'candlestick_continuation':  '#9A7BB8',  # Muted Purple
+    'cup_and_handle':            '#C8B857',  # Muted Gold
+    'fundamental_swing':         '#5AB3B3',  # Muted Teal
+    'golden_cross':              '#C76B9C',  # Muted Pink
+    'momentum_burst':            '#997A5A',  # Muted Brown
+    'supertrend':                '#6BB89E',  # Muted Mint
+    'tight_consolidation':       '#C85A5A',  # Muted Red
+    'volatility_macd':           '#5A8FC8',  # Muted Blue
+    'wyckoff':                   '#D8905A',  # Muted Orange
+    'wyckoff_accumulation':      '#6BAA6B'   # Muted Green
+}
+
 # Candlestick pattern strength weights (out of 10)
 PATTERN_WEIGHTS = {
     # Strong reversal patterns (8-10)
@@ -2636,7 +2655,8 @@ async def index(
         'confirmed_only': confirmed_only,
         'last_updated': last_updated,
         'scanner_distribution': scanner_distribution,
-        'scanner_history': scanner_history
+        'scanner_history': scanner_history,
+        'scanner_colors': SCANNER_COLORS  # Pass hardcoded color mapping to template
     })
 
 
