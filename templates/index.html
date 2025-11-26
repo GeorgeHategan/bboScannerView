@@ -581,24 +581,35 @@
                                     {% endif %}
                                 {% endfor %}
                                 
-                                {# Calculate position based on actual date #}
+                                {# Calculate position based on actual date - Debug version #}
                                 {% set year = conf.date[0:4]|int %}
                                 {% set month = conf.date[5:7]|int %}
                                 {% set day = conf.date[8:10]|int %}
-                                {# Chart shows Mar 1 to Nov 26 (Finviz default daily view = ~9 months) #}
-                                {# Calculate days from March 1 (day 60 of year) to detection date #}
-                                {% set days_in_months = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] %}
-                                {% set detection_day = day %}
-                                {% for m in range(1, month) %}
-                                    {% set detection_day = detection_day + days_in_months[m] %}
-                                {% endfor %}
-                                {# Chart spans Mar 1 (day 60) to Nov 26 (day 330) = 270 days #}
-                                {% set chart_start_day = 60 %}
-                                {% set chart_end_day = 330 %}
-                                {% set days_from_chart_start = detection_day - chart_start_day %}
-                                {% set total_chart_days = chart_end_day - chart_start_day %}
-                                {# Position from 2% (left edge) to 98% (right edge) #}
-                                {% set position = (days_from_chart_start / total_chart_days * 96) + 2 %}
+                                {# Chart shows ~9 months: Mar to Nov #}
+                                {# Simple calculation: map month directly to position #}
+                                {# Mar(3)=0%, Apr(4)=11%, May(5)=22%, Jun(6)=33%, Jul(7)=44%, Aug(8)=56%, Sep(9)=67%, Oct(10)=78%, Nov(11)=89-98% #}
+                                {% if month <= 3 %}
+                                    {% set base_position = 2 %}
+                                {% elif month == 4 %}
+                                    {% set base_position = 13 %}
+                                {% elif month == 5 %}
+                                    {% set base_position = 24 %}
+                                {% elif month == 6 %}
+                                    {% set base_position = 35 %}
+                                {% elif month == 7 %}
+                                    {% set base_position = 46 %}
+                                {% elif month == 8 %}
+                                    {% set base_position = 57 %}
+                                {% elif month == 9 %}
+                                    {% set base_position = 68 %}
+                                {% elif month == 10 %}
+                                    {% set base_position = 79 %}
+                                {% else %}
+                                    {% set base_position = 90 %}
+                                {% endif %}
+                                {# Add day offset within the month (each month gets ~10% of timeline) #}
+                                {% set day_offset = (day / 30.0 * 10) %}
+                                {% set position = base_position + day_offset %}
                                 {% set position = [2, position]|max %}
                                 {% set position = [98, position]|min %}
                                 
