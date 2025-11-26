@@ -592,15 +592,12 @@
                         
                         {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
                         <br>
-                        <strong>✓ Confirmed by other scanners:</strong><br>
-                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6;">
-                        {% for conf in stocks[stock][pattern + '_confirmations'][:5] %}
+                        <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
+                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9;">
+                        {% for conf in stocks[stock][pattern + '_confirmations'] %}
                             • <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
                             <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
                         {% endfor %}
-                        {% if stocks[stock][pattern + '_confirmations']|length > 5 %}
-                            <span style="color: #999;">... and {{ stocks[stock][pattern + '_confirmations']|length - 5 }} more</span>
-                        {% endif %}
                         </div>
                         {% endif %}
                         
