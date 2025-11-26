@@ -534,8 +534,24 @@
                     {{ stocks[stock][pattern + '_quality'] }}
                 </td>
             <tr>
-                <td colspan="3">
-                    <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" />
+                <td colspan="3" style="position: relative;">
+                    <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
+                    
+                    {# Timeline showing scanner detection dates #}
+                    {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
+                    <div style="position: relative; height: 40px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px;">
+                        <div style="font-size: 10px; color: #666; padding: 2px 5px; font-weight: bold;">Scanner Detection Timeline:</div>
+                        <div style="position: relative; height: 24px; margin: 0 5px;">
+                            {% for conf in stocks[stock][pattern + '_confirmations'] %}
+                            <div style="position: absolute; left: {{ loop.index0 * 8 }}%; width: 6px; height: 6px; background: #0066cc; border-radius: 50%; top: 8px;" 
+                                 title="{{ conf.scanner.replace('_', ' ').title() }} - {{ conf.date }}"></div>
+                            <div style="position: absolute; left: {{ loop.index0 * 8 }}%; font-size: 8px; color: #666; top: 16px; transform: rotate(-45deg); white-space: nowrap;">
+                                {{ conf.date[-5:] }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </td>
                 <td colspan="2" style="vertical-align: top; padding-left: 20px;">
                     <div style="font-size: 14px; line-height: 1.8;">
