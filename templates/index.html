@@ -585,8 +585,8 @@
                     
                     {# Timeline showing scanner detection dates #}
                     {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
-                    <div style="position: relative; height: 32px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 3px;">
-                        <div style="position: relative; height: 25px;">
+                    <div style="position: relative; height: 36px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 3px;">
+                        <div style="position: relative; height: 29px;">
                             {# Add subtle vertical reference lines at 25%, 50%, 75% #}
                             <div style="position: absolute; left: 25%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.1);"></div>
                             <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.15);"></div>
@@ -610,51 +610,51 @@
                                 {% set month = conf.date[5:7]|int %}
                                 {% set day = conf.date[8:10]|int %}
                                 
-                                {# Finviz chart timeline: Mar 1 (start) to Nov 26 (end) = ~9 months, ~198 trading days #}
-                                {# Each month has ~22 trading days (5 days/week * 4.4 weeks) #}
-                                {# Timeline positions: Mar=0-11%, Apr=11-22%, May=22-33%, Jun=33-44%, Jul=44-56%, Aug=56-67%, Sep=67-78%, Oct=78-89%, Nov=89-100% #}
+                                {# Finviz chart timeline: Mar 1 (start, 0%) to Nov 26 (today, ~96%) = ~9 months #}
+                                {# Adjusting so Nov 5-6 aligns with start of November section on chart #}
+                                {# Timeline positions: Mar=0-10.5%, Apr=10.5-21%, May=21-31.5%, Jun=31.5-42%, Jul=42-52.5%, Aug=52.5-63%, Sep=63-73.5%, Oct=73.5-85.5%, Nov=85.5-96% #}
                                 
-                                {# Month start positions on timeline (approximate based on trading days) #}
+                                {# Month start positions on timeline #}
                                 {% if month == 3 %}
                                     {% set month_start = 0 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_width = 10.5 %}
                                     {% set trading_days_in_month = 21 %}
                                 {% elif month == 4 %}
-                                    {% set month_start = 11 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_start = 10.5 %}
+                                    {% set month_width = 10.5 %}
                                     {% set trading_days_in_month = 22 %}
                                 {% elif month == 5 %}
-                                    {% set month_start = 22 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_start = 21 %}
+                                    {% set month_width = 10.5 %}
                                     {% set trading_days_in_month = 22 %}
                                 {% elif month == 6 %}
-                                    {% set month_start = 33 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_start = 31.5 %}
+                                    {% set month_width = 10.5 %}
                                     {% set trading_days_in_month = 21 %}
                                 {% elif month == 7 %}
-                                    {% set month_start = 44 %}
-                                    {% set month_width = 12 %}
+                                    {% set month_start = 42 %}
+                                    {% set month_width = 10.5 %}
                                     {% set trading_days_in_month = 23 %}
                                 {% elif month == 8 %}
-                                    {% set month_start = 56 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_start = 52.5 %}
+                                    {% set month_width = 10.5 %}
                                     {% set trading_days_in_month = 22 %}
                                 {% elif month == 9 %}
-                                    {% set month_start = 67 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_start = 63 %}
+                                    {% set month_width = 10.5 %}
                                     {% set trading_days_in_month = 21 %}
                                 {% elif month == 10 %}
-                                    {% set month_start = 78 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_start = 73.5 %}
+                                    {% set month_width = 13.1 %}
                                     {% set trading_days_in_month = 23 %}
                                 {% elif month == 11 %}
-                                    {% set month_start = 89 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_start = 86.6 %}
+                                    {% set month_width = 9.4 %}
                                     {% set trading_days_in_month = 19 %}
                                 {% else %}
                                     {# Default for other months (shouldn't happen) #}
                                     {% set month_start = 0 %}
-                                    {% set month_width = 11 %}
+                                    {% set month_width = 10.5 %}
                                     {% set trading_days_in_month = 22 %}
                                 {% endif %}
                                 
@@ -666,7 +666,7 @@
                                 
                                 {# Clamp to valid range #}
                                 {% set position = [0, position]|max %}
-                                {% set position = [100, position]|min %}
+                                {% set position = [96, position]|min %}
                                 
                                 {# Stack dots vertically for same date - use JavaScript color mapping #}
                                 {% for c in same_date_confs %}
