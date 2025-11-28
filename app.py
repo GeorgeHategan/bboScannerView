@@ -2623,6 +2623,7 @@ async def index(
         
         # Fetch options walls data for each symbol (from options_data database)
         # Filter by selected scan date if one is chosen, otherwise get latest
+        # Note: Scanner runs after market close, so walls should be from previous trading day
         options_walls_dict = {}
         if symbols_list and OPTIONS_DUCKDB_PATH:
             try:
@@ -2630,7 +2631,8 @@ async def index(
                 if options_conn:
                     placeholders = ','.join(['?' for _ in symbols_list])
                     
-                    # If a specific scan date is selected, filter walls by that date
+                    # If a specific scan date is selected, get walls from the previous trading day
+                    # (scanner analyzes data from previous day's close)
                     if selected_scan_date:
                         walls_query = f'''
                             SELECT underlying_symbol, scan_date, stock_price,
@@ -2643,8 +2645,8 @@ async def index(
                                    total_call_oi, total_put_oi, put_call_ratio
                             FROM options_walls
                             WHERE underlying_symbol IN ({placeholders})
-                            AND CAST(scan_date AS DATE) = CAST(? AS DATE)
-                            ORDER BY underlying_symbol
+                            AND CAST(scan_date AS DATE) < CAST(? AS DATE)
+                            ORDER BY underlying_symbol, scan_date DESC
                         '''
                         walls_results = options_conn.execute(
                             walls_query, symbols_list + [selected_scan_date]
