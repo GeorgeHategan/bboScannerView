@@ -2622,28 +2622,51 @@ async def index(
                 options_signals_dict = {}
         
         # Fetch options walls data for each symbol (from options_data database)
+        # Filter by selected scan date if one is chosen, otherwise get latest
         options_walls_dict = {}
         if symbols_list and OPTIONS_DUCKDB_PATH:
             try:
                 options_conn = get_options_db_connection()
                 if options_conn:
                     placeholders = ','.join(['?' for _ in symbols_list])
-                    walls_query = f'''
-                        SELECT underlying_symbol, scan_date, stock_price,
-                               call_wall_strike, call_wall_oi,
-                               call_wall_2_strike, call_wall_2_oi,
-                               call_wall_3_strike, call_wall_3_oi,
-                               put_wall_strike, put_wall_oi,
-                               put_wall_2_strike, put_wall_2_oi,
-                               put_wall_3_strike, put_wall_3_oi,
-                               total_call_oi, total_put_oi, put_call_ratio
-                        FROM options_walls
-                        WHERE underlying_symbol IN ({placeholders})
-                        ORDER BY underlying_symbol, scan_date DESC
-                    '''
-                    walls_results = options_conn.execute(
-                        walls_query, symbols_list
-                    ).fetchall()
+                    
+                    # If a specific scan date is selected, filter walls by that date
+                    if selected_scan_date:
+                        walls_query = f'''
+                            SELECT underlying_symbol, scan_date, stock_price,
+                                   call_wall_strike, call_wall_oi,
+                                   call_wall_2_strike, call_wall_2_oi,
+                                   call_wall_3_strike, call_wall_3_oi,
+                                   put_wall_strike, put_wall_oi,
+                                   put_wall_2_strike, put_wall_2_oi,
+                                   put_wall_3_strike, put_wall_3_oi,
+                                   total_call_oi, total_put_oi, put_call_ratio
+                            FROM options_walls
+                            WHERE underlying_symbol IN ({placeholders})
+                            AND CAST(scan_date AS DATE) = CAST(? AS DATE)
+                            ORDER BY underlying_symbol
+                        '''
+                        walls_results = options_conn.execute(
+                            walls_query, symbols_list + [selected_scan_date]
+                        ).fetchall()
+                    else:
+                        # No date selected - get latest walls per symbol
+                        walls_query = f'''
+                            SELECT underlying_symbol, scan_date, stock_price,
+                                   call_wall_strike, call_wall_oi,
+                                   call_wall_2_strike, call_wall_2_oi,
+                                   call_wall_3_strike, call_wall_3_oi,
+                                   put_wall_strike, put_wall_oi,
+                                   put_wall_2_strike, put_wall_2_oi,
+                                   put_wall_3_strike, put_wall_3_oi,
+                                   total_call_oi, total_put_oi, put_call_ratio
+                            FROM options_walls
+                            WHERE underlying_symbol IN ({placeholders})
+                            ORDER BY underlying_symbol, scan_date DESC
+                        '''
+                        walls_results = options_conn.execute(
+                            walls_query, symbols_list
+                        ).fetchall()
                     
                     for row in walls_results:
                         sym = row[0]
@@ -2682,7 +2705,8 @@ async def index(
                             }
                     
                     options_conn.close()
-                    print(f'Loaded options walls for {len(options_walls_dict)} symbols')
+                    date_info = f" for date {selected_scan_date}" if selected_scan_date else " (latest)"
+                    print(f'Loaded options walls for {len(options_walls_dict)} symbols{date_info}')
             except Exception as e:
                 print(f'Options walls query failed: {e}')
                 options_walls_dict = {}
