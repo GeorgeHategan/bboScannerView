@@ -1,0 +1,458 @@
+<html>
+<head>
+    <title>Options Accumulation Signals</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: arial; margin: 0; padding: 0; padding-top: 200px; background: #f5f5f5; }
+        .sticky-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            z-index: 1000;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .sticky-header-content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .nav-links {
+            display: flex;
+            gap: 10px;
+        }
+        .nav-links a {
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: normal;
+            border: 1px solid #ddd;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card.extreme { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+        .stat-card.very-high { background: linear-gradient(135deg, #f39c12 0%, #d68910 100%); }
+        .stat-card.high { background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); }
+        .stat-value { font-size: 1.8em; font-weight: bold; }
+        .stat-label { font-size: 0.9em; opacity: 0.9; margin-top: 5px; }
+        
+        .charts-wrapper {
+            display: flex;
+            gap: 20px;
+            margin: 20px;
+            flex-wrap: wrap;
+        }
+        .chart-box {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-box h3 { margin-top: 0; color: #333; font-size: 16px; }
+        
+        .signals-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            margin: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .signals-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 12px;
+        }
+        .signals-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .signals-table tr:hover { background: #f8f9fa; }
+        
+        .strength-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .strength-EXTREME { background: #e74c3c; color: white; }
+        .strength-VERY_HIGH { background: #f39c12; color: white; }
+        .strength-HIGH { background: #27ae60; color: white; }
+        .strength-MODERATE { background: #95a5a6; color: white; }
+        
+        .signal-type-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            background: #e8f4f8;
+            color: #2c5f7a;
+        }
+        
+        .symbol-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .symbol-link:hover { text-decoration: underline; }
+        
+        .premium-high { color: #27ae60; font-weight: bold; }
+        .premium-medium { color: #f39c12; }
+        .premium-low { color: #666; }
+        
+        .filters-form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .filters-form select, .filters-form input {
+            padding: 8px 12px;
+            font-size: 13px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: white;
+        }
+        .filters-form select:focus, .filters-form input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        
+        .top-symbols {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 20px;
+        }
+        .top-symbol-card {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 100px;
+        }
+        .top-symbol-card .symbol { font-weight: bold; color: #667eea; font-size: 16px; }
+        .top-symbol-card .premium { font-size: 12px; color: #27ae60; }
+        .top-symbol-card .count { font-size: 11px; color: #666; }
+        
+        .notes-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 11px;
+            color: #666;
+        }
+        .notes-cell:hover {
+            white-space: normal;
+            overflow: visible;
+        }
+        
+        .error-banner {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px 20px;
+            margin: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sticky-header">
+        <div class="sticky-header-content">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="margin: 0 0 5px 0;">📊 Options Accumulation Signals</h1>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                        Detecting unusual options activity and institutional accumulation patterns
+                    </p>
+                </div>
+                <div class="nav-links">
+                    <a href="/" style="background: #e8f4f8; color: #2c5f7a; border-color: #d0e5ed;">🔍 Scanners</a>
+                    <a href="/ranked" style="background: #f0f0f0; color: #666;">🏆 Top Ranked</a>
+                    <a href="/stats" style="background: #f3e5f5; color: #6a1b9a; border-color: #e1bee7;">📊 Stats</a>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <form method="GET" action="/options-signals" class="filters-form">
+                <select name="scan_date" onchange="this.form.submit()">
+                    <option value="">-- Select Date --</option>
+                    {% for date in available_dates %}
+                    <option value="{{ date }}" {% if selected_scan_date == date %}selected{% endif %}>{{ date }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="signal_strength" onchange="this.form.submit()">
+                    <option value="">-- All Strengths --</option>
+                    {% for strength in signal_strengths %}
+                    <option value="{{ strength }}" {% if selected_signal_strength == strength %}selected{% endif %}>{{ strength }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="signal_type" onchange="this.form.submit()">
+                    <option value="">-- All Signal Types --</option>
+                    {% for type in signal_types %}
+                    <option value="{{ type }}" {% if selected_signal_type == type %}selected{% endif %}>{{ type.replace('_', ' ').title() }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="sector" onchange="this.form.submit()">
+                    <option value="">-- All Sectors --</option>
+                    {% for sec in sectors %}
+                    <option value="{{ sec }}" {% if selected_sector == sec %}selected{% endif %}>{{ sec }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="asset_type" onchange="this.form.submit()">
+                    <option value="">-- Stocks & ETFs --</option>
+                    <option value="Stock" {% if selected_asset_type == 'Stock' %}selected{% endif %}>Stocks Only</option>
+                    <option value="ETF" {% if selected_asset_type == 'ETF' %}selected{% endif %}>ETFs Only</option>
+                </select>
+                
+                <input type="text" name="symbol" placeholder="🔍 Symbol..." 
+                       value="{{ selected_symbol or '' }}" 
+                       style="width: 100px; text-transform: uppercase;"
+                       onchange="this.form.submit()">
+                
+                <select name="min_confidence" onchange="this.form.submit()">
+                    <option value="">-- Min Confidence --</option>
+                    <option value="90" {% if selected_min_confidence == 90 %}selected{% endif %}>90+</option>
+                    <option value="80" {% if selected_min_confidence == 80 %}selected{% endif %}>80+</option>
+                    <option value="70" {% if selected_min_confidence == 70 %}selected{% endif %}>70+</option>
+                    <option value="60" {% if selected_min_confidence == 60 %}selected{% endif %}>60+</option>
+                </select>
+                
+                <a href="/options-signals" style="padding: 8px 15px; background: #e74c3c; color: white; border-radius: 5px; text-decoration: none; font-size: 13px;">Clear</a>
+            </form>
+        </div>
+    </div>
+    
+    {% if error %}
+    <div class="error-banner">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% else %}
+    
+    <!-- Stats Cards -->
+    <div style="padding: 0 20px;">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ "{:,}".format(stats.total_signals or 0) }}</div>
+                <div class="stat-label">Total Signals</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.unique_symbols or 0 }}</div>
+                <div class="stat-label">Unique Symbols</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${{ "{:,.0f}".format((stats.total_premium or 0) / 1000000) }}M</div>
+                <div class="stat-label">Total Premium</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.avg_confidence or 0 }}</div>
+                <div class="stat-label">Avg Confidence</div>
+            </div>
+            <div class="stat-card extreme">
+                <div class="stat-value">{{ stats.extreme_count or 0 }}</div>
+                <div class="stat-label">🔥 EXTREME</div>
+            </div>
+            <div class="stat-card very-high">
+                <div class="stat-value">{{ stats.very_high_count or 0 }}</div>
+                <div class="stat-label">⚡ VERY HIGH</div>
+            </div>
+            <div class="stat-card high">
+                <div class="stat-value">{{ stats.high_count or 0 }}</div>
+                <div class="stat-label">✓ HIGH</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Symbols by Premium -->
+    {% if top_symbols %}
+    <div style="padding: 0 20px;">
+        <h3 style="margin: 20px 0 10px 0; color: #333;">🏆 Top Symbols by Premium Spent</h3>
+        <div class="top-symbols">
+            {% for sym in top_symbols %}
+            <div class="top-symbol-card">
+                <a href="/options-signals?symbol={{ sym.symbol }}" class="symbol">{{ sym.symbol }}</a>
+                <div class="premium">${{ "{:,.0f}".format(sym.premium) }}</div>
+                <div class="count">{{ sym.count }} signals | Conf: {{ "%.0f"|format(sym.confidence) }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Charts -->
+    <div class="charts-wrapper">
+        <div class="chart-box">
+            <h3>📈 Signal Types Distribution</h3>
+            <canvas id="typeChart" style="max-height: 250px;"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>🎯 Signal Strength Distribution</h3>
+            <canvas id="strengthChart" style="max-height: 250px;"></canvas>
+        </div>
+    </div>
+    
+    <!-- Signals Table -->
+    <div style="padding: 0 20px; overflow-x: auto;">
+        <h3 style="margin: 20px 0 10px 0; color: #333;">
+            📋 Signals ({{ signals|length }} results)
+            {% if selected_scan_date %} - {{ selected_scan_date }}{% endif %}
+        </h3>
+        
+        {% if signals %}
+        <table class="signals-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Date</th>
+                    <th>Signal Type</th>
+                    <th>Strength</th>
+                    <th>Confidence</th>
+                    <th>Strike</th>
+                    <th>Stock Price</th>
+                    <th>DTE</th>
+                    <th>Volume</th>
+                    <th>Open Interest</th>
+                    <th>OI Change %</th>
+                    <th>Premium</th>
+                    <th>Sector</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for signal in signals %}
+                <tr>
+                    <td>
+                        <a href="https://www.tradingview.com/chart/?symbol={{ signal.underlying_symbol }}" 
+                           target="_blank" class="symbol-link">
+                            {{ signal.underlying_symbol }}
+                        </a>
+                        <span style="font-size: 10px; color: #999;">{{ signal.asset_type }}</span>
+                    </td>
+                    <td style="white-space: nowrap;">{{ signal.signal_date }}</td>
+                    <td><span class="signal-type-badge">{{ signal.signal_type.replace('_', ' ').title() }}</span></td>
+                    <td><span class="strength-badge strength-{{ signal.signal_strength }}">{{ signal.signal_strength }}</span></td>
+                    <td style="text-align: center; font-weight: bold;">{{ "%.0f"|format(signal.confidence_score) }}</td>
+                    <td>${{ "%.2f"|format(signal.strike) }}</td>
+                    <td>${{ "%.2f"|format(signal.stock_price) if signal.stock_price else 'N/A' }}</td>
+                    <td style="text-align: center;">
+                        {% if signal.dte <= 7 %}
+                        <span style="color: #e74c3c; font-weight: bold;">{{ signal.dte }}d</span>
+                        {% elif signal.dte <= 30 %}
+                        <span style="color: #f39c12;">{{ signal.dte }}d</span>
+                        {% else %}
+                        {{ signal.dte }}d
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">{{ "{:,}".format(signal.volume) }}</td>
+                    <td style="text-align: right;">{{ "{:,}".format(signal.curr_oi) }}</td>
+                    <td style="text-align: right;">
+                        {% if signal.oi_change_pct and signal.oi_change_pct > 0 %}
+                        <span style="color: #27ae60;">+{{ "%.1f"|format(signal.oi_change_pct * 100) }}%</span>
+                        {% elif signal.oi_change_pct %}
+                        <span style="color: #e74c3c;">{{ "%.1f"|format(signal.oi_change_pct * 100) }}%</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="{% if signal.premium_spent > 100000 %}premium-high{% elif signal.premium_spent > 10000 %}premium-medium{% else %}premium-low{% endif %}">
+                        ${{ "{:,.0f}".format(signal.premium_spent) }}
+                    </td>
+                    <td style="font-size: 11px;">{{ signal.sector }}</td>
+                    <td class="notes-cell" title="{{ signal.notes }}">{{ signal.notes[:60] }}{% if signal.notes|length > 60 %}...{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align: center; padding: 40px; background: white; border-radius: 8px; margin: 20px 0;">
+            <p style="color: #666; font-size: 16px;">No signals found for the selected filters.</p>
+            <a href="/options-signals" style="color: #667eea;">Clear filters</a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Charts JavaScript -->
+    <script>
+        // Signal Type Distribution Chart
+        const typeData = {{ type_distribution | tojson }};
+        if (typeData.length > 0) {
+            const typeCtx = document.getElementById('typeChart').getContext('2d');
+            new Chart(typeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: typeData.map(d => d.name.replace(/_/g, ' ')),
+                    datasets: [{
+                        data: typeData.map(d => d.count),
+                        backgroundColor: ['#667eea', '#f39c12', '#27ae60', '#e74c3c', '#9b59b6', '#3498db'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+        
+        // Signal Strength Distribution Chart
+        const strengthData = {{ strength_distribution | tojson }};
+        if (strengthData.length > 0) {
+            const strengthCtx = document.getElementById('strengthChart').getContext('2d');
+            const strengthColors = {
+                'EXTREME': '#e74c3c',
+                'VERY_HIGH': '#f39c12',
+                'HIGH': '#27ae60',
+                'MODERATE': '#95a5a6'
+            };
+            new Chart(strengthCtx, {
+                type: 'bar',
+                data: {
+                    labels: strengthData.map(d => d.name),
+                    datasets: [{
+                        data: strengthData.map(d => d.count),
+                        backgroundColor: strengthData.map(d => strengthColors[d.name] || '#667eea'),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+    </script>
+    {% endif %}
+</body>
+</html>

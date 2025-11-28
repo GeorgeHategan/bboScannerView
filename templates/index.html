@@ -184,6 +184,7 @@
                     {% endif %}
                 </div>
                 <div style="display: flex; gap: 10px;">
+                    <a href="/options-signals" style="background: #fff3e0; color: #e65100; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ffcc80;">📈 Options Flow</a>
                     <a href="/ranked" style="background: #e8f4f8; color: #2c5f7a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d0e5ed;">🏆 Top Ranked</a>
                     <a href="/scanner-performance" style="background: #f0f0f0; color: #999; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ddd; cursor: not-allowed; opacity: 0.5;" onclick="return false;" title="Performance analysis temporarily disabled">📈 Performance</a>
                     <a href="/scanner-docs" style="background: #e8f5e9; color: #2e7d32; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #c8e6c9;">📚 Scanner Docs</a>
@@ -579,20 +580,41 @@
                 <td class="{{ stocks[stock][pattern + '_quality'] }}">
                     {{ stocks[stock][pattern + '_quality'] }}
                 </td>
+            </tr>
+            <tr>
+                <td colspan="4" style="font-size: 15px; padding: 4px 0; color: #555;">
+                    <strong>Sector:</strong> {% if stocks[stock]['sector'] %}{{ stocks[stock]['sector'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                    &nbsp;|&nbsp;
+                    <strong>Industry:</strong> {% if stocks[stock]['industry'] %}{{ stocks[stock]['industry'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                    &nbsp;|&nbsp;
+                    <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                </td>
+                <td colspan="3" style="font-size: 15px; padding: 4px 0; color: #555; padding-left: 20px;">
+                    <strong>Vol:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}
+                    &nbsp;|&nbsp;
+                    <strong>Avg:</strong> {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}
+                    &nbsp;|&nbsp;
+                    <strong>Ratio:</strong> {{ stocks[stock][pattern + '_volume_ratio'] }}x{% if stocks[stock][pattern + '_volume_ratio'] >= 2.0 %}<span style="color: green; font-weight: bold;"> ✓HIGH</span>{% elif stocks[stock][pattern + '_volume_ratio'] >= 1.5 %}<span style="color: orange; font-weight: bold;"> ↑</span>{% elif stocks[stock][pattern + '_volume_ratio'] < 0.8 %}<span style="color: red;"> ↓</span>{% endif %}
+                </td>
+            </tr>
             <tr>
                 <td colspan="4" style="position: relative;">
                     <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
                     
-                    {# Timeline showing scanner detection dates #}
-                    {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
+                    {# Timeline showing scanner detection dates and options signals #}
+                    {% set has_confirmations = stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
+                    {% set has_options = stocks[stock].get(pattern + '_options_signals') and stocks[stock][pattern + '_options_signals']|length > 0 %}
+                    {% if has_confirmations or has_options %}
                     <div style="position: relative; height: 36px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 3px;">
+                        <span style="position: absolute; left: 4px; top: 2px; font-size: 9px; color: #999; font-style: italic;">Signal Timeline</span>
                         <div style="position: relative; height: 29px;">
                             {# Add subtle vertical reference lines at 25%, 50%, 75% #}
                             <div style="position: absolute; left: 25%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.1);"></div>
                             <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.15);"></div>
                             <div style="position: absolute; left: 75%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.1);"></div>
                             
-                            {# Sort and render dots by date #}
+                            {# Sort and render dots by date - only if there are confirmations #}
+                            {% if has_confirmations %}
                             {% set ns = namespace(processed_dates=[]) %}
                             {% for conf in stocks[stock][pattern + '_confirmations'] | sort(attribute='date') %}
                             {% if conf.date not in ns.processed_dates %}
@@ -676,26 +698,75 @@
                                 {% endfor %}
                             {% endif %}
                             {% endfor %}
+                            {% endif %}
+                            
+                            {# Options signals as triangles #}
+                            {% if stocks[stock].get(pattern + '_options_signals') %}
+                            {% set opts_ns = namespace(processed_opts_dates=[]) %}
+                            {% for opt in stocks[stock][pattern + '_options_signals'] | sort(attribute='date') %}
+                            {% if opt.date and opt.date not in opts_ns.processed_opts_dates %}
+                                {% set _ = opts_ns.processed_opts_dates.append(opt.date) %}
+                                
+                                {# Calculate position for options signal #}
+                                {% set opt_month = opt.date[5:7]|int %}
+                                {% set opt_day = opt.date[8:10]|int %}
+                                
+                                {% if opt_month == 10 %}
+                                    {% set opt_month_start = 73.5 %}
+                                    {% set opt_month_width = 13.1 %}
+                                    {% set opt_trading_days = 23 %}
+                                {% elif opt_month == 11 %}
+                                    {% set opt_month_start = 86.6 %}
+                                    {% set opt_month_width = 9.4 %}
+                                    {% set opt_trading_days = 19 %}
+                                {% else %}
+                                    {% set opt_month_start = 73.5 %}
+                                    {% set opt_month_width = 13.1 %}
+                                    {% set opt_trading_days = 22 %}
+                                {% endif %}
+                                
+                                {% set opt_day_offset = (opt_day / 30.0) * opt_month_width %}
+                                {% set opt_position = opt_month_start + opt_day_offset %}
+                                {% set opt_position = [0, opt_position]|max %}
+                                {% set opt_position = [96, opt_position]|min %}
+                                
+                                {# Count signals for this date #}
+                                {% set opt_count = namespace(value=0) %}
+                                {% for o in stocks[stock][pattern + '_options_signals'] %}
+                                    {% if o.date == opt.date %}
+                                        {% set opt_count.value = opt_count.value + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {# Color based on signal TYPE to match the dropdown list #}
+                                {% if 'SUSTAINED' in opt.signal_type %}
+                                    {% set opt_color = '#3498db' %}{# Blue #}
+                                {% elif 'ACCELERATING' in opt.signal_type %}
+                                    {% set opt_color = '#9b59b6' %}{# Purple #}
+                                {% elif 'UNUSUAL' in opt.signal_type %}
+                                    {% set opt_color = '#e67e22' %}{# Orange #}
+                                {% elif 'CLUSTERED' in opt.signal_type %}
+                                    {% set opt_color = '#1abc9c' %}{# Teal #}
+                                {% else %}
+                                    {% set opt_color = '#7f8c8d' %}{# Gray #}
+                                {% endif %}
+                                
+                                {# Triangle pointing up (CSS triangle) #}
+                                <div class="options-triangle" data-strength="{{ opt.strength }}" 
+                                     style="position: absolute; left: calc({{ opt_position }}% - 6px); bottom: -8px; width: 0; height: 0; 
+                                            border-left: 6px solid transparent; border-right: 6px solid transparent; 
+                                            border-bottom: 10px solid {{ opt_color }}; cursor: pointer;"
+                                     title="📈 {{ opt.signal_type.replace('_', ' ').title() }} ({{ opt.strength }}) - {{ opt.date }}"></div>
+                            {% endif %}
+                            {% endfor %}
+                            {% endif %}
                         </div>
                     </div>
                     {% endif %}
                 </td>
-                <td colspan="3" style="vertical-align: top; padding-left: 20px;">
-                    <div style="font-size: 14px; line-height: 1.8;">
-                        <strong>Volume Analysis:</strong><br>
-                        <strong>Volume:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}<br>
-                        <strong>Avg (20d):</strong> {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}<br>
-                        <strong>Ratio:</strong> {{ stocks[stock][pattern + '_volume_ratio'] }}x
-                        {% if stocks[stock][pattern + '_volume_ratio'] >= 2.0 %}
-                            <span style="color: green; font-weight: bold;"> ✓ HIGH</span>
-                        {% elif stocks[stock][pattern + '_volume_ratio'] >= 1.5 %}
-                            <span style="color: orange; font-weight: bold;"> ↑ Above Avg</span>
-                        {% elif stocks[stock][pattern + '_volume_ratio'] < 0.8 %}
-                            <span style="color: red;"> ↓ Below Avg</span>
-                        {% endif %}
-                        <br><br>
-                        {# Entry Price removed #}
-                            {% if stocks[stock].get(pattern + '_picked_count') %}
+                <td colspan="3" style="vertical-align: top; padding-left: 20px; padding-top: 0;">
+                    <div style="font-size: 13px; line-height: 1.5;">
+                        {% if stocks[stock].get(pattern + '_picked_count') %}
                         <strong>Confluence:</strong> Picked by {{ stocks[stock][pattern + '_picked_count'] }} scanner(s)<br>
                         {% endif %}
                         {% if stocks[stock].get(pattern + '_setup_stage') %}
@@ -736,7 +807,7 @@
                         {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
                         <br>
                         <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
-                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9;">
+                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9; max-width: 60%;">
                         {% for conf in stocks[stock][pattern + '_confirmations'] %}
                             <span class="conf-dot" data-scanner="{{ conf.scanner }}" style="font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
                             <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
@@ -744,8 +815,119 @@
                         </div>
                         {% endif %}
                         
+                        {# Options Flow Signals Section #}
+                        {% if stocks[stock].get(pattern + '_options_signals') and stocks[stock][pattern + '_options_signals']|length > 0 %}
+                        <br>
+                        <strong>📈 Options Flow Signals ({{ stocks[stock][pattern + '_options_signals']|length }}):</strong><br>
+                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #f39c12; padding: 8px; border-radius: 4px; background: #fffbf0; max-width: 60%;">
+                        {% for opt in stocks[stock][pattern + '_options_signals'] %}
+                            {# Different colors based on signal TYPE #}
+                            {% if 'SUSTAINED' in opt.signal_type %}
+                                {% set type_color = '#3498db' %}{# Blue #}
+                            {% elif 'ACCELERATING' in opt.signal_type %}
+                                {% set type_color = '#9b59b6' %}{# Purple #}
+                            {% elif 'UNUSUAL' in opt.signal_type %}
+                                {% set type_color = '#e67e22' %}{# Orange #}
+                            {% elif 'CLUSTERED' in opt.signal_type %}
+                                {% set type_color = '#1abc9c' %}{# Teal #}
+                            {% else %}
+                                {% set type_color = '#7f8c8d' %}{# Gray #}
+                            {% endif %}
+                            <span style="color: {{ type_color }}; font-weight: bold;">▲</span>
+                            <span style="color: {{ type_color }}; font-weight: bold;">{{ opt.signal_type.replace('_', ' ').title() }}</span>
+                            <span style="color: #666;">({{ opt.date }}, ${{ "%.0f"|format(opt.strike) }} strike, {{ opt.dte }}d, 
+                            {% if opt.premium >= 10000 %}<span style="color: #27ae60; font-weight: bold;">${{ "{:,.0f}".format(opt.premium) }}</span>{% else %}${{ "{:,.0f}".format(opt.premium) }}{% endif %})</span>
+                            <span class="strength-badge-sm" style="background: {% if opt.strength == 'EXTREME' %}#e74c3c{% elif opt.strength == 'VERY_HIGH' %}#f39c12{% else %}#27ae60{% endif %}; color: white; padding: 1px 6px; border-radius: 8px; font-size: 10px; margin-left: 4px;">{{ opt.strength }}</span>
+                            <br>
+                        {% endfor %}
+                        </div>
+                        <a href="/options-signals?symbol={{ stock }}" style="font-size: 11px; color: #f39c12; text-decoration: none;">→ View all options signals for {{ stock }}</a>
+                        {% endif %}
+                        
+                        {# Options Walls Section #}
+                        {% if stocks[stock].get(pattern + '_options_walls') %}
+                        {% set walls = stocks[stock][pattern + '_options_walls'] %}
+                        {% set max_call_oi = [walls.call_wall_1.oi or 0, walls.call_wall_2.oi or 0, walls.call_wall_3.oi or 0]|max %}
+                        {% set max_put_oi = [walls.put_wall_1.oi or 0, walls.put_wall_2.oi or 0, walls.put_wall_3.oi or 0]|max %}
+                        <br>
+                        <strong>🧱 Options Walls:</strong><br>
+                        <div style="font-size: 11px; margin-left: 10px; line-height: 1.6; border: 1px solid #9b59b6; padding: 6px; border-radius: 4px; background: #f9f5ff; max-width: 60%;">
+                            <div style="display: flex; gap: 8px;">
+                                <div style="flex: 1;">
+                                    <span style="color: #27ae60; font-weight: bold; font-size: 10px;">📈 CALL WALLS</span>
+                                    {% if walls.call_wall_1.strike %}
+                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.call_wall_1.strike) }} <span style="color: #666;">({{ "{:,}".format(walls.call_wall_1.oi) }})</span></span>
+                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                            <div style="width: {{ (walls.call_wall_1.oi / max_call_oi * 100) if max_call_oi > 0 else 0 }}%; height: 100%; background: #27ae60; border-radius: 3px;"></div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if walls.call_wall_2.strike %}
+                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.call_wall_2.strike) }} <span style="color: #888;">({{ "{:,}".format(walls.call_wall_2.oi) }})</span></span>
+                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                            <div style="width: {{ (walls.call_wall_2.oi / max_call_oi * 100) if max_call_oi > 0 else 0 }}%; height: 100%; background: #58d68d; border-radius: 3px;"></div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if walls.call_wall_3.strike %}
+                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.call_wall_3.strike) }} <span style="color: #888;">({{ "{:,}".format(walls.call_wall_3.oi) }})</span></span>
+                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                            <div style="width: {{ (walls.call_wall_3.oi / max_call_oi * 100) if max_call_oi > 0 else 0 }}%; height: 100%; background: #abebc6; border-radius: 3px;"></div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div style="flex: 1;">
+                                    <span style="color: #e74c3c; font-weight: bold; font-size: 10px;">📉 PUT WALLS</span>
+                                    {% if walls.put_wall_1.strike %}
+                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.put_wall_1.strike) }} <span style="color: #666;">({{ "{:,}".format(walls.put_wall_1.oi) }})</span></span>
+                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                            <div style="width: {{ (walls.put_wall_1.oi / max_put_oi * 100) if max_put_oi > 0 else 0 }}%; height: 100%; background: #e74c3c; border-radius: 3px;"></div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if walls.put_wall_2.strike %}
+                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.put_wall_2.strike) }} <span style="color: #888;">({{ "{:,}".format(walls.put_wall_2.oi) }})</span></span>
+                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                            <div style="width: {{ (walls.put_wall_2.oi / max_put_oi * 100) if max_put_oi > 0 else 0 }}%; height: 100%; background: #ec7063; border-radius: 3px;"></div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if walls.put_wall_3.strike %}
+                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.put_wall_3.strike) }} <span style="color: #888;">({{ "{:,}".format(walls.put_wall_3.oi) }})</span></span>
+                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                            <div style="width: {{ (walls.put_wall_3.oi / max_put_oi * 100) if max_put_oi > 0 else 0 }}%; height: 100%; background: #f5b7b1; border-radius: 3px;"></div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #ddd; font-size: 10px; color: #666; display: flex; justify-content: space-between;">
+                                <span>P/C: <strong style="color: {% if walls.put_call_ratio < 0.7 %}#27ae60{% elif walls.put_call_ratio > 1.0 %}#e74c3c{% else %}#f39c12{% endif %};">{{ "%.2f"|format(walls.put_call_ratio) }}</strong>
+                                | Call: {{ "{:,}".format(walls.total_call_oi) }} | Put: {{ "{:,}".format(walls.total_put_oi) }}</span>
+                                <span>
+                                    {% if walls.gamma_flip %}
+                                    <strong>γ Flip:</strong> ${{ "%.0f"|format(walls.gamma_flip) }}
+                                    {% if walls.gamma_flip_distance %}
+                                    (<span style="color: {% if walls.gamma_flip_distance > 0 %}#27ae60{% else %}#e74c3c{% endif %};">{{ "%+.1f"|format(walls.gamma_flip_distance) }}%</span>)
+                                    {% endif %}
+                                    | 
+                                    {% endif %}
+                                    <strong>γ:</strong> {% if walls.put_call_ratio < 0.7 %}<span style="color: #27ae60;">+Pos</span>{% elif walls.put_call_ratio > 1.0 %}<span style="color: #e74c3c;">−Neg</span>{% else %}<span style="color: #f39c12;">~Neut</span>{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
                         <br><br>
                         <strong>📰 News Sentiment:</strong><br>
+                        <div style="max-width: 60%; margin-left: 10px;">
                         {% if stocks[stock].get('news_sentiment_label') %}
                             <div style="padding: 8px; border-radius: 5px; margin-top: 5px; 
                                 {% if stocks[stock]['news_sentiment_label'] == 'Bullish' %}
@@ -787,33 +969,10 @@
                         {% else %}
                             <span style="color: gray; font-size: 12px;">No recent news</span>
                         {% endif %}
-                        
-                        <div class="meta-compact">
-                            <div class="meta-row"><strong>Sector:</strong>
-                                {% if stocks[stock]['sector'] %}
-                                    <span class="meta-value">{{ stocks[stock]['sector'] }}</span>
-                                {% else %}
-                                    <span class="meta-muted">Not Available</span>
-                                {% endif %}
-                            </div>
-                            <div class="meta-row"><strong>Industry:</strong>
-                                {% if stocks[stock]['industry'] %}
-                                    <span class="meta-value">{{ stocks[stock]['industry'] }}</span>
-                                {% else %}
-                                    <span class="meta-muted">Not Available</span>
-                                {% endif %}
-                            </div>
-                            <div class="meta-row"><strong>Market Cap:</strong>
-                                {% if stocks[stock]['market_cap'] %}
-                                    <span class="meta-value" style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>
-                                {% else %}
-                                    <span class="meta-muted">Not Available</span>
-                                {% endif %}
-                            </div>
                         </div>
                         
                         {% if stocks[stock]['earnings_date'] %}
-                        <br><br>
+                        <br>
                         <strong>📅 Earnings Date:</strong> 
                         <span style="font-size: 14px; color: #333;">{{ stocks[stock]['earnings_date'] }}</span>
                         {% endif %}

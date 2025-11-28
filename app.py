@@ -175,6 +175,8 @@ templates = Jinja2Templates(directory="templates")
 # Database configuration
 # For local development, use MotherDuck to access production data
 # For production (Render), use environment variable
+
+# Scanner database (primary)
 motherduck_token = os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN', '')
 print(f"DEBUG: motherduck_token found: {bool(motherduck_token)}")
 if motherduck_token:
@@ -188,8 +190,25 @@ else:
     print("WARNING: No motherduck_token found, using local database (may not have scanner_results)")
     print("ERROR: This will fail on Render - ensure MOTHERDUCK_TOKEN env var is set!")
 
+# Options data database (secondary) - contains accumulation_signals and options_chain_changes tables
+options_motherduck_token = os.environ.get('options_motherduck_token') or os.environ.get('OPTIONS_MOTHERDUCK_TOKEN', '')
+print(f"DEBUG: options_motherduck_token found: {bool(options_motherduck_token)}")
+if options_motherduck_token:
+    OPTIONS_DUCKDB_PATH = f'md:options_data?motherduck_token={options_motherduck_token}'
+    print("INFO: Options database configured: md:options_data?motherduck_token=***")
+else:
+    OPTIONS_DUCKDB_PATH = None
+    print("INFO: No options database token found - options features disabled")
+
 # Skip slow database initialization on startup - connect lazily when needed
 print(f"INFO: Database path configured: {DUCKDB_PATH if not motherduck_token else 'md:scanner_data?motherduck_token=***'}")
+
+
+def get_options_db_connection():
+    """Get a connection to the options signals database."""
+    if OPTIONS_DUCKDB_PATH:
+        return duckdb.connect(OPTIONS_DUCKDB_PATH, read_only=True)
+    return None
 
 
 def format_market_cap(market_cap):
@@ -219,6 +238,291 @@ def format_market_cap(market_cap):
 async def health_check(request: Request, email: str = Depends(require_login)):
     """Health check endpoint for monitoring."""
     return {"status": "healthy", "service": "bbo-scanner-view"}
+
+
+@app.get("/options-signals", response_class=HTMLResponse)
+async def options_signals(
+    request: Request,
+    signal_type: Optional[str] = Query(None),
+    signal_strength: Optional[str] = Query(None),
+    sector: Optional[str] = Query(None),
+    symbol: Optional[str] = Query(None),
+    min_confidence: Optional[str] = Query(None),
+    min_premium: Optional[str] = Query(None),
+    asset_type: Optional[str] = Query(None),
+    scan_date: Optional[str] = Query(None)
+):
+    """Display options accumulation signals from the options_data database."""
+    
+    # Convert string params to int (handle empty strings from form)
+    min_confidence_val = int(min_confidence) if min_confidence else None
+    min_premium_val = int(min_premium) if min_premium else None
+    
+    # Check if options database is configured
+    if not OPTIONS_DUCKDB_PATH:
+        return templates.TemplateResponse('options_signals.html', {
+            'request': request,
+            'error': 'Options database not configured. Please set OPTIONS_MOTHERDUCK_TOKEN.',
+            'signals': [],
+            'signal_types': [],
+            'signal_strengths': [],
+            'sectors': [],
+            'stats': {}
+        })
+    
+    try:
+        conn = get_options_db_connection()
+        if not conn:
+            raise Exception("Could not connect to options database")
+        
+        # Get available filter options
+        signal_types = [row[0] for row in conn.execute(
+            "SELECT DISTINCT signal_type FROM accumulation_signals ORDER BY signal_type"
+        ).fetchall()]
+        
+        signal_strengths = [row[0] for row in conn.execute(
+            "SELECT DISTINCT signal_strength FROM accumulation_signals ORDER BY signal_strength"
+        ).fetchall()]
+        
+        sectors = [row[0] for row in conn.execute(
+            "SELECT DISTINCT sector FROM accumulation_signals WHERE sector IS NOT NULL ORDER BY sector"
+        ).fetchall()]
+        
+        available_dates = [str(row[0]) for row in conn.execute(
+            "SELECT DISTINCT signal_date FROM accumulation_signals ORDER BY signal_date DESC LIMIT 30"
+        ).fetchall()]
+        
+        # Build the query with filters
+        query = """
+            SELECT 
+                signal_id,
+                signal_date,
+                signal_type,
+                underlying_symbol,
+                sector,
+                asset_type,
+                option_symbol,
+                strike,
+                stock_price,
+                dte,
+                volume,
+                curr_oi,
+                oi_change_pct,
+                premium_spent,
+                confidence_score,
+                signal_strength,
+                notes
+            FROM accumulation_signals
+            WHERE 1=1
+        """
+        params = []
+        
+        if signal_type:
+            query += " AND signal_type = ?"
+            params.append(signal_type)
+        
+        if signal_strength:
+            query += " AND signal_strength = ?"
+            params.append(signal_strength)
+        
+        if sector:
+            query += " AND sector = ?"
+            params.append(sector)
+        
+        if symbol:
+            query += " AND underlying_symbol = ?"
+            params.append(symbol.upper())
+        
+        if min_confidence_val:
+            query += " AND confidence_score >= ?"
+            params.append(min_confidence_val)
+        
+        if min_premium_val:
+            query += " AND premium_spent >= ?"
+            params.append(min_premium_val)
+        
+        if asset_type:
+            query += " AND asset_type = ?"
+            params.append(asset_type)
+        
+        if scan_date:
+            query += " AND signal_date = ?"
+            params.append(scan_date)
+        elif not symbol:
+            # Default to latest date only if no specific symbol is requested
+            # When viewing a specific symbol, show all dates
+            latest_date = conn.execute(
+                "SELECT MAX(signal_date) FROM accumulation_signals"
+            ).fetchone()[0]
+            if latest_date:
+                query += " AND signal_date = ?"
+                params.append(str(latest_date))
+                scan_date = str(latest_date)
+        
+        query += " ORDER BY signal_date DESC, confidence_score DESC, premium_spent DESC LIMIT 200"
+        
+        results = conn.execute(query, params).fetchall()
+        
+        # Convert to list of dicts
+        signals = []
+        for row in results:
+            signals.append({
+                'signal_id': row[0],
+                'signal_date': str(row[1]) if row[1] else '',
+                'signal_type': row[2],
+                'underlying_symbol': row[3],
+                'sector': row[4] or 'ETF',
+                'asset_type': row[5],
+                'option_symbol': row[6],
+                'strike': row[7],
+                'stock_price': row[8],
+                'dte': row[9],
+                'volume': row[10],
+                'curr_oi': row[11],
+                'oi_change_pct': row[12],
+                'premium_spent': row[13],
+                'confidence_score': row[14],
+                'signal_strength': row[15],
+                'notes': row[16]
+            })
+        
+        # Get stats for the dashboard
+        stats_query = """
+            SELECT 
+                COUNT(*) as total_signals,
+                COUNT(DISTINCT underlying_symbol) as unique_symbols,
+                SUM(premium_spent) as total_premium,
+                AVG(confidence_score) as avg_confidence,
+                SUM(CASE WHEN signal_strength = 'EXTREME' THEN 1 ELSE 0 END) as extreme_count,
+                SUM(CASE WHEN signal_strength = 'VERY_HIGH' THEN 1 ELSE 0 END) as very_high_count,
+                SUM(CASE WHEN signal_strength = 'HIGH' THEN 1 ELSE 0 END) as high_count
+            FROM accumulation_signals
+        """
+        if scan_date:
+            stats_query += " WHERE signal_date = ?"
+            stats_result = conn.execute(stats_query, [scan_date]).fetchone()
+        elif symbol:
+            stats_query += " WHERE underlying_symbol = ?"
+            stats_result = conn.execute(stats_query, [symbol.upper()]).fetchone()
+        else:
+            stats_result = conn.execute(stats_query).fetchone()
+        
+        stats = {
+            'total_signals': stats_result[0],
+            'unique_symbols': stats_result[1],
+            'total_premium': stats_result[2],
+            'avg_confidence': round(stats_result[3], 1) if stats_result[3] else 0,
+            'extreme_count': stats_result[4],
+            'very_high_count': stats_result[5],
+            'high_count': stats_result[6]
+        }
+        
+        # Get distribution by signal type for chart
+        if scan_date:
+            type_distribution = conn.execute("""
+                SELECT signal_type, COUNT(*) as count
+                FROM accumulation_signals
+                WHERE signal_date = ?
+                GROUP BY signal_type
+                ORDER BY count DESC
+            """, [scan_date]).fetchall()
+        elif symbol:
+            type_distribution = conn.execute("""
+                SELECT signal_type, COUNT(*) as count
+                FROM accumulation_signals
+                WHERE underlying_symbol = ?
+                GROUP BY signal_type
+                ORDER BY count DESC
+            """, [symbol.upper()]).fetchall()
+        else:
+            type_distribution = []
+        
+        # Get distribution by strength for chart
+        if scan_date:
+            strength_distribution = conn.execute("""
+                SELECT signal_strength, COUNT(*) as count
+                FROM accumulation_signals
+                WHERE signal_date = ?
+                GROUP BY signal_strength
+                ORDER BY count DESC
+            """, [scan_date]).fetchall()
+        elif symbol:
+            strength_distribution = conn.execute("""
+                SELECT signal_strength, COUNT(*) as count
+                FROM accumulation_signals
+                WHERE underlying_symbol = ?
+                GROUP BY signal_strength
+                ORDER BY count DESC
+            """, [symbol.upper()]).fetchall()
+        else:
+            strength_distribution = []
+        
+        # Get top symbols by premium spent
+        if scan_date:
+            top_symbols = conn.execute("""
+                SELECT underlying_symbol, 
+                       COUNT(*) as signal_count,
+                       SUM(premium_spent) as total_premium,
+                       MAX(confidence_score) as max_confidence
+                FROM accumulation_signals
+                WHERE signal_date = ?
+                GROUP BY underlying_symbol
+                ORDER BY total_premium DESC
+                LIMIT 10
+            """, [scan_date]).fetchall()
+        elif symbol:
+            # For single symbol view, show breakdown by date instead
+            top_symbols = conn.execute("""
+                SELECT signal_date, 
+                       COUNT(*) as signal_count,
+                       SUM(premium_spent) as total_premium,
+                       MAX(confidence_score) as max_confidence
+                FROM accumulation_signals
+                WHERE underlying_symbol = ?
+                GROUP BY signal_date
+                ORDER BY signal_date DESC
+                LIMIT 10
+            """, [symbol.upper()]).fetchall()
+        else:
+            top_symbols = []
+        
+        conn.close()
+        
+        return templates.TemplateResponse('options_signals.html', {
+            'request': request,
+            'signals': signals,
+            'signal_types': signal_types,
+            'signal_strengths': signal_strengths,
+            'sectors': sectors,
+            'available_dates': available_dates,
+            'selected_signal_type': signal_type,
+            'selected_signal_strength': signal_strength,
+            'selected_sector': sector,
+            'selected_symbol': symbol,
+            'selected_min_confidence': min_confidence_val,
+            'selected_min_premium': min_premium_val,
+            'selected_asset_type': asset_type,
+            'selected_scan_date': scan_date,
+            'stats': stats,
+            'type_distribution': [{'name': r[0], 'count': r[1]} for r in type_distribution],
+            'strength_distribution': [{'name': r[0], 'count': r[1]} for r in strength_distribution],
+            'top_symbols': [{'symbol': r[0], 'count': r[1], 'premium': r[2], 'confidence': r[3]} for r in top_symbols],
+            'error': None
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse('options_signals.html', {
+            'request': request,
+            'error': f'Error loading options signals: {str(e)}',
+            'signals': [],
+            'signal_types': [],
+            'signal_strengths': [],
+            'sectors': [],
+            'available_dates': [],
+            'stats': {}
+        })
 
 
 @app.get("/ranked", response_class=HTMLResponse)
@@ -2268,6 +2572,121 @@ async def index(
                 print(f'Confirmations query failed: {e}')
                 confirmations_dict = {}
         
+        # Fetch options signals for each symbol (from options_data database)
+        options_signals_dict = {}
+        if symbols_list and OPTIONS_DUCKDB_PATH:
+            try:
+                options_conn = get_options_db_connection()
+                if options_conn:
+                    placeholders = ','.join(['?' for _ in symbols_list])
+                    options_query = f'''
+                        SELECT underlying_symbol, signal_date, signal_type, 
+                               signal_strength, confidence_score, strike, dte,
+                               premium_spent, notes
+                        FROM accumulation_signals
+                        WHERE underlying_symbol IN ({placeholders})
+                        ORDER BY underlying_symbol, signal_date DESC
+                    '''
+                    options_results = options_conn.execute(
+                        options_query, symbols_list
+                    ).fetchall()
+                    
+                    for row in options_results:
+                        sym = row[0]
+                        sig_date = str(row[1]) if row[1] else ''
+                        sig_type = row[2]
+                        sig_strength = row[3]
+                        confidence = row[4]
+                        strike = row[5]
+                        dte = row[6]
+                        premium = row[7]
+                        notes = row[8]
+                        
+                        if sym not in options_signals_dict:
+                            options_signals_dict[sym] = []
+                        options_signals_dict[sym].append({
+                            'date': sig_date,
+                            'signal_type': sig_type,
+                            'strength': sig_strength,
+                            'confidence': confidence,
+                            'strike': strike,
+                            'dte': dte,
+                            'premium': premium,
+                            'notes': notes
+                        })
+                    
+                    options_conn.close()
+                    print(f'Loaded options signals for {len(options_signals_dict)} symbols')
+            except Exception as e:
+                print(f'Options signals query failed: {e}')
+                options_signals_dict = {}
+        
+        # Fetch options walls data for each symbol (from options_data database)
+        options_walls_dict = {}
+        if symbols_list and OPTIONS_DUCKDB_PATH:
+            try:
+                options_conn = get_options_db_connection()
+                if options_conn:
+                    placeholders = ','.join(['?' for _ in symbols_list])
+                    walls_query = f'''
+                        SELECT underlying_symbol, scan_date, stock_price,
+                               call_wall_strike, call_wall_oi,
+                               call_wall_2_strike, call_wall_2_oi,
+                               call_wall_3_strike, call_wall_3_oi,
+                               put_wall_strike, put_wall_oi,
+                               put_wall_2_strike, put_wall_2_oi,
+                               put_wall_3_strike, put_wall_3_oi,
+                               total_call_oi, total_put_oi, put_call_ratio
+                        FROM options_walls
+                        WHERE underlying_symbol IN ({placeholders})
+                        ORDER BY underlying_symbol, scan_date DESC
+                    '''
+                    walls_results = options_conn.execute(
+                        walls_query, symbols_list
+                    ).fetchall()
+                    
+                    for row in walls_results:
+                        sym = row[0]
+                        if sym not in options_walls_dict:
+                            stock_price = row[2] or 0
+                            call_wall_1_strike = row[3] or 0
+                            put_wall_1_strike = row[9] or 0
+                            
+                            # Calculate gamma flip price (midpoint between highest call and put walls)
+                            if call_wall_1_strike and put_wall_1_strike:
+                                gamma_flip = (call_wall_1_strike + put_wall_1_strike) / 2
+                            else:
+                                gamma_flip = None
+                            
+                            # Calculate distance to gamma flip
+                            if gamma_flip and stock_price:
+                                gamma_flip_distance = ((gamma_flip - stock_price) / stock_price) * 100
+                            else:
+                                gamma_flip_distance = None
+                            
+                            # Only keep the latest wall data per symbol
+                            options_walls_dict[sym] = {
+                                'scan_date': str(row[1]) if row[1] else '',
+                                'stock_price': stock_price,
+                                'call_wall_1': {'strike': row[3], 'oi': row[4]},
+                                'call_wall_2': {'strike': row[5], 'oi': row[6]},
+                                'call_wall_3': {'strike': row[7], 'oi': row[8]},
+                                'put_wall_1': {'strike': row[9], 'oi': row[10]},
+                                'put_wall_2': {'strike': row[11], 'oi': row[12]},
+                                'put_wall_3': {'strike': row[13], 'oi': row[14]},
+                                'total_call_oi': row[15],
+                                'total_put_oi': row[16],
+                                'put_call_ratio': row[17],
+                                'gamma_flip': gamma_flip,
+                                'gamma_flip_distance': gamma_flip_distance
+                            }
+                    
+                    options_conn.close()
+                    print(f'Loaded options walls for {len(options_walls_dict)} symbols')
+            except Exception as e:
+                print(f'Options walls query failed: {e}')
+                options_walls_dict = {}
+        
         for symbol in symbols_list:
             # Check if symbol has scanner results
             if symbol in scanner_dict:
@@ -2423,6 +2842,18 @@ async def index(
                             stocks[symbol][f'{pattern}_confirmations'] = confirmations_dict[symbol]
                         else:
                             stocks[symbol][f'{pattern}_confirmations'] = []
+                        
+                        # Add options signals for this symbol
+                        if symbol in options_signals_dict:
+                            stocks[symbol][f'{pattern}_options_signals'] = options_signals_dict[symbol]
+                        else:
+                            stocks[symbol][f'{pattern}_options_signals'] = []
+                        
+                        # Add options walls for this symbol
+                        if symbol in options_walls_dict:
+                            stocks[symbol][f'{pattern}_options_walls'] = options_walls_dict[symbol]
+                        else:
+                            stocks[symbol][f'{pattern}_options_walls'] = None
                         
                         # Skip external API calls - too slow for Render
                         stocks[symbol][f'{pattern}_earnings_date'] = None
