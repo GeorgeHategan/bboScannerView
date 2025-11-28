@@ -910,16 +910,16 @@
                             </div>
                             <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #ddd; font-size: 10px; color: #666; display: flex; justify-content: space-between;">
                                 <span>P/C: <strong style="color: {% if walls.put_call_ratio < 0.7 %}#27ae60{% elif walls.put_call_ratio > 1.0 %}#e74c3c{% else %}#f39c12{% endif %};">{{ "%.2f"|format(walls.put_call_ratio) }}</strong>
-                                | Call: {{ "{:,}".format(walls.total_call_oi) }} | Put: {{ "{:,}".format(walls.total_put_oi) }}</span>
+                                | Call: <strong>{{ "{:,}".format(walls.total_call_oi) }}</strong> | Put: <strong>{{ "{:,}".format(walls.total_put_oi) }}</strong></span>
                                 <span>
                                     {% if walls.gamma_flip %}
-                                    <strong>γ Flip:</strong> ${{ "%.0f"|format(walls.gamma_flip) }}
+                                    γ Flip: <strong>${{ "%.0f"|format(walls.gamma_flip) }}</strong>
                                     {% if walls.gamma_flip_distance %}
-                                    (<span style="color: {% if walls.gamma_flip_distance > 0 %}#27ae60{% else %}#e74c3c{% endif %};">{{ "%+.1f"|format(walls.gamma_flip_distance) }}%</span>)
+                                    (<span style="color: {% if walls.gamma_flip_distance > 0 %}#27ae60{% else %}#e74c3c{% endif %}; font-weight: bold;">{{ "%+.1f"|format(walls.gamma_flip_distance) }}%</span>)
                                     {% endif %}
                                     | 
                                     {% endif %}
-                                    <strong>γ:</strong> {% if walls.put_call_ratio < 0.7 %}<span style="color: #27ae60;">+Pos</span>{% elif walls.put_call_ratio > 1.0 %}<span style="color: #e74c3c;">−Neg</span>{% else %}<span style="color: #f39c12;">~Neut</span>{% endif %}
+                                    γ: {% if walls.put_call_ratio < 0.7 %}<span style="color: #27ae60; font-weight: bold;">+Pos</span>{% elif walls.put_call_ratio > 1.0 %}<span style="color: #e74c3c; font-weight: bold;">−Neg</span>{% else %}<span style="color: #f39c12; font-weight: bold;">~Neut</span>{% endif %}
                                 </span>
                             </div>
                         </div>
