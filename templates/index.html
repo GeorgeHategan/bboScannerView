@@ -807,7 +807,7 @@
                         {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
                         <br>
                         <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
-                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9; max-width: 60%;">
+                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9; max-width: 65%;">
                         {% for conf in stocks[stock][pattern + '_confirmations'] %}
                             <span class="conf-dot" data-scanner="{{ conf.scanner }}" style="font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
                             <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
@@ -819,7 +819,7 @@
                         {% if stocks[stock].get(pattern + '_options_signals') and stocks[stock][pattern + '_options_signals']|length > 0 %}
                         <br>
                         <strong>📈 Options Flow Signals ({{ stocks[stock][pattern + '_options_signals']|length }}):</strong><br>
-                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #f39c12; padding: 8px; border-radius: 4px; background: #fffbf0; max-width: 60%;">
+                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #f39c12; padding: 8px; border-radius: 4px; background: #fffbf0; max-width: 65%;">
                         {% for opt in stocks[stock][pattern + '_options_signals'] %}
                             {# Different colors based on signal TYPE #}
                             {% if 'SUSTAINED' in opt.signal_type %}
@@ -851,7 +851,7 @@
                         {% set max_put_oi = [walls.put_wall_1.oi or 0, walls.put_wall_2.oi or 0, walls.put_wall_3.oi or 0]|max %}
                         <br>
                         <strong>🧱 Options Walls:</strong><br>
-                        <div style="font-size: 11px; margin-left: 10px; line-height: 1.6; border: 1px solid #9b59b6; padding: 6px; border-radius: 4px; background: #f9f5ff; max-width: 60%;">
+                        <div style="font-size: 11px; margin-left: 10px; line-height: 1.6; border: 1px solid #9b59b6; padding: 6px; border-radius: 4px; background: #f9f5ff; max-width: 65%;">
                             <div style="display: flex; gap: 8px;">
                                 <div style="flex: 1;">
                                     <span style="color: #27ae60; font-weight: bold; font-size: 10px;">📈 CALL WALLS</span>
@@ -925,10 +925,10 @@
                         </div>
                         {% endif %}
                         
+                        {% if stocks[stock].get('news_sentiment_label') %}
                         <br><br>
                         <strong>📰 News Sentiment:</strong><br>
-                        <div style="max-width: 60%; margin-left: 10px;">
-                        {% if stocks[stock].get('news_sentiment_label') %}
+                        <div style="max-width: 65%; margin-left: 10px;">
                             <div style="padding: 8px; border-radius: 5px; margin-top: 5px; 
                                 {% if stocks[stock]['news_sentiment_label'] == 'Bullish' %}
                                     background: #d4edda; border: 1px solid #28a745; color: #155724;
@@ -966,10 +966,8 @@
                                     {% endif %}
                                 </div>
                             {% endif %}
-                        {% else %}
-                            <span style="color: gray; font-size: 12px;">No recent news</span>
-                        {% endif %}
                         </div>
+                        {% endif %}
                         
                         {% if stocks[stock]['earnings_date'] %}
                         <br>
