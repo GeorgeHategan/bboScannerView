@@ -393,3 +393,30 @@ INFO: Found 9 scanners for date 2025-11-27
 INFO: Loaded 9 scanner patterns
 INFO: Loaded historical data for 20 dates and 14 scanners
 INFO:     127.0.0.1:56401 - "GET /?ticker=&pattern=momentum_burst&scan_date=2025-11-27&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+WARNING: Your Free Plan usage is throttled because you are exceeding the Free Plan thresholds. Consider upgrading to the Lite or Business Plan.
+Loading scanner results for: fundamental_swing
+Found 74 results for fundamental_swing
+Loaded volume data for 55 symbols in single query
+Loaded all scanners for 74 symbols on 2025-11-27
+Loaded scanner confirmations for 69 symbols
+Loaded options signals for 22 symbols
+Loaded options walls for 73 symbols
+INFO: After processing, stocks dict has 74 symbols with pattern data
+INFO: Using selected date: 2025-11-27
+INFO: Found 9 scanners for date 2025-11-27
+INFO: Loaded 9 scanner patterns
+INFO: Loaded historical data for 20 dates and 14 scanners
+INFO:     127.0.0.1:61820 - "GET /?ticker=&pattern=fundamental_swing&scan_date=2025-11-27&sector=&min_market_cap=&min_strength= HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [32723]
+INFO:     Started server process [45192]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [45192]
+INFO:     Stopping reloader process [94385]

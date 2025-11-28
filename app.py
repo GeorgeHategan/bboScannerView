@@ -3,7 +3,8 @@ from dotenv import load_dotenv
 import duckdb
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from typing import Optional
@@ -74,6 +75,14 @@ PATTERN_WEIGHTS = {
 
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Favicon route
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse("static/favicon.png", media_type="image/png")
 
 # Configure Google OAuth
 oauth.register(
