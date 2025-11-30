@@ -1014,14 +1014,18 @@
                 {% if key not in ['company', 'market_cap', 'sector', 'industry', 'earnings_date', 'news_sentiment', 'news_sentiment_label', 'news_relevance', 'news_headline', 'news_published', 'news_url'] and (key + '_strength') in stocks[stock] %}
                 <tr>
                     <td>
-                        <a href="https://www.tradingview.com/chart/?symbol={{ stock }}" 
-                           target="_blank" 
+                        <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
                            style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
                             {{ stock }}
                         </a>
                     </td>
                     <td>{{ stocks[stock]['company'] }}</td>
-                    <td>{{ stocks[stock].get(key + '_scan_date', 'N/A') }}</td>
+                    <td>
+                        <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
+                           style="color: #666; text-decoration: none;">
+                            {{ stocks[stock].get(key + '_scan_date', 'N/A') }}
+                        </a>
+                    </td>
                     <td>
                         {% set entry_price_key = key + '_entry_price' %}
                         {% if stocks[stock].get(entry_price_key) is not none %}
@@ -1030,7 +1034,12 @@
                             N/A
                         {% endif %}
                     </td>
-                    <td>{{ key.replace('_', ' ').title() }}</td>
+                    <td>
+                        <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
+                           style="color: #333; text-decoration: none;">
+                            {{ key.replace('_', ' ').title() }}
+                        </a>
+                    </td>
                     <td class="strength">{{ stocks[stock].get(key + '_strength', 'N/A') }}</td>
                     <td>{{ stocks[stock].get(key + '_quality', 'N/A') }}</td>
                 </tr>
