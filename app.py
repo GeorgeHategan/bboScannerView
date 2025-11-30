@@ -3017,8 +3017,36 @@ async def index(
                         # Add options walls for this symbol
                         if symbol in options_walls_dict:
                             stocks[symbol][f'{pattern}_options_walls'] = options_walls_dict[symbol]
+                            
+                            # Calculate OMS (Options Market Share)
+                            # OMS = Max(OI at key strikes) × 100 ÷ Equity Volume
+                            walls = options_walls_dict[symbol]
+                            volume = stocks[symbol].get(f'{pattern}_volume', 0)
+                            
+                            if volume and volume > 0:
+                                # Get max OI from all walls (calls and puts)
+                                oi_values = [
+                                    walls.get('call_wall_1', {}).get('oi') or 0,
+                                    walls.get('call_wall_2', {}).get('oi') or 0,
+                                    walls.get('call_wall_3', {}).get('oi') or 0,
+                                    walls.get('put_wall_1', {}).get('oi') or 0,
+                                    walls.get('put_wall_2', {}).get('oi') or 0,
+                                    walls.get('put_wall_3', {}).get('oi') or 0,
+                                ]
+                                max_oi = max(oi_values)
+                                
+                                # OMS = (max_oi * 100) / volume
+                                # Each options contract controls 100 shares
+                                if max_oi > 0:
+                                    oms = (max_oi * 100) / volume
+                                    stocks[symbol][f'{pattern}_oms'] = round(oms, 2)
+                                else:
+                                    stocks[symbol][f'{pattern}_oms'] = None
+                            else:
+                                stocks[symbol][f'{pattern}_oms'] = None
                         else:
                             stocks[symbol][f'{pattern}_options_walls'] = None
+                            stocks[symbol][f'{pattern}_oms'] = None
                         
                         # Skip external API calls - too slow for Render
                         stocks[symbol][f'{pattern}_earnings_date'] = None
