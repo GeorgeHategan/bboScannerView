@@ -598,7 +598,7 @@
                     &nbsp;|&nbsp;
                     <strong>Ratio:</strong> {{ stocks[stock][pattern + '_volume_ratio'] }}x{% if stocks[stock][pattern + '_volume_ratio'] >= 2.0 %}<span style="color: green; font-weight: bold;"> ✓HIGH</span>{% elif stocks[stock][pattern + '_volume_ratio'] >= 1.5 %}<span style="color: orange; font-weight: bold;"> ↑</span>{% elif stocks[stock][pattern + '_volume_ratio'] < 0.8 %}<span style="color: red;"> ↓</span>{% endif %}
                     &nbsp;|&nbsp;
-                    <strong>OMS:</strong> {% if stocks[stock][pattern + '_oms'] %}{{ stocks[stock][pattern + '_oms'] }}{% if stocks[stock][pattern + '_oms'] > 2.0 %}<span style="color: #e74c3c; font-weight: bold;"> γ-Extreme</span>{% elif stocks[stock][pattern + '_oms'] > 1.0 %}<span style="color: #9c27b0; font-weight: bold;"> Options-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 0.3 %}<span style="color: #ff9800; font-weight: bold;"> Mixed</span>{% else %}<span style="color: #27ae60; font-weight: bold;"> Share-Dom</span>{% endif %}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                    <strong>OMS:</strong> {% if stocks[stock][pattern + '_oms'] %}{{ stocks[stock][pattern + '_oms'] }}{% if stocks[stock][pattern + '_oms'] >= 2.0 %}<span style="color: #e74c3c; font-weight: bold;"> Gamma-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 1.0 %}<span style="color: #9c27b0; font-weight: bold;"> Options-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 0.3 %}<span style="color: #ff9800; font-weight: bold;"> Mixed</span>{% else %}<span style="color: #27ae60; font-weight: bold;"> Stock-Dom</span>{% endif %}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                 </td>
             </tr>
             <tr>
