@@ -28,6 +28,46 @@
         .moderate { color: #FFA500; }
         .weak { color: #FF6347; }
         .very_weak { color: #8B0000; }
+        /* OMS Tooltip */
+        .oms-tooltip {
+            position: relative;
+            cursor: help;
+            border-bottom: 1px dotted #666;
+        }
+        .oms-tooltip .oms-tooltip-text {
+            visibility: hidden;
+            width: 320px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 12px;
+            position: absolute;
+            z-index: 9999;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -160px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            line-height: 1.5;
+            font-weight: normal;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .oms-tooltip .oms-tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .oms-tooltip:hover .oms-tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
         .chart-container {
             background: white;
             padding: 20px;
@@ -598,7 +638,7 @@
                     &nbsp;|&nbsp;
                     <strong>Ratio:</strong> {{ stocks[stock][pattern + '_volume_ratio'] }}x{% if stocks[stock][pattern + '_volume_ratio'] >= 2.0 %}<span style="color: green; font-weight: bold;"> ✓HIGH</span>{% elif stocks[stock][pattern + '_volume_ratio'] >= 1.5 %}<span style="color: orange; font-weight: bold;"> ↑</span>{% elif stocks[stock][pattern + '_volume_ratio'] < 0.8 %}<span style="color: red;"> ↓</span>{% endif %}
                     &nbsp;|&nbsp;
-                    <span title="Options Market Share (OMS)&#10;&#10;Measures options influence vs stock trading.&#10;&#10;Formula: (Max OI at key strikes × 100) ÷ Daily Volume&#10;&#10;• Stock-Dom (<0.3): Shares control price action&#10;• Mixed (0.3-1.0): Both influence price&#10;• Options-Dom (1.0-2.0): Options flow drives price&#10;• Gamma-Dom (≥2.0): Extreme options control, gamma effects likely" style="cursor: help; border-bottom: 1px dotted #999;"><strong>OMS:</strong></span> {% if stocks[stock][pattern + '_oms'] %}{{ stocks[stock][pattern + '_oms'] }}{% if stocks[stock][pattern + '_oms'] >= 2.0 %}<span style="color: #e74c3c; font-weight: bold;"> Gamma-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 1.0 %}<span style="color: #9c27b0; font-weight: bold;"> Options-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 0.3 %}<span style="color: #ff9800; font-weight: bold;"> Mixed</span>{% else %}<span style="color: #27ae60; font-weight: bold;"> Stock-Dom</span>{% endif %}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                    <span class="oms-tooltip"><strong>OMS:</strong><span class="oms-tooltip-text"><strong>Options Market Share (OMS)</strong><br><br>Measures options influence vs stock trading.<br><br><strong>Formula:</strong><br>(Max OI at key strikes × 100) ÷ Daily Volume<br><br><strong>Thresholds:</strong><br>• Stock-Dom (&lt;0.3): Shares control price<br>• Mixed (0.3-1.0): Both influence price<br>• Options-Dom (1.0-2.0): Options drive price<br>• Gamma-Dom (≥2.0): Extreme options control</span></span> {% if stocks[stock][pattern + '_oms'] %}{{ stocks[stock][pattern + '_oms'] }}{% if stocks[stock][pattern + '_oms'] >= 2.0 %}<span style="color: #e74c3c; font-weight: bold;"> Gamma-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 1.0 %}<span style="color: #9c27b0; font-weight: bold;"> Options-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 0.3 %}<span style="color: #ff9800; font-weight: bold;"> Mixed</span>{% else %}<span style="color: #27ae60; font-weight: bold;"> Stock-Dom</span>{% endif %}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                 </td>
             </tr>
             <tr>
