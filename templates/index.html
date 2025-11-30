@@ -68,6 +68,46 @@
             visibility: visible;
             opacity: 1;
         }
+        /* Generic info tooltip */
+        .info-tooltip {
+            position: relative;
+            cursor: help;
+            border-bottom: 1px dotted #666;
+        }
+        .info-tooltip .info-tooltip-text {
+            visibility: hidden;
+            width: 280px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 9999;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -140px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 11px;
+            line-height: 1.4;
+            font-weight: normal;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .info-tooltip .info-tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .info-tooltip:hover .info-tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
         .chart-container {
             background: white;
             padding: 20px;
@@ -957,13 +997,13 @@
                                 | Call: <strong>{{ "{:,}".format(walls.total_call_oi) }}</strong> | Put: <strong>{{ "{:,}".format(walls.total_put_oi) }}</strong></span>
                                 <span>
                                     {% if walls.gamma_flip %}
-                                    γ Flip: <strong>${{ "%.0f"|format(walls.gamma_flip) }}</strong>
+                                    <span class="info-tooltip">γ Flip<span class="info-tooltip-text"><strong>Gamma Flip Price</strong><br><br>Price level where dealer gamma exposure flips from positive to negative.<br><br><strong>Calculation:</strong><br>(Top Call Wall + Top Put Wall) ÷ 2<br><br><strong>Interpretation:</strong><br>• Above γ Flip: Dealers hedge by selling into rallies (resistance)<br>• Below γ Flip: Dealers hedge by selling into drops (amplifies moves)<br><br><strong>Distance %:</strong><br>• Green (+): Stock above gamma flip<br>• Red (−): Stock below gamma flip</span></span>: <strong>${{ "%.0f"|format(walls.gamma_flip) }}</strong>
                                     {% if walls.gamma_flip_distance %}
                                     (<span style="color: {% if walls.gamma_flip_distance > 0 %}#27ae60{% else %}#e74c3c{% endif %}; font-weight: bold;">{{ "%+.1f"|format(walls.gamma_flip_distance) }}%</span>)
                                     {% endif %}
                                     | 
                                     {% endif %}
-                                    γ: {% if walls.put_call_ratio < 0.7 %}<span style="color: #27ae60; font-weight: bold;">+Pos</span>{% elif walls.put_call_ratio > 1.0 %}<span style="color: #e74c3c; font-weight: bold;">−Neg</span>{% else %}<span style="color: #f39c12; font-weight: bold;">~Neut</span>{% endif %}
+                                    <span class="info-tooltip">γ<span class="info-tooltip-text"><strong>Gamma Exposure</strong><br><br>Indicates market maker hedging behavior.<br><br><strong>+Pos (Positive Gamma):</strong><br>P/C &lt; 0.7 — More calls than puts. Dealers sell rallies, buy dips. Reduces volatility.<br><br><strong>−Neg (Negative Gamma):</strong><br>P/C &gt; 1.0 — More puts than calls. Dealers sell dips, buy rallies. Amplifies moves.<br><br><strong>~Neut (Neutral):</strong><br>P/C 0.7-1.0 — Balanced. Normal market behavior.</span></span>: {% if walls.put_call_ratio < 0.7 %}<span style="color: #27ae60; font-weight: bold;">+Pos</span>{% elif walls.put_call_ratio > 1.0 %}<span style="color: #e74c3c; font-weight: bold;">−Neg</span>{% else %}<span style="color: #f39c12; font-weight: bold;">~Neut</span>{% endif %}
                                 </span>
                             </div>
                         </div>
