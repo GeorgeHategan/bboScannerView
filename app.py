@@ -230,6 +230,76 @@ def get_options_db_connection():
     return None
 
 
+def get_options_db_connection_write():
+    """Get a write-enabled connection to the options database."""
+    if OPTIONS_DUCKDB_PATH:
+        return duckdb.connect(OPTIONS_DUCKDB_PATH)  # No read_only flag = write access
+    return None
+
+
+def insert_vix_data(vix: float = None, vx30: float = None, source: str = "webhook", notes: str = None):
+    """
+    Insert VIX and VX30 values into the vix_data table.
+    
+    Args:
+        vix: Current VIX value
+        vx30: Current VX30 (30-day VIX futures) value
+        source: Data source (e.g., 'webhook', 'tradingview', 'manual')
+        notes: Optional notes
+    
+    Returns:
+        dict with status and inserted id
+    """
+    conn = get_options_db_connection_write()
+    if not conn:
+        return {"status": "error", "message": "Options database not configured"}
+    
+    try:
+        # Get next ID
+        result = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM vix_data").fetchone()
+        next_id = result[0]
+        
+        # Insert the data
+        conn.execute("""
+            INSERT INTO vix_data (id, timestamp, vix, vx30, source, notes)
+            VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+        """, [next_id, vix, vx30, source, notes])
+        
+        conn.close()
+        return {"status": "ok", "id": next_id, "vix": vix, "vx30": vx30}
+    except Exception as e:
+        conn.close()
+        return {"status": "error", "message": str(e)}
+
+
+def get_latest_vix_data():
+    """Get the most recent VIX and VX30 values."""
+    conn = get_options_db_connection()
+    if not conn:
+        return None
+    
+    try:
+        result = conn.execute("""
+            SELECT timestamp, vix, vx30, source 
+            FROM vix_data 
+            ORDER BY timestamp DESC 
+            LIMIT 1
+        """).fetchone()
+        conn.close()
+        
+        if result:
+            return {
+                "timestamp": result[0],
+                "vix": result[1],
+                "vx30": result[2],
+                "source": result[3]
+            }
+        return None
+    except Exception as e:
+        conn.close()
+        return None
+
+
 def format_market_cap(market_cap):
     """Format market cap for display (e.g., 3.99T, 415.6B, 500.2M)."""
     if market_cap is None:
@@ -301,7 +371,7 @@ async def health_check(request: Request, email: str = Depends(require_login)):
 @app.post("/webhook/tradingview")
 async def tradingview_webhook(request: Request):
     """
-    Receive webhooks from TradingView and insert data into Google Sheets.
+    Receive webhooks from TradingView and insert data into Google Sheets or database.
     
     TradingView Alert Message Format (JSON):
     {
@@ -312,6 +382,14 @@ async def tradingview_webhook(request: Request):
         "indicator_value": "{{plot_0}}",
         "signal": "BUY/SELL/NEUTRAL",
         "notes": "Optional notes"
+    }
+    
+    For VIX data specifically, use:
+    {
+        "type": "vix",
+        "vix": "{{close}}",       // or {{plot_0}} for indicator value
+        "vx30": "{{plot_1}}",     // optional VX30 value
+        "notes": "TradingView alert"
     }
     
     You can customize the JSON message in TradingView alert settings.
@@ -340,6 +418,39 @@ async def tradingview_webhook(request: Request):
         
         # Log the received data
         print(f"TradingView webhook received: {data}")
+        
+        # Check if this is a VIX data webhook
+        if data.get('type') == 'vix' or data.get('indicator_name', '').lower() in ['vix', 'vx30', 'volatility']:
+            # Extract VIX values - handle both numeric and string values
+            vix_val = data.get('vix') or data.get('indicator_value')
+            vx30_val = data.get('vx30')
+            
+            # Convert to float if strings
+            try:
+                vix = float(vix_val) if vix_val else None
+            except (ValueError, TypeError):
+                vix = None
+                
+            try:
+                vx30 = float(vx30_val) if vx30_val else None
+            except (ValueError, TypeError):
+                vx30 = None
+            
+            # Insert into database
+            result = insert_vix_data(
+                vix=vix,
+                vx30=vx30,
+                source="tradingview",
+                notes=data.get('notes', data.get('signal', None))
+            )
+            
+            print(f"VIX data inserted: {result}")
+            
+            return {
+                "status": result.get("status", "error"),
+                "message": f"VIX data recorded: VIX={vix}, VX30={vx30}",
+                "data": result
+            }
         
         # TODO: Enable Google Sheets integration when ready
         # For now, just return success with the received data
@@ -375,8 +486,65 @@ async def test_webhook():
             "indicator_value": "{{plot_0}}",
             "signal": "BUY",
             "notes": "Custom alert message"
+        },
+        "example_vix_message": {
+            "type": "vix",
+            "vix": "{{close}}",
+            "vx30": "{{plot_0}}",
+            "notes": "VIX alert from TradingView"
         }
     }
+
+
+@app.get("/api/vix")
+async def get_vix():
+    """Get the latest VIX and VX30 values from the database."""
+    latest = get_latest_vix_data()
+    if latest:
+        return {
+            "status": "ok",
+            "data": latest
+        }
+    return {
+        "status": "ok",
+        "data": None,
+        "message": "No VIX data available"
+    }
+
+
+@app.get("/api/vix/history")
+async def get_vix_history(limit: int = 100):
+    """Get historical VIX and VX30 values."""
+    conn = get_options_db_connection()
+    if not conn:
+        return {"status": "error", "message": "Options database not configured"}
+    
+    try:
+        result = conn.execute(f"""
+            SELECT timestamp, vix, vx30, source, notes
+            FROM vix_data 
+            ORDER BY timestamp DESC 
+            LIMIT {min(limit, 1000)}
+        """).fetchall()
+        conn.close()
+        
+        history = []
+        for row in result:
+            history.append({
+                "timestamp": row[0].isoformat() if hasattr(row[0], 'isoformat') else str(row[0]),
+                "vix": row[1],
+                "vx30": row[2],
+                "source": row[3],
+                "notes": row[4]
+            })
+        
+        return {
+            "status": "ok",
+            "count": len(history),
+            "data": history
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 @app.get("/options-signals", response_class=HTMLResponse)
