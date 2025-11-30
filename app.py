@@ -1,14 +1,24 @@
 import os
+import json
 from dotenv import load_dotenv
 import duckdb
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 from authlib.integrations.starlette_client import OAuth, OAuthError
+
+# Google Sheets integration
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+    GSPREAD_AVAILABLE = True
+except ImportError:
+    GSPREAD_AVAILABLE = False
+    print("WARNING: gspread not installed - webhook to Google Sheets disabled")
 
 # Load environment variables from .env file
 load_dotenv()
@@ -247,6 +257,126 @@ def format_market_cap(market_cap):
 async def health_check(request: Request, email: str = Depends(require_login)):
     """Health check endpoint for monitoring."""
     return {"status": "healthy", "service": "bbo-scanner-view"}
+
+
+# ============================================================================
+# TradingView Webhook to Google Sheets Integration
+# ============================================================================
+
+# TODO: Enable Google Sheets integration when ready
+# def get_google_sheets_client():
+#     """
+#     Get authenticated Google Sheets client using service account credentials.
+#     
+#     Requires environment variable GOOGLE_SHEETS_CREDENTIALS containing the
+#     service account JSON credentials (as a JSON string).
+#     
+#     Also requires GOOGLE_SHEET_ID - the ID of the spreadsheet to write to.
+#     """
+#     if not GSPREAD_AVAILABLE:
+#         return None
+#     
+#     creds_json = os.environ.get('GOOGLE_SHEETS_CREDENTIALS')
+#     if not creds_json:
+#         print("WARNING: GOOGLE_SHEETS_CREDENTIALS not set")
+#         return None
+#     
+#     try:
+#         import json
+#         creds_dict = json.loads(creds_json)
+#         
+#         scopes = [
+#             'https://www.googleapis.com/auth/spreadsheets',
+#             'https://www.googleapis.com/auth/drive'
+#         ]
+#         
+#         credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+#         client = gspread.authorize(credentials)
+#         return client
+#     except Exception as e:
+#         print(f"ERROR: Failed to authenticate with Google Sheets: {e}")
+#         return None
+
+
+@app.post("/webhook/tradingview")
+async def tradingview_webhook(request: Request):
+    """
+    Receive webhooks from TradingView and insert data into Google Sheets.
+    
+    TradingView Alert Message Format (JSON):
+    {
+        "symbol": "{{ticker}}",
+        "price": "{{close}}",
+        "time": "{{time}}",
+        "indicator_name": "YOUR_INDICATOR_NAME",
+        "indicator_value": "{{plot_0}}",
+        "signal": "BUY/SELL/NEUTRAL",
+        "notes": "Optional notes"
+    }
+    
+    You can customize the JSON message in TradingView alert settings.
+    Use {{ticker}}, {{close}}, {{time}}, {{plot_0}}, etc. placeholders.
+    """
+    try:
+        # Get the webhook payload
+        content_type = request.headers.get('content-type', '')
+        
+        if 'application/json' in content_type:
+            data = await request.json()
+        else:
+            # Plain text - try to parse as JSON anyway
+            body = await request.body()
+            body_str = body.decode('utf-8')
+            try:
+                import json
+                data = json.loads(body_str)
+            except:
+                # If not JSON, create a simple dict with the raw message
+                data = {"raw_message": body_str}
+        
+        # Add timestamp if not present
+        if 'timestamp' not in data:
+            data['timestamp'] = datetime.now().isoformat()
+        
+        # Log the received data
+        print(f"TradingView webhook received: {data}")
+        
+        # TODO: Enable Google Sheets integration when ready
+        # For now, just return success with the received data
+        
+        return {
+            "status": "ok",
+            "message": f"Webhook received for {data.get('symbol', data.get('ticker', 'unknown'))}",
+            "data": data
+        }
+    
+    except Exception as e:
+        print(f"ERROR: Webhook processing failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@app.get("/webhook/test")
+async def test_webhook():
+    """Test endpoint to verify webhook is working."""
+    return {
+        "status": "ok",
+        "message": "Webhook endpoint is active",
+        "webhook_url": "/webhook/tradingview",
+        "example_tradingview_message": {
+            "symbol": "{{ticker}}",
+            "price": "{{close}}",
+            "time": "{{time}}",
+            "indicator_name": "My Indicator",
+            "indicator_value": "{{plot_0}}",
+            "signal": "BUY",
+            "notes": "Custom alert message"
+        }
+    }
 
 
 @app.get("/options-signals", response_class=HTMLResponse)

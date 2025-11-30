@@ -8,3 +8,5 @@ duckdb==1.4.1
 python-multipart==0.0.20
 aiofiles==24.1.0
 itsdangerous==2.2.0
+gspread==6.1.4
+google-auth==2.38.0
