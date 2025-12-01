@@ -327,6 +327,52 @@ def get_vix_sqlite_count():
         return 0
 
 
+def sync_sqlite_to_motherduck():
+    """Sync VIX data from local SQLite to MotherDuck, then clear SQLite."""
+    sqlite_data = get_vix_sqlite_history(limit=10000)
+    if not sqlite_data:
+        return {"status": "ok", "message": "No data to sync", "synced": 0}
+    
+    conn = get_options_db_connection_write()
+    if not conn:
+        return {"status": "error", "message": "MotherDuck not configured"}
+    
+    synced = 0
+    errors = 0
+    
+    try:
+        for row in sqlite_data:
+            try:
+                # Get next ID
+                result = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM vix_data").fetchone()
+                next_id = result[0]
+                
+                # Insert into MotherDuck
+                conn.execute("""
+                    INSERT INTO vix_data (id, timestamp, vix, vx30, source, notes)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, [next_id, row['timestamp'], row['vix'], row['vx30'], row['source'], row['notes']])
+                synced += 1
+            except Exception as e:
+                print(f"Error syncing row: {e}")
+                errors += 1
+        
+        conn.close()
+        
+        # Clear SQLite after successful sync
+        if synced > 0 and errors == 0:
+            sqlite_conn = sqlite3.connect(VIX_SQLITE_PATH)
+            sqlite_conn.execute("DELETE FROM vix_data")
+            sqlite_conn.commit()
+            sqlite_conn.close()
+        
+        return {"status": "ok", "synced": synced, "errors": errors}
+    except Exception as e:
+        if conn:
+            conn.close()
+        return {"status": "error", "message": str(e)}
+
+
 def insert_vix_data(vix: float = None, vx30: float = None, source: str = "webhook", notes: str = None):
     """
     Insert VIX and VX30 values into the vix_data table.
@@ -619,6 +665,22 @@ async def test_webhook():
             "notes": "VIX alert from TradingView"
         }
     }
+
+
+@app.post("/api/vix/sync")
+async def sync_vix_to_motherduck():
+    """Sync VIX data from local SQLite to MotherDuck.
+    Call this periodically or before app restarts to preserve data.
+    """
+    result = sync_sqlite_to_motherduck()
+    return result
+
+
+@app.get("/api/vix/sqlite-count")
+async def get_sqlite_count():
+    """Get count of records in local SQLite (pending sync)."""
+    count = get_vix_sqlite_count()
+    return {"status": "ok", "pending_records": count}
 
 
 @app.get("/api/vix")
