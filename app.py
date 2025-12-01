@@ -250,26 +250,48 @@ def insert_vix_data(vix: float = None, vx30: float = None, source: str = "webhoo
     Returns:
         dict with status and inserted id
     """
-    conn = get_options_db_connection_write()
-    if not conn:
-        return {"status": "error", "message": "Options database not configured"}
+    import time
+    max_retries = 3
+    retry_delay = 1  # seconds
     
-    try:
-        # Get next ID
-        result = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM vix_data").fetchone()
-        next_id = result[0]
-        
-        # Insert the data
-        conn.execute("""
-            INSERT INTO vix_data (id, timestamp, vix, vx30, source, notes)
-            VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
-        """, [next_id, vix, vx30, source, notes])
-        
-        conn.close()
-        return {"status": "ok", "id": next_id, "vix": vix, "vx30": vx30}
-    except Exception as e:
-        conn.close()
-        return {"status": "error", "message": str(e)}
+    for attempt in range(max_retries):
+        conn = None
+        try:
+            conn = get_options_db_connection_write()
+            if not conn:
+                return {"status": "error", "message": "Options database not configured"}
+            
+            # Get next ID
+            result = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM vix_data").fetchone()
+            next_id = result[0]
+            
+            # Insert the data
+            conn.execute("""
+                INSERT INTO vix_data (id, timestamp, vix, vx30, source, notes)
+                VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+            """, [next_id, vix, vx30, source, notes])
+            
+            conn.close()
+            return {"status": "ok", "id": next_id, "vix": vix, "vx30": vx30}
+        except Exception as e:
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
+            
+            error_msg = str(e)
+            # Retry on connection conflicts
+            if "connection" in error_msg.lower() or "database" in error_msg.lower():
+                if attempt < max_retries - 1:
+                    print(f"Database connection error (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
+            
+            return {"status": "error", "message": error_msg}
+    
+    return {"status": "error", "message": "Max retries exceeded"}
 
 
 def get_latest_vix_data():
