@@ -620,6 +620,59 @@ async def vix_chart(request: Request, limit: int = 500):
         })
 
 
+@app.get("/vix-chart/download")
+async def download_vix_csv():
+    """Download complete VIX/VX30 history as CSV."""
+    from fastapi.responses import StreamingResponse
+    import io
+    
+    conn = get_options_db_connection()
+    if not conn:
+        return {"status": "error", "message": "Database not available"}
+    
+    try:
+        result = conn.execute("""
+            SELECT timestamp, vix, vx30, source, notes
+            FROM vix_data 
+            ORDER BY timestamp ASC
+        """).fetchall()
+        conn.close()
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        output.write("timestamp,vix,vx30,spread_pct,source,notes\n")
+        
+        for row in result:
+            ts = row[0].isoformat() if hasattr(row[0], 'isoformat') else str(row[0])
+            vix = row[1] if row[1] else ''
+            vx30 = row[2] if row[2] else ''
+            source = row[3] if row[3] else ''
+            notes = row[4] if row[4] else ''
+            
+            # Calculate spread
+            if vix and vx30:
+                spread = ((vx30 - vix) / vix * 100)
+                spread_str = f"{spread:.2f}"
+            else:
+                spread_str = ''
+            
+            # Escape notes for CSV
+            notes = str(notes).replace('"', '""')
+            
+            output.write(f'{ts},{vix},{vx30},{spread_str},{source},"{notes}"\n')
+        
+        output.seek(0)
+        
+        # Return as downloadable CSV
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=vix_history_{datetime.now().strftime('%Y%m%d')}.csv"}
+        )
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/options-signals", response_class=HTMLResponse)
 async def options_signals(
     request: Request,
