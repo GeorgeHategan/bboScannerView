@@ -1,5 +1,6 @@
 import os
 import json
+import sqlite3
 from dotenv import load_dotenv
 import duckdb
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
@@ -259,6 +260,73 @@ def get_options_db_connection_write(max_retries=3):
     return None
 
 
+# ============================================
+# SQLite VIX Database (for webhook data)
+# ============================================
+VIX_SQLITE_PATH = os.path.join(os.path.dirname(__file__), 'vix_webhook.db')
+
+def init_vix_sqlite():
+    """Initialize the SQLite database for VIX webhook data."""
+    conn = sqlite3.connect(VIX_SQLITE_PATH)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS vix_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            vix REAL,
+            vx30 REAL,
+            source TEXT DEFAULT 'webhook',
+            notes TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    print(f"VIX SQLite database initialized at {VIX_SQLITE_PATH}")
+
+# Initialize on startup
+init_vix_sqlite()
+
+def insert_vix_sqlite(vix: float = None, vx30: float = None, source: str = "tradingview", notes: str = None):
+    """Insert VIX data into local SQLite database."""
+    try:
+        conn = sqlite3.connect(VIX_SQLITE_PATH)
+        cursor = conn.execute(
+            "INSERT INTO vix_data (vix, vx30, source, notes) VALUES (?, ?, ?, ?)",
+            (vix, vx30, source, notes)
+        )
+        inserted_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return {"status": "ok", "id": inserted_id, "vix": vix, "vx30": vx30}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+def get_vix_sqlite_history(limit: int = 500):
+    """Get VIX history from SQLite database."""
+    try:
+        conn = sqlite3.connect(VIX_SQLITE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute(
+            "SELECT * FROM vix_data ORDER BY timestamp DESC LIMIT ?",
+            (limit,)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+    except Exception as e:
+        print(f"Error reading VIX SQLite: {e}")
+        return []
+
+def get_vix_sqlite_count():
+    """Get total count of VIX records in SQLite."""
+    try:
+        conn = sqlite3.connect(VIX_SQLITE_PATH)
+        count = conn.execute("SELECT COUNT(*) FROM vix_data").fetchone()[0]
+        conn.close()
+        return count
+    except:
+        return 0
+
+
 def insert_vix_data(vix: float = None, vx30: float = None, source: str = "webhook", notes: str = None):
     """
     Insert VIX and VX30 values into the vix_data table.
@@ -493,15 +561,15 @@ async def tradingview_webhook(request: Request):
             except (ValueError, TypeError):
                 vx30 = None
             
-            # Insert into database
-            result = insert_vix_data(
+            # Insert into LOCAL SQLite database (avoids MotherDuck connection issues)
+            result = insert_vix_sqlite(
                 vix=vix,
                 vx30=vx30,
                 source="tradingview",
                 notes=data.get('notes', data.get('signal', None))
             )
             
-            print(f"VIX data inserted: {result}")
+            print(f"VIX data inserted to SQLite: {result}")
             
             return {
                 "status": result.get("status", "error"),
@@ -606,80 +674,95 @@ async def get_vix_history(limit: int = 100):
 
 @app.get("/vix-chart", response_class=HTMLResponse)
 async def vix_chart(request: Request):
-    """Display VIX and VX30 history with Plotly chart."""
-    conn = get_options_db_connection()
-    if not conn:
-        return templates.TemplateResponse("vix_chart.html", {
-            "request": request,
-            "latest": None,
-            "history": [],
-            "timestamps": [],
-            "vix_values": [],
-            "vx30_values": [],
-            "total_count": 0
-        })
+    """Display VIX and VX30 history with Plotly chart.
+    Combines data from SQLite (webhook) and MotherDuck (historical).
+    """
+    history = []
+    timestamps = []
+    vix_values = []
+    vx30_values = []
     
-    try:
-        # Get total count
-        total_count = conn.execute("SELECT COUNT(*) FROM vix_data").fetchone()[0]
-        
-        # Get ALL historical data (no limit)
-        result = conn.execute("""
-            SELECT timestamp, vix, vx30, source, notes
-            FROM vix_data 
-            ORDER BY timestamp DESC
-        """).fetchall()
-        conn.close()
-        
-        history = []
-        timestamps = []
-        vix_values = []
-        vx30_values = []
-        
-        for row in result:
-            ts = row[0].isoformat() if hasattr(row[0], 'isoformat') else str(row[0])
-            history.append({
-                "timestamp": ts,
-                "vix": row[1],
-                "vx30": row[2],
-                "source": row[3],
-                "notes": row[4]
-            })
-            timestamps.append(ts)
-            vix_values.append(row[1])
-            vx30_values.append(row[2])
-        
-        # Reverse for chronological order in chart
-        timestamps.reverse()
-        vix_values.reverse()
-        vx30_values.reverse()
-        
-        # Get latest
-        latest = history[0] if history else None
-        
-        return templates.TemplateResponse("vix_chart.html", {
-            "request": request,
-            "latest": latest,
-            "history": history,  # Show ALL records in table
-            "timestamps": timestamps,
-            "vix_values": vix_values,
-            "vx30_values": vx30_values,
-            "total_count": total_count
+    # First, get webhook data from SQLite
+    sqlite_data = get_vix_sqlite_history(limit=10000)
+    sqlite_count = get_vix_sqlite_count()
+    
+    for row in sqlite_data:
+        ts = row['timestamp']
+        history.append({
+            "timestamp": ts,
+            "vix": row['vix'],
+            "vx30": row['vx30'],
+            "source": row['source'],
+            "notes": row['notes']
         })
-    except Exception as e:
-        print(f"Error in vix_chart: {e}")
-        import traceback
-        traceback.print_exc()
-        return templates.TemplateResponse("vix_chart.html", {
-            "request": request,
-            "latest": None,
-            "history": [],
-            "timestamps": [],
-            "vix_values": [],
-            "vx30_values": [],
-            "total_count": 0,
-            "error": str(e)
-        })
+        timestamps.append(ts)
+        vix_values.append(row['vix'])
+        vx30_values.append(row['vx30'])
+    
+    # Then get historical data from MotherDuck
+    motherduck_count = 0
+    conn = get_options_db_connection()
+    if conn:
+        try:
+            motherduck_count = conn.execute("SELECT COUNT(*) FROM vix_data").fetchone()[0]
+            
+            result = conn.execute("""
+                SELECT timestamp, vix, vx30, source, notes
+                FROM vix_data 
+                ORDER BY timestamp DESC
+            """).fetchall()
+            conn.close()
+            
+            for row in result:
+                ts = row[0].isoformat() if hasattr(row[0], 'isoformat') else str(row[0])
+                history.append({
+                    "timestamp": ts,
+                    "vix": row[1],
+                    "vx30": row[2],
+                    "source": row[3],
+                    "notes": row[4]
+                })
+                timestamps.append(ts)
+                vix_values.append(row[1])
+                vx30_values.append(row[2])
+        except Exception as e:
+            print(f"Error reading MotherDuck VIX data: {e}")
+            if conn:
+                conn.close()
+    
+    total_count = sqlite_count + motherduck_count
+    
+    # Sort by timestamp descending (newest first for table)
+    combined = list(zip(timestamps, vix_values, vx30_values, history))
+    combined.sort(key=lambda x: x[0], reverse=True)
+    
+    if combined:
+        timestamps, vix_values, vx30_values, history = zip(*combined)
+        timestamps = list(timestamps)
+        vix_values = list(vix_values)
+        vx30_values = list(vx30_values)
+        history = list(history)
+    
+    # Reverse for chronological order in chart
+    chart_timestamps = timestamps.copy()
+    chart_vix = vix_values.copy()
+    chart_vx30 = vx30_values.copy()
+    chart_timestamps.reverse()
+    chart_vix.reverse()
+    chart_vx30.reverse()
+    
+    # Get latest
+    latest = history[0] if history else None
+    
+    return templates.TemplateResponse("vix_chart.html", {
+        "request": request,
+        "latest": latest,
+        "history": history,
+        "timestamps": chart_timestamps,
+        "vix_values": chart_vix,
+        "vx30_values": chart_vx30,
+        "total_count": total_count
+    })
 
 
 @app.get("/vix-chart/download")
