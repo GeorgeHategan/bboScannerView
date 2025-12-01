@@ -1,6 +1,7 @@
 import os
 import json
 import sqlite3
+import asyncio
 from dotenv import load_dotenv
 import duckdb
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
@@ -11,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from authlib.integrations.starlette_client import OAuth, OAuthError
+from contextlib import asynccontextmanager
 
 # Google Sheets integration
 try:
@@ -84,7 +86,51 @@ PATTERN_WEIGHTS = {
     'CDLADVANCEBLOCK': 6.5, 'CDLGAPSIDESIDEWHITE': 6.0,
 }
 
-app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard")
+# Background sync task flag
+_sync_task = None
+
+async def background_vix_sync():
+    """Background task to sync VIX data to MotherDuck every hour."""
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Wait 1 hour
+            # Import here to avoid circular reference
+            from app import sync_sqlite_to_motherduck, get_vix_sqlite_count
+            count = get_vix_sqlite_count()
+            if count > 0:
+                print(f"[Background Sync] Syncing {count} VIX records to MotherDuck...")
+                result = sync_sqlite_to_motherduck()
+                print(f"[Background Sync] Result: {result}")
+            else:
+                print("[Background Sync] No pending records to sync")
+        except asyncio.CancelledError:
+            print("[Background Sync] Task cancelled")
+            break
+        except Exception as e:
+            print(f"[Background Sync] Error: {e}")
+
+@asynccontextmanager
+async def lifespan(app):
+    """Handle app startup and shutdown."""
+    global _sync_task
+    # Startup: start background sync task
+    _sync_task = asyncio.create_task(background_vix_sync())
+    print("[Startup] Background VIX sync task started (every 1 hour)")
+    yield
+    # Shutdown: cancel background task and do final sync
+    if _sync_task:
+        _sync_task.cancel()
+        try:
+            await _sync_task
+        except asyncio.CancelledError:
+            pass
+    # Final sync before shutdown
+    print("[Shutdown] Performing final VIX data sync...")
+    from app import sync_sqlite_to_motherduck
+    result = sync_sqlite_to_motherduck()
+    print(f"[Shutdown] Final sync result: {result}")
+
+app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
 
 # Mount static files directory
@@ -328,7 +374,7 @@ def get_vix_sqlite_count():
 
 
 def sync_sqlite_to_motherduck():
-    """Sync VIX data from local SQLite to MotherDuck, then clear SQLite."""
+    """Sync VIX data from local SQLite to MotherDuck, avoiding duplicates, then clear SQLite."""
     sqlite_data = get_vix_sqlite_history(limit=10000)
     if not sqlite_data:
         return {"status": "ok", "message": "No data to sync", "synced": 0}
@@ -338,11 +384,22 @@ def sync_sqlite_to_motherduck():
         return {"status": "error", "message": "MotherDuck not configured"}
     
     synced = 0
+    skipped = 0
     errors = 0
     
     try:
         for row in sqlite_data:
             try:
+                # Check for duplicate by timestamp, vix, and vx30 values
+                existing = conn.execute("""
+                    SELECT COUNT(*) FROM vix_data 
+                    WHERE timestamp = ? AND vix = ? AND vx30 = ?
+                """, [row['timestamp'], row['vix'], row['vx30']]).fetchone()[0]
+                
+                if existing > 0:
+                    skipped += 1
+                    continue
+                
                 # Get next ID
                 result = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM vix_data").fetchone()
                 next_id = result[0]
@@ -359,14 +416,14 @@ def sync_sqlite_to_motherduck():
         
         conn.close()
         
-        # Clear SQLite after successful sync
-        if synced > 0 and errors == 0:
+        # Clear SQLite after sync (even if some were skipped)
+        if (synced > 0 or skipped > 0) and errors == 0:
             sqlite_conn = sqlite3.connect(VIX_SQLITE_PATH)
             sqlite_conn.execute("DELETE FROM vix_data")
             sqlite_conn.commit()
             sqlite_conn.close()
         
-        return {"status": "ok", "synced": synced, "errors": errors}
+        return {"status": "ok", "synced": synced, "skipped": skipped, "errors": errors}
     except Exception as e:
         if conn:
             conn.close()
