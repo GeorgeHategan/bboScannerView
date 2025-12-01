@@ -668,7 +668,7 @@ async def tradingview_webhook(request: Request):
             result = insert_vix_sqlite(
                 vix=vix,
                 vx30=vx30,
-                source="tradingview",
+                source="webhook",
                 notes=data.get('notes', data.get('signal', None))
             )
             
