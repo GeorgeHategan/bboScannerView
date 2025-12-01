@@ -617,10 +617,20 @@ async def tradingview_webhook(request: Request):
             
             print(f"VIX data inserted to SQLite: {result}")
             
+            # Auto-sync to MotherDuck every 10 records
+            sqlite_count = get_vix_sqlite_count()
+            sync_result = None
+            if sqlite_count >= 10:
+                print(f"Auto-syncing {sqlite_count} records to MotherDuck...")
+                sync_result = sync_sqlite_to_motherduck()
+                print(f"Sync result: {sync_result}")
+            
             return {
                 "status": result.get("status", "error"),
                 "message": f"VIX data recorded: VIX={vix}, VX30={vx30}",
-                "data": result
+                "data": result,
+                "pending_sync": sqlite_count if sqlite_count < 10 else 0,
+                "sync_result": sync_result
             }
         
         # TODO: Enable Google Sheets integration when ready
