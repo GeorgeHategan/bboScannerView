@@ -487,6 +487,119 @@ def insert_vix_data(vix: float = None, vx30: float = None, source: str = "webhoo
     return {"status": "error", "message": "Max retries exceeded"}
 
 
+# ============================================
+# Focus List (MotherDuck only)
+# ============================================
+
+def init_focus_list_table():
+    """Initialize the focus_list table in MotherDuck options_data database."""
+    conn = get_options_db_connection_write()
+    if not conn:
+        print("WARNING: Cannot initialize focus_list - MotherDuck not configured")
+        return False
+    try:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS focus_list (
+                id INTEGER PRIMARY KEY,
+                symbol VARCHAR NOT NULL,
+                scanner_name VARCHAR,
+                scan_date DATE,
+                entry_price DOUBLE,
+                strength INTEGER,
+                quality VARCHAR,
+                notes VARCHAR,
+                added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.close()
+        print("Focus list table initialized in MotherDuck")
+        return True
+    except Exception as e:
+        print(f"Error initializing focus_list table: {e}")
+        if conn:
+            conn.close()
+        return False
+
+# Initialize focus list on module load
+init_focus_list_table()
+
+
+def add_to_focus_list(symbol: str, scanner_name: str = None, scan_date: str = None, 
+                      entry_price: float = None, strength: int = None, quality: str = None, 
+                      notes: str = None):
+    """Add a setup to the focus list."""
+    conn = get_options_db_connection_write()
+    if not conn:
+        return {"status": "error", "message": "Database not available"}
+    
+    try:
+        # Get next ID
+        result = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM focus_list").fetchone()
+        next_id = result[0]
+        
+        conn.execute("""
+            INSERT INTO focus_list (id, symbol, scanner_name, scan_date, entry_price, strength, quality, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, [next_id, symbol, scanner_name, scan_date, entry_price, strength, quality, notes])
+        conn.close()
+        return {"status": "ok", "id": next_id, "symbol": symbol}
+    except Exception as e:
+        if conn:
+            conn.close()
+        return {"status": "error", "message": str(e)}
+
+
+def remove_from_focus_list(item_id: int):
+    """Remove an item from the focus list by ID."""
+    conn = get_options_db_connection_write()
+    if not conn:
+        return {"status": "error", "message": "Database not available"}
+    
+    try:
+        conn.execute("DELETE FROM focus_list WHERE id = ?", [item_id])
+        conn.close()
+        return {"status": "ok", "deleted_id": item_id}
+    except Exception as e:
+        if conn:
+            conn.close()
+        return {"status": "error", "message": str(e)}
+
+
+def get_focus_list():
+    """Get all items from focus list, sorted by added_date DESC (newest first)."""
+    conn = get_options_db_connection()
+    if not conn:
+        return []
+    
+    try:
+        result = conn.execute("""
+            SELECT id, symbol, scanner_name, scan_date, entry_price, strength, quality, notes, added_date
+            FROM focus_list 
+            ORDER BY added_date DESC
+        """).fetchall()
+        conn.close()
+        
+        items = []
+        for row in result:
+            items.append({
+                'id': row[0],
+                'symbol': row[1],
+                'scanner_name': row[2],
+                'scan_date': str(row[3]) if row[3] else None,
+                'entry_price': row[4],
+                'strength': row[5],
+                'quality': row[6],
+                'notes': row[7],
+                'added_date': row[8].isoformat() if hasattr(row[8], 'isoformat') else str(row[8])
+            })
+        return items
+    except Exception as e:
+        print(f"Error getting focus list: {e}")
+        if conn:
+            conn.close()
+        return []
+
+
 def get_latest_vix_data():
     """Get the most recent VIX and VX30 values."""
     conn = get_options_db_connection()
@@ -959,6 +1072,74 @@ async def download_vix_csv():
         )
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+# ============================================
+# Focus List Endpoints
+# ============================================
+
+@app.post("/api/focus-list/add")
+async def api_add_to_focus_list(
+    symbol: str = Form(...),
+    scanner_name: str = Form(None),
+    scan_date: str = Form(None),
+    entry_price: float = Form(None),
+    strength: int = Form(None),
+    quality: str = Form(None),
+    notes: str = Form(None)
+):
+    """Add a setup to the focus list."""
+    result = add_to_focus_list(
+        symbol=symbol.upper(),
+        scanner_name=scanner_name,
+        scan_date=scan_date,
+        entry_price=entry_price,
+        strength=strength,
+        quality=quality,
+        notes=notes
+    )
+    return JSONResponse(result)
+
+
+@app.post("/api/focus-list/remove")
+async def api_remove_from_focus_list(item_id: int = Form(...)):
+    """Remove an item from the focus list."""
+    result = remove_from_focus_list(item_id)
+    return JSONResponse(result)
+
+
+@app.get("/api/focus-list")
+async def api_get_focus_list():
+    """Get all focus list items."""
+    items = get_focus_list()
+    return JSONResponse({"status": "ok", "items": items, "count": len(items)})
+
+
+@app.get("/focus-list", response_class=HTMLResponse)
+async def focus_list_page(request: Request):
+    """Display the focus list page with day separators."""
+    items = get_focus_list()
+    
+    # Group items by added date (day only)
+    from collections import OrderedDict
+    grouped = OrderedDict()
+    for item in items:
+        # Extract just the date part
+        added_ts = item['added_date']
+        if 'T' in added_ts:
+            day = added_ts.split('T')[0]
+        else:
+            day = added_ts.split(' ')[0]
+        
+        if day not in grouped:
+            grouped[day] = []
+        grouped[day].append(item)
+    
+    return templates.TemplateResponse('focus_list.html', {
+        'request': request,
+        'grouped_items': grouped,
+        'total_count': len(items)
+    })
 
 
 @app.get("/options-signals", response_class=HTMLResponse)

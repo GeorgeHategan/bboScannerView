@@ -246,6 +246,40 @@
                 });
             }
         });
+        
+        // Focus List functionality
+        async function addToFocus(symbol, scanner, scanDate, entryPrice, strength, quality) {
+            const formData = new FormData();
+            formData.append('symbol', symbol);
+            formData.append('scanner_name', scanner);
+            if (scanDate) formData.append('scan_date', scanDate);
+            if (entryPrice !== null) formData.append('entry_price', entryPrice);
+            if (strength !== null) formData.append('strength', strength);
+            if (quality) formData.append('quality', quality);
+            
+            try {
+                const response = await fetch('/api/focus-list/add', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.status === 'ok') {
+                    // Visual feedback
+                    const btn = event.target;
+                    btn.textContent = '✓ Added';
+                    btn.style.background = '#27ae60';
+                    setTimeout(() => {
+                        btn.textContent = '⭐ Focus';
+                        btn.style.background = '#ff6b35';
+                    }, 1500);
+                } else {
+                    alert('Error: ' + (result.message || 'Failed to add'));
+                }
+            } catch (error) {
+                alert('Error adding to focus list: ' + error.message);
+            }
+        }
     </script>
 </head>
 <body>
@@ -267,6 +301,7 @@
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <a href="/options-signals" style="background: #fff3e0; color: #e65100; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ffcc80;">📈 Options Flow</a>
+                    <a href="/focus-list" style="background: #ffebee; color: #c62828; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ef9a9a;">🎯 Focus List</a>
                     <a href="/ranked" style="background: #e8f4f8; color: #2c5f7a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d0e5ed;">🏆 Top Ranked</a>
                     <a href="/scanner-performance" style="background: #f0f0f0; color: #999; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ddd; cursor: not-allowed; opacity: 0.5;" onclick="return false;" title="Performance analysis temporarily disabled">📈 Performance</a>
                     <a href="/scanner-docs" style="background: #e8f5e9; color: #2e7d32; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #c8e6c9;">📚 Scanner Docs</a>
@@ -609,6 +644,7 @@
             {% if pattern %}<th>signal</th>{% else %}<th>scanner</th>{% endif %}
             <th>strength</th>
             <th>quality</th>
+            <th style="width: 70px;">focus</th>
         </tr>
         {% if pattern %}
         {# Pattern-based display: show all stocks with this pattern #}
@@ -616,7 +652,7 @@
             {% if stocks[stock][pattern] %}
             {% if not loop.first %}
             <tr class="result-separator">
-                <td colspan="7" style="padding:0;">
+                <td colspan="8" style="padding:0;">
                     <div style="height:1px;background:#e0e0e0;margin:32px 0 12px 0;"></div>
                 </td>
             </tr>
@@ -662,6 +698,9 @@
                 <td class="{{ stocks[stock][pattern + '_quality'] }}">
                     {{ stocks[stock][pattern + '_quality'] }}
                 </td>
+                <td>
+                    <button class="focus-btn" onclick="addToFocus('{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', {{ stocks[stock].get(pattern + '_entry_price', 'null') }}, {{ stocks[stock].get(pattern + '_strength', 'null') }}, '{{ stocks[stock].get(pattern + '_quality', '') }}')" style="background: #ff6b35; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">⭐ Focus</button>
+                </td>
             </tr>
             <tr>
                 <td colspan="4" style="font-size: 15px; padding: 4px 0; color: #555;">
@@ -671,7 +710,7 @@
                     &nbsp;|&nbsp;
                     <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
                 </td>
-                <td colspan="3" style="font-size: 15px; padding: 4px 0; color: #555; padding-left: 20px;">
+                <td colspan="4" style="font-size: 15px; padding: 4px 0; color: #555; padding-left: 20px;">
                     <strong>Vol:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}
                     &nbsp;|&nbsp;
                     <strong>Avg:</strong> {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}
@@ -682,7 +721,7 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="4" style="position: relative; width: 55%;">
+                <td colspan="4" style="position: relative; width: 50%;">
                     <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
                     
                     {# Timeline showing scanner detection dates and options signals #}
@@ -848,7 +887,7 @@
                     </div>
                     {% endif %}
                 </td>
-                <td colspan="3" style="vertical-align: top; padding-left: 20px; padding-top: 0; width: 45%;">
+                <td colspan="4" style="vertical-align: top; padding-left: 20px; padding-top: 0; width: 50%;">
                     <div style="font-size: 13px; line-height: 1.5;">
                         {% if stocks[stock].get(pattern + '_picked_count') %}
                         <strong>Confluence:</strong> Picked by {{ stocks[stock][pattern + '_picked_count'] }} scanner(s)<br>
