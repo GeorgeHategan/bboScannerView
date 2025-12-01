@@ -223,17 +223,35 @@ else:
 print(f"INFO: Database path configured: {DUCKDB_PATH if not motherduck_token else 'md:scanner_data?motherduck_token=***'}")
 
 
-def get_options_db_connection():
-    """Get a connection to the options signals database."""
+def get_options_db_connection(max_retries=3):
+    """Get a connection to the options signals database with retry logic."""
+    import time
     if OPTIONS_DUCKDB_PATH:
-        return duckdb.connect(OPTIONS_DUCKDB_PATH, read_only=True)
+        for attempt in range(max_retries):
+            try:
+                return duckdb.connect(OPTIONS_DUCKDB_PATH, read_only=True)
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"DB connection error (attempt {attempt + 1}/{max_retries}): {e}")
+                    time.sleep(1 * (attempt + 1))  # Exponential backoff
+                    continue
+                raise
     return None
 
 
-def get_options_db_connection_write():
-    """Get a write-enabled connection to the options database."""
+def get_options_db_connection_write(max_retries=3):
+    """Get a write-enabled connection to the options database with retry logic."""
+    import time
     if OPTIONS_DUCKDB_PATH:
-        return duckdb.connect(OPTIONS_DUCKDB_PATH)  # No read_only flag = write access
+        for attempt in range(max_retries):
+            try:
+                return duckdb.connect(OPTIONS_DUCKDB_PATH)  # No read_only flag = write access
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"DB write connection error (attempt {attempt + 1}/{max_retries}): {e}")
+                    time.sleep(1 * (attempt + 1))  # Exponential backoff
+                    continue
+                raise
     return None
 
 
