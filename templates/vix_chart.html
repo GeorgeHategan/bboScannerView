@@ -105,6 +105,26 @@
         }
         .positive { color: #27ae60; }
         .negative { color: #e74c3c; }
+        .table-scroll-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .table-scroll-container table {
+            margin-bottom: 0;
+        }
+        .table-scroll-container thead th {
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 1;
+        }
+        .record-count {
+            color: #666;
+            font-size: 0.9em;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
@@ -154,8 +174,10 @@
     </div>
 
     <div class="data-table">
-        <h3>Recent Data (Last {{ history|length }} entries)</h3>
+        <h3>VIX/VX30 Data <span class="record-count">({{ total_count }} total records)</span></h3>
+        <div class="table-scroll-container">
         <table>
+            <thead>
             <tr>
                 <th>Timestamp</th>
                 <th>VIX</th>
@@ -163,6 +185,8 @@
                 <th>Spread</th>
                 <th>Source</th>
             </tr>
+            </thead>
+            <tbody>
             {% for row in history %}
             <tr>
                 <td>{{ row.timestamp }}</td>
@@ -179,7 +203,9 @@
                 <td>{{ row.source }}</td>
             </tr>
             {% endfor %}
+            </tbody>
         </table>
+        </div>
     </div>
 
     <script>

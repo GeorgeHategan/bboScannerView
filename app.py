@@ -548,7 +548,7 @@ async def get_vix_history(limit: int = 100):
 
 
 @app.get("/vix-chart", response_class=HTMLResponse)
-async def vix_chart(request: Request, limit: int = 500):
+async def vix_chart(request: Request):
     """Display VIX and VX30 history with Plotly chart."""
     conn = get_options_db_connection()
     if not conn:
@@ -558,16 +558,19 @@ async def vix_chart(request: Request, limit: int = 500):
             "history": [],
             "timestamps": [],
             "vix_values": [],
-            "vx30_values": []
+            "vx30_values": [],
+            "total_count": 0
         })
     
     try:
-        # Get historical data
-        result = conn.execute(f"""
+        # Get total count
+        total_count = conn.execute("SELECT COUNT(*) FROM vix_data").fetchone()[0]
+        
+        # Get ALL historical data (no limit)
+        result = conn.execute("""
             SELECT timestamp, vix, vx30, source, notes
             FROM vix_data 
-            ORDER BY timestamp DESC 
-            LIMIT {min(limit, 1000)}
+            ORDER BY timestamp DESC
         """).fetchall()
         conn.close()
         
@@ -600,10 +603,11 @@ async def vix_chart(request: Request, limit: int = 500):
         return templates.TemplateResponse("vix_chart.html", {
             "request": request,
             "latest": latest,
-            "history": history[:50],  # Show last 50 in table
+            "history": history,  # Show ALL records in table
             "timestamps": timestamps,
             "vix_values": vix_values,
-            "vx30_values": vx30_values
+            "vx30_values": vx30_values,
+            "total_count": total_count
         })
     except Exception as e:
         print(f"Error in vix_chart: {e}")
@@ -616,6 +620,7 @@ async def vix_chart(request: Request, limit: int = 500):
             "timestamps": [],
             "vix_values": [],
             "vx30_values": [],
+            "total_count": 0,
             "error": str(e)
         })
 
