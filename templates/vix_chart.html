@@ -209,8 +209,8 @@
     </div>
 
     <script>
-        // Convert UTC timestamps to Copenhagen timezone
-        function convertToCopenhagenTime(utcString) {
+        // Convert UTC timestamps to CET (Central European Time)
+        function convertToCET(utcString) {
             // Normalize the timestamp - replace space with T if needed
             let normalized = utcString.replace(' ', 'T');
             // Add Z if no timezone indicator present
@@ -222,7 +222,7 @@
                 return utcString; // Return original if parsing fails
             }
             return date.toLocaleString('sv-SE', { 
-                timeZone: 'Europe/Copenhagen',
+                timeZone: 'CET',
                 year: 'numeric',
                 month: '2-digit',
                 day: '2-digit',
@@ -236,7 +236,7 @@
         document.querySelectorAll('.utc-time').forEach(function(el) {
             const utc = el.getAttribute('data-utc');
             if (utc) {
-                el.textContent = convertToCopenhagenTime(utc);
+                el.textContent = convertToCET(utc);
             }
         });
         
@@ -247,7 +247,7 @@
         
         // Convert timestamps for chart
         timestamps = timestamps.map(function(ts) {
-            return convertToCopenhagenTime(ts);
+            return convertToCET(ts);
         });
 
         var trace1 = {
