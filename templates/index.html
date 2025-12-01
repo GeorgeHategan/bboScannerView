@@ -248,7 +248,7 @@
         });
         
         // Focus List functionality
-        async function addToFocus(symbol, scanner, scanDate, entryPrice, strength, quality) {
+        async function addToFocus(btn, symbol, scanner, scanDate, entryPrice, strength, quality) {
             const formData = new FormData();
             formData.append('symbol', symbol);
             formData.append('scanner_name', scanner);
@@ -266,7 +266,6 @@
                 
                 if (result.status === 'ok') {
                     // Visual feedback
-                    const btn = event.target;
                     btn.textContent = '✓ Added';
                     btn.style.background = '#27ae60';
                     setTimeout(() => {
@@ -699,7 +698,7 @@
                     {{ stocks[stock][pattern + '_quality'] }}
                 </td>
                 <td>
-                    <button class="focus-btn" onclick="addToFocus('{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', {{ stocks[stock].get(pattern + '_entry_price', 'null') }}, {{ stocks[stock].get(pattern + '_strength', 'null') }}, '{{ stocks[stock].get(pattern + '_quality', '') }}')" style="background: #ff6b35; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">⭐ Focus</button>
+                    <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', {{ stocks[stock].get(pattern + '_entry_price', 'null') }}, {{ stocks[stock].get(pattern + '_strength', 'null') }}, '{{ stocks[stock].get(pattern + '_quality', '') }}')" style="background: #ff6b35; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">⭐ Focus</button>
                 </td>
             </tr>
             <tr>
