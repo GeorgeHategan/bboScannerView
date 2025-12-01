@@ -436,28 +436,41 @@ async def tradingview_webhook(request: Request):
     Use {{ticker}}, {{close}}, {{time}}, {{plot_0}}, etc. placeholders.
     """
     try:
-        # Get the webhook payload
+        # Get the webhook payload - log everything for debugging
         content_type = request.headers.get('content-type', '')
+        body = await request.body()
+        body_str = body.decode('utf-8').strip()
         
-        if 'application/json' in content_type:
-            data = await request.json()
-        else:
-            # Plain text - try to parse as JSON anyway
-            body = await request.body()
-            body_str = body.decode('utf-8')
+        print(f"TradingView webhook - Content-Type: {content_type}")
+        print(f"TradingView webhook - Raw body: {body_str}")
+        
+        # Try to parse as JSON
+        import json
+        data = None
+        
+        try:
+            data = json.loads(body_str)
+        except json.JSONDecodeError as e:
+            print(f"JSON parse error: {e}")
+            # Try to fix common issues - TradingView sometimes sends with extra quotes
             try:
-                import json
-                data = json.loads(body_str)
+                # Remove outer quotes if present
+                if body_str.startswith('"') and body_str.endswith('"'):
+                    body_str = body_str[1:-1].replace('\\"', '"')
+                    data = json.loads(body_str)
             except:
-                # If not JSON, create a simple dict with the raw message
-                data = {"raw_message": body_str}
+                pass
+        
+        if data is None:
+            # If still not JSON, create a simple dict with the raw message
+            data = {"raw_message": body_str}
         
         # Add timestamp if not present
         if 'timestamp' not in data:
             data['timestamp'] = datetime.now().isoformat()
         
         # Log the received data
-        print(f"TradingView webhook received: {data}")
+        print(f"TradingView webhook parsed: {data}")
         
         # Check if this is a VIX data webhook
         if data.get('type') == 'vix' or data.get('indicator_name', '').lower() in ['vix', 'vx30', 'volatility']:
