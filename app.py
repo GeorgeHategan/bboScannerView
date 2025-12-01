@@ -224,12 +224,16 @@ print(f"INFO: Database path configured: {DUCKDB_PATH if not motherduck_token els
 
 
 def get_options_db_connection(max_retries=3):
-    """Get a connection to the options signals database with retry logic."""
+    """Get a connection to the options signals database with retry logic.
+    Note: Using write-enabled connection for all operations to avoid MotherDuck
+    connection conflicts between read-only and write connections.
+    """
     import time
     if OPTIONS_DUCKDB_PATH:
         for attempt in range(max_retries):
             try:
-                return duckdb.connect(OPTIONS_DUCKDB_PATH, read_only=True)
+                # Use write connection for all operations to avoid conflicts
+                return duckdb.connect(OPTIONS_DUCKDB_PATH)
             except Exception as e:
                 if attempt < max_retries - 1:
                     print(f"DB connection error (attempt {attempt + 1}/{max_retries}): {e}")
@@ -245,7 +249,7 @@ def get_options_db_connection_write(max_retries=3):
     if OPTIONS_DUCKDB_PATH:
         for attempt in range(max_retries):
             try:
-                return duckdb.connect(OPTIONS_DUCKDB_PATH)  # No read_only flag = write access
+                return duckdb.connect(OPTIONS_DUCKDB_PATH)
             except Exception as e:
                 if attempt < max_retries - 1:
                     print(f"DB write connection error (attempt {attempt + 1}/{max_retries}): {e}")
