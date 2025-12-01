@@ -547,6 +547,79 @@ async def get_vix_history(limit: int = 100):
         return {"status": "error", "message": str(e)}
 
 
+@app.get("/vix-chart", response_class=HTMLResponse)
+async def vix_chart(request: Request, limit: int = 500):
+    """Display VIX and VX30 history with Plotly chart."""
+    conn = get_options_db_connection()
+    if not conn:
+        return templates.TemplateResponse("vix_chart.html", {
+            "request": request,
+            "latest": None,
+            "history": [],
+            "timestamps": [],
+            "vix_values": [],
+            "vx30_values": []
+        })
+    
+    try:
+        # Get historical data
+        result = conn.execute(f"""
+            SELECT timestamp, vix, vx30, source, notes
+            FROM vix_data 
+            ORDER BY timestamp DESC 
+            LIMIT {min(limit, 1000)}
+        """).fetchall()
+        conn.close()
+        
+        history = []
+        timestamps = []
+        vix_values = []
+        vx30_values = []
+        
+        for row in result:
+            ts = row[0].isoformat() if hasattr(row[0], 'isoformat') else str(row[0])
+            history.append({
+                "timestamp": ts,
+                "vix": row[1],
+                "vx30": row[2],
+                "source": row[3],
+                "notes": row[4]
+            })
+            timestamps.append(ts)
+            vix_values.append(row[1])
+            vx30_values.append(row[2])
+        
+        # Reverse for chronological order in chart
+        timestamps.reverse()
+        vix_values.reverse()
+        vx30_values.reverse()
+        
+        # Get latest
+        latest = history[0] if history else None
+        
+        return templates.TemplateResponse("vix_chart.html", {
+            "request": request,
+            "latest": latest,
+            "history": history[:50],  # Show last 50 in table
+            "timestamps": timestamps,
+            "vix_values": vix_values,
+            "vx30_values": vx30_values
+        })
+    except Exception as e:
+        print(f"Error in vix_chart: {e}")
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse("vix_chart.html", {
+            "request": request,
+            "latest": None,
+            "history": [],
+            "timestamps": [],
+            "vix_values": [],
+            "vx30_values": [],
+            "error": str(e)
+        })
+
+
 @app.get("/options-signals", response_class=HTMLResponse)
 async def options_signals(
     request: Request,
