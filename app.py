@@ -862,8 +862,22 @@ async def vix_chart(request: Request):
     total_count = sqlite_count + motherduck_count
     
     # Sort by timestamp descending (newest first for table)
+    # Parse timestamps to datetime for proper sorting (handles mixed formats)
+    from datetime import datetime as dt
+
+    def parse_timestamp(ts_str):
+        """Parse timestamp string to datetime for proper sorting."""
+        try:
+            # Handle ISO format with T separator
+            if 'T' in ts_str:
+                return dt.fromisoformat(ts_str.replace('Z', '+00:00'))
+            # Handle space-separated format
+            return dt.strptime(ts_str, '%Y-%m-%d %H:%M:%S')
+        except Exception:
+            return dt.min  # Fallback for unparseable timestamps
+    
     combined = list(zip(timestamps, vix_values, vx30_values, history))
-    combined.sort(key=lambda x: x[0], reverse=True)
+    combined.sort(key=lambda x: parse_timestamp(x[0]), reverse=True)
     
     if combined:
         timestamps, vix_values, vx30_values, history = zip(*combined)
