@@ -640,7 +640,6 @@
             <th>company</th>
             <th>scan date</th>
             <th>price</th>
-            {% if pattern %}<th>signal</th>{% else %}<th>scanner</th>{% endif %}
             <th>strength</th>
             <th>quality</th>
         </tr>
@@ -650,7 +649,7 @@
             {% if stocks[stock][pattern] %}
             {% if not loop.first %}
             <tr class="result-separator">
-                <td colspan="7" style="padding:0;">
+                <td colspan="6" style="padding:0;">
                     <div style="height:1px;background:#e0e0e0;margin:32px 0 12px 0;"></div>
                 </td>
             </tr>
@@ -677,19 +676,6 @@
                     {% else %}
                         N/A
                     {% endif %}
-                </td>
-                <td class="{{ stocks[stock][pattern] }}">
-                        {# For candlestick scanners, hide the generic signal type (like "bullish") and show pattern info instead #}
-                        {% if pattern and 'candlestick' in pattern %}
-                            {% if stocks[stock].get(pattern + '_patterns') %}
-                                <span style="color: #28a745; font-weight: bold;">Pattern Detected</span>
-                            {% else %}
-                                {{ stocks[stock][pattern]}}
-                            {% endif %}
-                        {% else %}
-                            {{ stocks[stock][pattern]}}
-                        {% endif %}
-                        {# Removed scanner bullet list - this info is shown in "Confirmed by other scanners" section below #}
                 </td>
                 <td class="strength">
                     {{ stocks[stock][pattern + '_strength'] }}
