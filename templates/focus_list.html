@@ -4,93 +4,76 @@
     <title>Focus List - BBO Scanner</title>
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
+        body { font-family: arial; margin: 0; padding: 0; padding-top: 100px; }
+        .sticky-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
             background: white;
-            padding: 30px;
-            border-radius: 8px;
+            z-index: 1000;
+            padding: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #ff6b35;
-            padding-bottom: 15px;
+        .sticky-header-content {
+            max-width: 100%;
+            margin: 0 auto;
         }
-        .header h1 {
-            color: #2c3e50;
-            margin: 0;
-        }
-        .header-count {
-            font-size: 14px;
-            color: #666;
-            margin-top: 5px;
-        }
-        .nav-buttons {
-            display: flex;
-            gap: 10px;
-        }
-        .nav-buttons a {
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: normal;
-        }
+        td { padding: 5px; }
+        .bullish { background: green; color: white; }
+        .bearish { background: red; color: white; }
+        .strength { font-weight: bold; }
+        .strong { color: #006400; }
+        .good { color: #228B22; }
+        .moderate { color: #FFA500; }
+        .weak { color: #FF6347; }
+        .very_weak { color: #8B0000; }
         .day-section {
-            margin-bottom: 30px;
+            margin: 30px 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
         .day-header {
             background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
             color: white;
-            padding: 12px 20px;
-            border-radius: 8px 8px 0 0;
+            padding: 15px 20px;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 18px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .day-header .count {
             background: rgba(255,255,255,0.2);
-            padding: 4px 12px;
+            padding: 5px 15px;
             border-radius: 20px;
-            font-size: 13px;
+            font-size: 14px;
         }
-        .items-table {
+        .stock-row {
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+        }
+        .stock-row:last-child {
+            border-bottom: none;
+        }
+        .stock-row:hover {
+            background: #fef6f2;
+        }
+        .stock-table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #e0e0e0;
-            border-top: none;
         }
-        .items-table th {
-            background: #f8f9fa;
-            padding: 12px 15px;
-            text-align: left;
-            font-weight: 600;
-            color: #333;
-            border-bottom: 2px solid #e0e0e0;
-        }
-        .items-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        .items-table tr:hover {
-            background: #fef6f2;
+        .stock-table td {
+            padding: 8px;
+            vertical-align: top;
         }
         .symbol-link {
             color: #0066cc;
             text-decoration: none;
             font-weight: bold;
-            font-size: 15px;
+            font-size: 16px;
         }
         .symbol-link:hover {
             text-decoration: underline;
@@ -103,38 +86,25 @@
             border-radius: 4px;
             font-size: 12px;
             font-weight: 600;
+            margin-left: 10px;
+        }
+        .remove-btn {
+            background: #e8e8e8;
+            color: #888;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-left: 10px;
+        }
+        .remove-btn:hover {
+            background: #e74c3c;
+            color: white;
         }
         .strength-high { color: #27ae60; font-weight: bold; }
         .strength-medium { color: #f39c12; font-weight: bold; }
         .strength-low { color: #95a5a6; }
-        .remove-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .remove-btn:hover {
-            background: #c0392b;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-        .empty-state h2 {
-            color: #999;
-            margin-bottom: 10px;
-        }
-        .empty-state p {
-            font-size: 16px;
-        }
-        .added-time {
-            color: #999;
-            font-size: 12px;
-        }
         .quality-badge {
             padding: 3px 8px;
             border-radius: 3px;
@@ -144,123 +114,64 @@
         .quality-strong { background: #d4edda; color: #155724; }
         .quality-good { background: #fff3cd; color: #856404; }
         .quality-moderate { background: #f8d7da; color: #721c24; }
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #666;
+        }
+        .empty-state h2 {
+            color: #999;
+            margin-bottom: 10px;
+        }
+        .empty-state p {
+            font-size: 16px;
+        }
+        .meta-info {
+            font-size: 14px;
+            color: #555;
+            margin-top: 5px;
+        }
+        .conf-section {
+            font-size: 12px;
+            margin-top: 10px;
+            padding: 8px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            max-width: 400px;
+        }
+        .conf-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
     </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div>
-                <h1>🎯 Focus List</h1>
-                <p class="header-count">{{ total_count }} setups saved</p>
-            </div>
-            <div class="nav-buttons">
-                <a href="/" style="background: #e8f4f8; color: #2c5f7a; border: 1px solid #d0e5ed;">📊 Scanner Results</a>
-                <a href="/options-signals" style="background: #fff3e0; color: #e65100; border: 1px solid #ffcc80;">📈 Options Flow</a>
-                <a href="/ranked" style="background: #e8f4f8; color: #2c5f7a; border: 1px solid #d0e5ed;">🏆 Top Ranked</a>
-                <a href="/vix-chart" style="background: #f3e5f5; color: #6a1b9a; border: 1px solid #e1bee7;">📉 VIX Chart</a>
-            </div>
-        </div>
-
-        {% if total_count == 0 %}
-        <div class="empty-state">
-            <h2>📋 Your Focus List is Empty</h2>
-            <p>Browse scanner results and click the <strong>⭐ Focus</strong> button to add setups here.</p>
-            <a href="/" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #ff6b35; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Browse Scanners</a>
-        </div>
-        {% else %}
-        
-        {% for day, items in grouped_items.items() %}
-        <div class="day-section">
-            <div class="day-header">
-                <span>📅 {{ day }}</span>
-                <span class="count">{{ items|length }} setup{% if items|length != 1 %}s{% endif %}</span>
-            </div>
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Symbol</th>
-                        <th>Scanner</th>
-                        <th>Scan Date</th>
-                        <th>Entry Price</th>
-                        <th>Strength</th>
-                        <th>Quality</th>
-                        <th>Notes</th>
-                        <th>Added</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in items %}
-                    <tr id="row-{{ item.id }}">
-                        <td>
-                            <a href="https://www.tradingview.com/chart/?symbol={{ item.symbol }}" 
-                               target="_blank" class="symbol-link">
-                                {{ item.symbol }}
-                            </a>
-                        </td>
-                        <td>
-                            {% if item.scanner_name %}
-                            <span class="scanner-badge">{{ item.scanner_name.replace('_', ' ').title() }}</span>
-                            {% else %}
-                            <span style="color: #999;">-</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ item.scan_date if item.scan_date else '-' }}</td>
-                        <td>
-                            {% if item.entry_price %}
-                            ${{ "%.2f"|format(item.entry_price) }}
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if item.strength %}
-                                {% if item.strength >= 80 %}
-                                <span class="strength-high">{{ item.strength }}</span>
-                                {% elif item.strength >= 60 %}
-                                <span class="strength-medium">{{ item.strength }}</span>
-                                {% else %}
-                                <span class="strength-low">{{ item.strength }}</span>
-                                {% endif %}
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if item.quality %}
-                                {% if 'strong' in item.quality.lower() %}
-                                <span class="quality-badge quality-strong">{{ item.quality }}</span>
-                                {% elif 'good' in item.quality.lower() %}
-                                <span class="quality-badge quality-good">{{ item.quality }}</span>
-                                {% else %}
-                                <span class="quality-badge quality-moderate">{{ item.quality }}</span>
-                                {% endif %}
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>{{ item.notes if item.notes else '-' }}</td>
-                        <td class="added-time">
-                            {% set time_part = item.added_date.split('T')[1] if 'T' in item.added_date else item.added_date.split(' ')[1] if ' ' in item.added_date else '' %}
-                            {{ time_part[:5] if time_part else '' }}
-                        </td>
-                        <td>
-                            <button class="remove-btn" onclick="removeItem({{ item.id }})">✕ Remove</button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endfor %}
-        
-        {% endif %}
-    </div>
-
     <script>
+        const SCANNER_COLORS = {
+            'accumulation_distribution': '#F2AE7F',
+            'breakout':                  '#96FFBD',
+            'bull_flag':                 '#DC3E26',
+            'candlestick_bullish':       '#CEE4B3',
+            'candlestick_continuation':  '#F9EC7E',
+            'cup_and_handle':            '#D5CAE4',
+            'fundamental_swing':         '#80C4B7',
+            'golden_cross':              '#9EE8E1',
+            'momentum_burst':            '#EC6D67',
+            'supertrend':                '#4AAFD5',
+            'tight_consolidation':       '#E59462',
+            'volatility_macd':           '#E3CCB2',
+            'wyckoff':                   '#D8905A',
+            'wyckoff_accumulation':      '#6BAA6B'
+        };
+        
+        function getScannerColor(scannerName) {
+            const normalized = scannerName.toLowerCase().replace(/ /g, '_');
+            return SCANNER_COLORS[normalized] || '#999999';
+        }
+        
         async function removeItem(id) {
-            if (!confirm('Remove this setup from your Focus List?')) return;
-            
             const formData = new FormData();
             formData.append('item_id', id);
             
@@ -272,7 +183,6 @@
                 const result = await response.json();
                 
                 if (result.status === 'ok') {
-                    // Remove the row with animation
                     const row = document.getElementById('row-' + id);
                     if (row) {
                         row.style.transition = 'opacity 0.3s, transform 0.3s';
@@ -280,13 +190,11 @@
                         row.style.transform = 'translateX(-20px)';
                         setTimeout(() => {
                             row.remove();
-                            // Check if section is now empty
                             document.querySelectorAll('.day-section').forEach(section => {
-                                if (section.querySelectorAll('tbody tr').length === 0) {
+                                if (section.querySelectorAll('.stock-row').length === 0) {
                                     section.remove();
                                 }
                             });
-                            // Reload if all items removed
                             if (document.querySelectorAll('.day-section').length === 0) {
                                 location.reload();
                             }
@@ -299,6 +207,148 @@
                 alert('Error removing item: ' + error.message);
             }
         }
+        
+        // Color the scanner badges and confirmation dots on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.scanner-badge[data-scanner]').forEach(badge => {
+                badge.style.background = getScannerColor(badge.dataset.scanner);
+            });
+            document.querySelectorAll('.conf-dot[data-scanner]').forEach(dot => {
+                dot.style.background = getScannerColor(dot.dataset.scanner);
+            });
+        });
     </script>
+</head>
+<body>
+    <div class="sticky-header">
+        <div class="sticky-header-content">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="margin: 0 0 5px 0;">🎯 Focus List</h1>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">{{ total_count }} setups saved for review</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="/" style="background: #e8f4f8; color: #2c5f7a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d0e5ed;">📊 Scanner Results</a>
+                    <a href="/options-signals" style="background: #fff3e0; color: #e65100; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ffcc80;">📈 Options Flow</a>
+                    <a href="/ranked" style="background: #e8f4f8; color: #2c5f7a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d0e5ed;">🏆 Top Ranked</a>
+                    <a href="/vix-chart" style="background: #f3e5f5; color: #6a1b9a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #e1bee7;">📉 VIX Chart</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if total_count == 0 %}
+    <div class="empty-state">
+        <h2>📋 Your Focus List is Empty</h2>
+        <p>Browse scanner results and click the <strong>focus +</strong> button to add setups here.</p>
+        <a href="/" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #ff6b35; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Browse Scanners</a>
+    </div>
+    {% else %}
+    
+    {% for day, items in grouped_items.items() %}
+    <div class="day-section">
+        <div class="day-header">
+            <span>📅 {{ day }}</span>
+            <span class="count">{{ items|length }} setup{% if items|length != 1 %}s{% endif %}</span>
+        </div>
+        
+        {% for item in items %}
+        <div class="stock-row" id="row-{{ item.id }}">
+            <table class="stock-table">
+                <tr>
+                    <td style="width: 200px;">
+                        <a href="https://www.tradingview.com/chart/?symbol={{ item.symbol }}" 
+                           target="_blank" class="symbol-link">
+                            {{ item.symbol }}
+                        </a>
+                        {% if item.scanner_name %}
+                        <span class="scanner-badge" data-scanner="{{ item.scanner_name }}">{{ item.scanner_name.replace('_', ' ').title() }}</span>
+                        {% endif %}
+                        <button class="remove-btn" onclick="removeItem({{ item.id }})">✕</button>
+                    </td>
+                    <td style="width: 180px;">
+                        {{ item.company if item.company else '' }}
+                    </td>
+                    <td style="width: 100px;">
+                        {{ item.scan_date if item.scan_date else '-' }}
+                    </td>
+                    <td style="width: 80px;">
+                        {% if item.entry_price %}
+                        ${{ "%.2f"|format(item.entry_price) }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td style="width: 80px;">
+                        {% if item.strength %}
+                            {% if item.strength >= 80 %}
+                            <span class="strength-high">{{ item.strength }}</span>
+                            {% elif item.strength >= 60 %}
+                            <span class="strength-medium">{{ item.strength }}</span>
+                            {% else %}
+                            <span class="strength-low">{{ item.strength }}</span>
+                            {% endif %}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td style="width: 80px;">
+                        {% if item.quality %}
+                            {% if 'strong' in item.quality.lower() %}
+                            <span class="quality-badge quality-strong">{{ item.quality }}</span>
+                            {% elif 'good' in item.quality.lower() %}
+                            <span class="quality-badge quality-good">{{ item.quality }}</span>
+                            {% else %}
+                            <span class="quality-badge quality-moderate">{{ item.quality }}</span>
+                            {% endif %}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="meta-info">
+                        <strong>Sector:</strong> {% if item.sector %}{{ item.sector }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                        &nbsp;|&nbsp;
+                        <strong>Industry:</strong> {% if item.industry %}{{ item.industry }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                        &nbsp;|&nbsp;
+                        <strong>Mkt Cap:</strong> {% if item.market_cap %}<span style="font-weight:700; color:#0066cc;">{{ item.market_cap }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                    </td>
+                    <td colspan="3" class="meta-info" style="padding-left: 20px;">
+                        <strong>Vol:</strong> {{ "{:,}".format(item.volume) if item.volume else 'N/A' }}
+                        &nbsp;|&nbsp;
+                        <strong>Avg:</strong> {{ "{:,}".format(item.avg_volume) if item.avg_volume else 'N/A' }}
+                        &nbsp;|&nbsp;
+                        <strong>Ratio:</strong> {{ item.volume_ratio if item.volume_ratio else 'N/A' }}x{% if item.volume_ratio and item.volume_ratio >= 2.0 %}<span style="color: green; font-weight: bold;"> ✓HIGH</span>{% elif item.volume_ratio and item.volume_ratio >= 1.5 %}<span style="color: orange; font-weight: bold;"> ↑</span>{% elif item.volume_ratio and item.volume_ratio < 0.8 %}<span style="color: red;"> ↓</span>{% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="position: relative;">
+                        <img src="https://finviz.com/chart.ashx?t={{ item.symbol }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%; max-width: 750px;" />
+                    </td>
+                    <td colspan="3" style="vertical-align: top; padding-left: 20px;">
+                        {% if item.confirmations and item.confirmations|length > 0 %}
+                        <div class="conf-section">
+                            <strong>✓ Also detected by ({{ item.confirmations|length }}):</strong><br>
+                            {% for conf in item.confirmations %}
+                            <span class="conf-dot" data-scanner="{{ conf.scanner }}"></span>
+                            <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
+                            <span style="color: #666; font-size: 11px;">({{ conf.date }}{% if conf.strength %}, {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <div style="margin-top: 15px; font-size: 11px; color: #999;">
+                            Added: {{ item.added_date.replace('T', ' ')[:16] if item.added_date else '' }}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    
+    {% endif %}
 </body>
 </html>

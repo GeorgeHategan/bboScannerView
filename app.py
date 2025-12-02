@@ -1117,8 +1117,119 @@ async def api_get_focus_list():
 
 @app.get("/focus-list", response_class=HTMLResponse)
 async def focus_list_page(request: Request):
-    """Display the focus list page with day separators."""
+    """Display the focus list page with day separators, charts and full stock info."""
     items = get_focus_list()
+    
+    # Enrich items with stock metadata from the database
+    if items:
+        symbols = list(set(item['symbol'] for item in items))
+        
+        # Fetch metadata for all symbols
+        try:
+            conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+            
+            # Get fundamental cache data (earnings_date not in this table)
+            placeholders = ','.join(['?' for _ in symbols])
+            metadata_query = f'''
+                SELECT symbol, company_name, market_cap, sector, industry
+                FROM scanner_data.fundamental_cache
+                WHERE symbol IN ({placeholders})
+            '''
+            metadata_results = conn.execute(metadata_query, symbols).fetchall()
+            metadata_dict = {
+                row[0]: {
+                    'company': row[1] or '',
+                    'market_cap': row[2] or '',
+                    'sector': row[3] or '',
+                    'industry': row[4] or ''
+                } for row in metadata_results
+            }
+            
+            # Get volume data
+            vol_query = f'''
+                SELECT dc.symbol, dc.volume, dc.avg_volume_20
+                FROM scanner_data.daily_cache dc
+                INNER JOIN (
+                    SELECT symbol, MAX(date) as max_date
+                    FROM scanner_data.daily_cache
+                    WHERE symbol IN ({placeholders})
+                    GROUP BY symbol
+                ) latest ON dc.symbol = latest.symbol AND dc.date = latest.max_date
+            '''
+            vol_results = conn.execute(vol_query, symbols).fetchall()
+            volume_dict = {
+                row[0]: {
+                    'volume': int(row[1]) if row[1] else 0,
+                    'avg_volume': int(row[2]) if row[2] else 0
+                } for row in vol_results
+            }
+            
+            # Get confirmations (other scanners that picked each symbol)
+            conf_query = f'''
+                SELECT symbol, scanner_name, scan_date, signal_strength
+                FROM scanner_data.scanner_results
+                WHERE symbol IN ({placeholders})
+                ORDER BY symbol, scan_date DESC, scanner_name
+            '''
+            conf_results = conn.execute(conf_query, symbols).fetchall()
+            confirmations_dict = {}
+            for row in conf_results:
+                sym = row[0]
+                if sym not in confirmations_dict:
+                    confirmations_dict[sym] = []
+                confirmations_dict[sym].append({
+                    'scanner': row[1],
+                    'date': str(row[2])[:10] if row[2] else '',
+                    'strength': row[3]
+                })
+            
+            conn.close()
+            
+            # Enrich each item
+            for item in items:
+                sym = item['symbol']
+                if sym in metadata_dict:
+                    item.update(metadata_dict[sym])
+                else:
+                    item['company'] = ''
+                    item['market_cap'] = ''
+                    item['sector'] = ''
+                    item['industry'] = ''
+                
+                if sym in volume_dict:
+                    item['volume'] = volume_dict[sym]['volume']
+                    item['avg_volume'] = volume_dict[sym]['avg_volume']
+                    if item['avg_volume'] > 0:
+                        item['volume_ratio'] = round(
+                            item['volume'] / item['avg_volume'], 2)
+                    else:
+                        item['volume_ratio'] = 0
+                else:
+                    item['volume'] = 0
+                    item['avg_volume'] = 0
+                    item['volume_ratio'] = 0
+                
+                # Get confirmations (exclude the scanner this was saved from)
+                if sym in confirmations_dict:
+                    item['confirmations'] = [
+                        c for c in confirmations_dict[sym]
+                        if c['scanner'] != item.get('scanner_name')
+                    ][:10]  # Limit to 10 most recent
+                else:
+                    item['confirmations'] = []
+                    
+        except Exception as e:
+            print(f"Error enriching focus list items: {e}")
+            # Set defaults if enrichment fails
+            for item in items:
+                item.setdefault('company', '')
+                item.setdefault('market_cap', '')
+                item.setdefault('sector', '')
+                item.setdefault('industry', '')
+                item.setdefault('volume', 0)
+                item.setdefault('avg_volume', 0)
+                item.setdefault('volume_ratio', 0)
+                item.setdefault('confirmations', [])
     
     # Group items by added date (day only)
     from collections import OrderedDict

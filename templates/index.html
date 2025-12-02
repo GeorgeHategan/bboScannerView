@@ -643,7 +643,6 @@
             {% if pattern %}<th>signal</th>{% else %}<th>scanner</th>{% endif %}
             <th>strength</th>
             <th>quality</th>
-            <th style="width: 70px;">focus</th>
         </tr>
         {% if pattern %}
         {# Pattern-based display: show all stocks with this pattern #}
@@ -651,7 +650,7 @@
             {% if stocks[stock][pattern] %}
             {% if not loop.first %}
             <tr class="result-separator">
-                <td colspan="8" style="padding:0;">
+                <td colspan="7" style="padding:0;">
                     <div style="height:1px;background:#e0e0e0;margin:32px 0 12px 0;"></div>
                 </td>
             </tr>
@@ -663,6 +662,7 @@
                        style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
                         {{ stock }}
                     </a>
+                    <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', {{ stocks[stock].get(pattern + '_entry_price', 'null') }}, {{ stocks[stock].get(pattern + '_strength', 'null') }}, '{{ stocks[stock].get(pattern + '_quality', '') }}')" style="background: #e8e8e8; color: #888; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-left: 8px;">focus +</button>
                 </td>
                 <td>
                     {{ stocks[stock]['company'] }}
@@ -697,9 +697,6 @@
                 <td class="{{ stocks[stock][pattern + '_quality'] }}">
                     {{ stocks[stock][pattern + '_quality'] }}
                 </td>
-                <td>
-                    <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', {{ stocks[stock].get(pattern + '_entry_price', 'null') }}, {{ stocks[stock].get(pattern + '_strength', 'null') }}, '{{ stocks[stock].get(pattern + '_quality', '') }}')" style="background: #ff6b35; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">⭐ Focus</button>
-                </td>
             </tr>
             <tr>
                 <td colspan="4" style="font-size: 15px; padding: 4px 0; color: #555;">
@@ -709,7 +706,7 @@
                     &nbsp;|&nbsp;
                     <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
                 </td>
-                <td colspan="4" style="font-size: 15px; padding: 4px 0; color: #555; padding-left: 20px;">
+                <td colspan="3" style="font-size: 15px; padding: 4px 0; color: #555; padding-left: 20px;">
                     <strong>Vol:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}
                     &nbsp;|&nbsp;
                     <strong>Avg:</strong> {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}
@@ -720,7 +717,7 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="4" style="position: relative; width: 50%;">
+                <td colspan="4" style="position: relative; width: 55%;">
                     <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
                     
                     {# Timeline showing scanner detection dates and options signals #}
