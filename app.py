@@ -1,7 +1,9 @@
 import os
+import sys
 import json
 import sqlite3
 import asyncio
+import logging
 from dotenv import load_dotenv
 import duckdb
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
@@ -14,20 +16,42 @@ from typing import Optional, Dict, Any
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from contextlib import asynccontextmanager
 
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
+
+logger.info("=" * 50)
+logger.info("APPLICATION STARTING")
+logger.info("=" * 50)
+
 # Google Sheets integration
 try:
     import gspread
     from google.oauth2.service_account import Credentials
     GSPREAD_AVAILABLE = True
-except ImportError:
+    logger.info("gspread imported successfully")
+except ImportError as e:
     GSPREAD_AVAILABLE = False
-    print("WARNING: gspread not installed - webhook to Google Sheets disabled")
+    logger.warning(f"gspread not installed: {e}")
 
 # Load environment variables from .env file
 load_dotenv()
+logger.info("Environment variables loaded")
+
+# Log environment check
+logger.info(f"GOOGLE_CLIENT_ID set: {bool(os.environ.get('GOOGLE_CLIENT_ID'))}")
+logger.info(f"GOOGLE_CLIENT_SECRET set: {bool(os.environ.get('GOOGLE_CLIENT_SECRET'))}")
+logger.info(f"SECRET_KEY set: {bool(os.environ.get('SECRET_KEY'))}")
+logger.info(f"motherduck_token set: {bool(os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN'))}")
+logger.info(f"options_motherduck_token set: {bool(os.environ.get('options_motherduck_token') or os.environ.get('OPTIONS_MOTHERDUCK_TOKEN'))}")
 
 # Initialize OAuth
 oauth = OAuth()
+logger.info("OAuth initialized")
 
 # HARDCODED SCANNER COLOR MAPPING - Single source of truth
 # This must match the JavaScript SCANNER_COLORS in index.html
@@ -47,7 +71,6 @@ SCANNER_COLORS = {
     'wyckoff':                   '#D8905A',  # Muted Orange
     'wyckoff_accumulation':      '#6BAA6B'   # Muted Green
 }
-
 # Candlestick pattern strength weights (out of 10)
 PATTERN_WEIGHTS = {
     # Strong reversal patterns (8-10)
@@ -113,11 +136,25 @@ async def background_vix_sync():
 async def lifespan(app):
     """Handle app startup and shutdown."""
     global _sync_task
+    logger.info("=== APPLICATION STARTING ===")
+    print("=== APPLICATION STARTING ===")
+    
+    # Log all environment variables status
+    logger.info(f"GOOGLE_CLIENT_ID configured: {bool(os.environ.get('GOOGLE_CLIENT_ID'))}")
+    logger.info(f"SECRET_KEY configured: {bool(os.environ.get('SECRET_KEY'))}")
+    logger.info(f"motherduck_token configured: {bool(os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN'))}")
+    logger.info(f"options_motherduck_token configured: {bool(os.environ.get('options_motherduck_token') or os.environ.get('OPTIONS_MOTHERDUCK_TOKEN'))}")
+    
     # Startup: start background sync task
     _sync_task = asyncio.create_task(background_vix_sync())
+    logger.info("[Startup] Background VIX sync task started (every 1 hour)")
     print("[Startup] Background VIX sync task started (every 1 hour)")
+    
+    logger.info("=== APPLICATION READY ===")
+    print("=== APPLICATION READY ===")
     yield
     # Shutdown: cancel background task and do final sync
+    logger.info("=== APPLICATION SHUTTING DOWN ===")
     if _sync_task:
         _sync_task.cancel()
         try:
@@ -125,9 +162,11 @@ async def lifespan(app):
         except asyncio.CancelledError:
             pass
     # Final sync before shutdown
+    logger.info("[Shutdown] Performing final VIX data sync...")
     print("[Shutdown] Performing final VIX data sync...")
     from app import sync_sqlite_to_motherduck
     result = sync_sqlite_to_motherduck()
+    logger.info(f"[Shutdown] Final sync result: {result}")
     print(f"[Shutdown] Final sync result: {result}")
 
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", lifespan=lifespan)
@@ -655,6 +694,58 @@ def format_market_cap(market_cap):
 async def health_check():
     """Simple health check endpoint - no DB, no auth."""
     return JSONResponse({"status": "ok"})
+
+
+@app.get("/debug", include_in_schema=False)
+async def debug_info():
+    """Debug endpoint to check app configuration."""
+    debug_data = {
+        "status": "ok",
+        "timestamp": datetime.now().isoformat(),
+        "environment": {
+            "GOOGLE_CLIENT_ID": bool(os.environ.get('GOOGLE_CLIENT_ID')),
+            "GOOGLE_CLIENT_SECRET": bool(os.environ.get('GOOGLE_CLIENT_SECRET')),
+            "SECRET_KEY": bool(os.environ.get('SECRET_KEY')),
+            "motherduck_token": bool(os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN')),
+            "options_motherduck_token": bool(os.environ.get('options_motherduck_token') or os.environ.get('OPTIONS_MOTHERDUCK_TOKEN')),
+            "ALLOWED_EMAILS": bool(os.environ.get('ALLOWED_EMAILS')),
+        },
+        "database": {
+            "DUCKDB_PATH_set": bool(DUCKDB_PATH),
+            "OPTIONS_DUCKDB_PATH_set": bool(OPTIONS_DUCKDB_PATH),
+        },
+        "sqlite": {
+            "vix_db_path": VIX_SQLITE_PATH,
+            "vix_db_exists": os.path.exists(VIX_SQLITE_PATH) if VIX_SQLITE_PATH else False,
+        }
+    }
+    
+    # Test MotherDuck connection (scanner_data)
+    try:
+        if DUCKDB_PATH:
+            conn = duckdb.connect(DUCKDB_PATH)
+            if conn:
+                debug_data["motherduck_scanner"] = "connected"
+                conn.close()
+            else:
+                debug_data["motherduck_scanner"] = "no connection"
+        else:
+            debug_data["motherduck_scanner"] = "DUCKDB_PATH not configured"
+    except Exception as e:
+        debug_data["motherduck_scanner"] = f"error: {str(e)}"
+    
+    # Test Options DB connection
+    try:
+        conn = get_options_db_connection()
+        if conn:
+            debug_data["motherduck_options"] = "connected"
+            conn.close()
+        else:
+            debug_data["motherduck_options"] = "no connection"
+    except Exception as e:
+        debug_data["motherduck_options"] = f"error: {str(e)}"
+    
+    return JSONResponse(debug_data)
 
 
 # ============================================================================
