@@ -651,10 +651,10 @@ def format_market_cap(market_cap):
 
 
 
-@app.get("/health")
-async def health_check(request: Request, email: str = Depends(require_login)):
-    """Health check endpoint for monitoring."""
-    return {"status": "healthy", "service": "bbo-scanner-view"}
+@app.get("/health", include_in_schema=False)
+async def health_check():
+    """Simple health check endpoint - no DB, no auth."""
+    return JSONResponse({"status": "ok"})
 
 
 # ============================================================================
