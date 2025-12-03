@@ -281,18 +281,22 @@ templates = Jinja2Templates(directory="templates")
 # For local development, use MotherDuck to access production data
 # For production (Render), use environment variable
 
-# Scanner database (primary)
+# Scanner results database (primary - for scanner picks)
 motherduck_token = os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN', '')
 print(f"DEBUG: motherduck_token found: {bool(motherduck_token)}")
 if motherduck_token:
-    # Always use scanner_data database in MotherDuck
-    DUCKDB_PATH = f'md:scanner_data?motherduck_token={motherduck_token}'
+    # Use scanner_results database for scanner picks
+    DUCKDB_PATH = f'md:scanner_results?motherduck_token={motherduck_token}'
+    # Also connect to scanner_data for fundamental/cache data
+    SCANNER_DATA_PATH = f'md:scanner_data?motherduck_token={motherduck_token}'
     print("INFO: Connecting to MotherDuck production database")
-    print(f"INFO: Database path: md:scanner_data?motherduck_token=***")
+    print(f"INFO: Scanner results DB: md:scanner_results?motherduck_token=***")
+    print(f"INFO: Scanner data DB: md:scanner_data?motherduck_token=***")
 else:
     # Fallback to local DB if no MotherDuck token - this will fail on Render
     DUCKDB_PATH = '/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.duckdb'
-    print("WARNING: No motherduck_token found, using local database (may not have scanner_results)")
+    SCANNER_DATA_PATH = DUCKDB_PATH
+    print("WARNING: No motherduck_token found, using local database")
     print("ERROR: This will fail on Render - ensure MOTHERDUCK_TOKEN env var is set!")
 
 # Options data database (secondary) - contains accumulation_signals and options_chain_changes tables
@@ -1222,7 +1226,7 @@ async def focus_list_page(request: Request):
             # Get fundamental cache data (earnings_date not in this table)
             placeholders = ','.join(['?' for _ in symbols])
             metadata_query = f'''
-                SELECT symbol, company_name, market_cap, sector, industry
+                SELECT symbol, name, market_cap, sector, industry
                 FROM scanner_data.fundamental_cache
                 WHERE symbol IN ({placeholders})
             '''
@@ -1258,7 +1262,7 @@ async def focus_list_page(request: Request):
             # Get confirmations (other scanners that picked each symbol)
             conf_query = f'''
                 SELECT symbol, scanner_name, scan_date, signal_strength
-                FROM scanner_data.scanner_results
+                FROM scanner_results
                 WHERE symbol IN ({placeholders})
                 ORDER BY symbol, scan_date DESC, scanner_name
             '''
@@ -1664,7 +1668,7 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 COALESCE(ai.analysis_text, r.reasoning) as analysis_text,
                 r.news_headline,
                 r.news_sentiment_label,
-                COALESCE(f.company_name, r.symbol) as company_name,
+                COALESCE(f.name, r.symbol) as company_name,
                 f.market_cap,
                 f.industry
             FROM scanner_data.ranked_analysis r
@@ -1720,32 +1724,32 @@ async def stats(request: Request):  # email: str = Depends(require_login)  # TOD
     try:
         # Total number of scanner results
         total_results = conn.execute("""
-            SELECT COUNT(*) FROM scanner_data.scanner_results
+            SELECT COUNT(*) FROM scanner_results
         """).fetchone()[0]
         stats_data['total_results'] = total_results
         
         # Number of unique assets scanned
         unique_assets = conn.execute("""
-            SELECT COUNT(DISTINCT symbol) FROM scanner_data.scanner_results
+            SELECT COUNT(DISTINCT symbol) FROM scanner_results
         """).fetchone()[0]
         stats_data['unique_assets'] = unique_assets
         
         # Number of scanners
         num_scanners = conn.execute("""
-            SELECT COUNT(DISTINCT scanner_name) FROM scanner_data.scanner_results
+            SELECT COUNT(DISTINCT scanner_name) FROM scanner_results
         """).fetchone()[0]
         stats_data['num_scanners'] = num_scanners
         
         # Last updated date
         last_updated = conn.execute("""
-            SELECT MAX(scan_date) FROM scanner_data.scanner_results
+            SELECT MAX(scan_date) FROM scanner_results
         """).fetchone()[0]
         stats_data['last_updated'] = str(last_updated)[:10] if last_updated else 'N/A'
         
         # Results per scanner
         scanner_breakdown = conn.execute("""
             SELECT scanner_name, COUNT(*) as count
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             GROUP BY scanner_name
             ORDER BY count DESC
         """).fetchall()
@@ -1754,7 +1758,7 @@ async def stats(request: Request):  # email: str = Depends(require_login)  # TOD
         # Results per date
         date_breakdown = conn.execute("""
             SELECT CAST(scan_date AS DATE) as date, COUNT(*) as count
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             WHERE scan_date IS NOT NULL
             GROUP BY CAST(scan_date AS DATE)
             ORDER BY date DESC
@@ -1765,7 +1769,7 @@ async def stats(request: Request):  # email: str = Depends(require_login)  # TOD
         # Top picked assets (by multiple scanners)
         top_picks = conn.execute("""
             SELECT symbol, COUNT(DISTINCT scanner_name) as scanner_count
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             GROUP BY symbol
             HAVING COUNT(DISTINCT scanner_name) > 1
             ORDER BY scanner_count DESC
@@ -1784,7 +1788,7 @@ async def stats(request: Request):  # email: str = Depends(require_login)  # TOD
                     ELSE '<60'
                 END as strength_range,
                 COUNT(*) as count
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             WHERE signal_strength IS NOT NULL
             GROUP BY strength_range
             ORDER BY strength_range DESC
@@ -1814,7 +1818,7 @@ async def scanner_performance(request: Request):
         # Get all scanners
         scanners_query = """
             SELECT DISTINCT scanner_name
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             ORDER BY scanner_name
         """
         scanners = [row[0] for row in conn.execute(scanners_query).fetchall()]
@@ -1832,7 +1836,7 @@ async def scanner_performance(request: Request):
                     sr.symbol,
                     sr.scan_date,
                     sr.signal_strength
-                FROM scanner_data.scanner_results sr
+                FROM scanner_results sr
                 WHERE sr.scanner_name = ?
                 ORDER BY sr.scan_date, sr.symbol
             """
@@ -1967,7 +1971,7 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
     # Get scanner info
     scanner_data = conn.execute("""
         SELECT scanner_name, COUNT(*) as count
-        FROM scanner_data.scanner_results
+        FROM scanner_results
         GROUP BY scanner_name
         ORDER BY scanner_name
     """).fetchall()
@@ -2023,14 +2027,14 @@ async def scanner_detail(request: Request, scanner_name: str):  # email: str = D
             SUM(CASE WHEN signal_strength >= 70 AND signal_strength < 80 THEN 1 ELSE 0 END) as good,
             SUM(CASE WHEN signal_strength >= 60 AND signal_strength < 70 THEN 1 ELSE 0 END) as fair,
             SUM(CASE WHEN signal_strength < 60 THEN 1 ELSE 0 END) as weak
-        FROM scanner_data.scanner_results
+        FROM scanner_results
         WHERE scanner_name = ?
     """, [scanner_name]).fetchone()
     
     # Get latest scan date
     latest_date = conn.execute("""
         SELECT CAST(MAX(scan_date) AS DATE)
-        FROM scanner_data.scanner_results
+        FROM scanner_results
         WHERE scanner_name = ?
     """, [scanner_name]).fetchone()
     
@@ -2041,7 +2045,7 @@ async def scanner_detail(request: Request, scanner_name: str):  # email: str = D
             SELECT 
                 COUNT(*) as current_total,
                 AVG(signal_strength) as current_avg_strength
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             WHERE scanner_name = ? 
             AND CAST(scan_date AS DATE) = ?
         """, [scanner_name, str(latest_date[0])]).fetchone()
@@ -2051,7 +2055,7 @@ async def scanner_detail(request: Request, scanner_name: str):  # email: str = D
         SELECT 
             COUNT(*) as recent_total,
             AVG(signal_strength) as recent_avg_strength
-        FROM scanner_data.scanner_results
+        FROM scanner_results
         WHERE scanner_name = ? 
         AND CAST(scan_date AS DATE) >= CURRENT_DATE - INTERVAL '30 days'
     """, [scanner_name]).fetchone()
@@ -2111,7 +2115,7 @@ async def ticker_search(request: Request, ticker: Optional[str] = Query(None)):
                 entry_price,
                 signal_strength,
                 notes
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             WHERE symbol = ?
             ORDER BY scan_date DESC, scanner_name
         """, [ticker]).fetchall()
@@ -3412,7 +3416,7 @@ async def index(
             try:
                 latest_date = conn.execute("""
                     SELECT CAST(MAX(scan_date) AS DATE)
-                    FROM scanner_data.scanner_results
+                    FROM scanner_results
                     WHERE scan_date IS NOT NULL
                 """).fetchone()
                 if latest_date and latest_date[0]:
@@ -3427,7 +3431,7 @@ async def index(
     try:
         ticker_list = conn.execute("""
             SELECT DISTINCT symbol 
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             ORDER BY symbol
         """).fetchall()
         available_tickers = [row[0] for row in ticker_list]
@@ -3440,7 +3444,7 @@ async def index(
     # Build query with filters
     symbols_query = '''
         SELECT DISTINCT d.symbol, 
-               COALESCE(f.company_name, d.symbol) as company,
+               COALESCE(f.name, d.symbol) as company,
                f.market_cap,
                f.sector,
                f.industry
@@ -3534,7 +3538,7 @@ async def index(
                    news_published,
                    news_url,
                    metadata
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             WHERE scanner_name = ?
         '''
         query_params = [pattern]
@@ -3620,7 +3624,7 @@ async def index(
                 placeholders = ','.join(['?' for _ in symbols_list])
                 all_scanners_query = f'''
                     SELECT symbol, scanner_name
-                    FROM scanner_data.scanner_results
+                    FROM scanner_results
                     WHERE symbol IN ({placeholders})
                     AND scan_date >= CAST(? AS TIMESTAMP)
                     AND scan_date < CAST((CAST(? AS TIMESTAMP) + INTERVAL 1 DAY) AS TIMESTAMP)
@@ -3649,7 +3653,7 @@ async def index(
                 placeholders = ','.join(['?' for _ in symbols_list])
                 confirmations_query = f'''
                     SELECT symbol, scanner_name, scan_date, signal_strength
-                    FROM scanner_data.scanner_results
+                    FROM scanner_results
                     WHERE symbol IN ({placeholders})
                     AND scanner_name != ?
                     ORDER BY symbol, scan_date DESC, scanner_name
@@ -4043,7 +4047,7 @@ async def index(
                        COALESCE(setup_stage, 'N/A') as quality_placeholder,
                        scan_date,
                        metadata
-                FROM scanner_data.scanner_results
+                FROM scanner_results
                 WHERE symbol = ?
             '''
             query_params = [selected_ticker]
@@ -4141,7 +4145,7 @@ async def index(
     try:
         scanners_query = '''
             SELECT DISTINCT scanner_name 
-            FROM scanner_data.scanner_results 
+            FROM scanner_results 
             ORDER BY scanner_name
         '''
         available_scanners = [row[0] for row in conn.execute(scanners_query).fetchall()]
@@ -4161,7 +4165,7 @@ async def index(
             # Get the latest scan date
             latest_date_result = conn.execute("""
                 SELECT MAX(CAST(scan_date AS DATE))
-                FROM scanner_data.scanner_results
+                FROM scanner_results
             """).fetchone()
             date_to_use = str(latest_date_result[0]) if latest_date_result and latest_date_result[0] else None
             print(f"INFO: Using latest scan date: {date_to_use}")
@@ -4169,7 +4173,7 @@ async def index(
         if date_to_use:
             scanner_counts_query = """
                 SELECT scanner_name, COUNT(*) as count
-                FROM scanner_data.scanner_results
+                FROM scanner_results
                 WHERE CAST(scan_date AS DATE) = ?
                 GROUP BY scanner_name
                 ORDER BY scanner_name
@@ -4181,7 +4185,7 @@ async def index(
             print("WARNING: No date available, getting all scanner counts")
             scanner_counts_query = """
                 SELECT scanner_name, COUNT(*) as count
-                FROM scanner_data.scanner_results
+                FROM scanner_results
                 GROUP BY scanner_name
                 ORDER BY scanner_name
             """
@@ -4220,7 +4224,7 @@ async def index(
     try:
         dates = conn.execute("""
             SELECT CAST(scan_date AS DATE) as date, COUNT(*) as count
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             WHERE scan_date IS NOT NULL
             GROUP BY CAST(scan_date AS DATE)
             ORDER BY date DESC
@@ -4234,7 +4238,7 @@ async def index(
     try:
         latest_timestamp = conn.execute("""
             SELECT MAX(scan_date)
-            FROM scanner_data.scanner_results
+            FROM scanner_results
         """).fetchone()
         if latest_timestamp and latest_timestamp[0]:
             # Format as datetime string
@@ -4250,7 +4254,7 @@ async def index(
                 CAST(scan_date AS DATE) as date,
                 scanner_name,
                 COUNT(*) as count
-            FROM scanner_data.scanner_results
+            FROM scanner_results
             WHERE scan_date >= CURRENT_DATE - INTERVAL '30 days'
                 AND scanner_name NOT IN ('bullish', 'Candlestick Bullish', 'Fundamental Swing')
             GROUP BY CAST(scan_date AS DATE), scanner_name
