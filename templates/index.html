@@ -658,8 +658,8 @@
             {% if stocks[stock][pattern] %}
             {% if not loop.first %}
             <tr class="result-separator">
-                <td colspan="6" style="padding:0;">
-                    <div style="height:1px;background:#e0e0e0;margin:32px 0 12px 0;"></div>
+                <td colspan="100%" style="padding:0;">
+                    <div style="height:1px;background:#d0d0d0;margin:32px 0 12px 0;width:100%;"></div>
                 </td>
             </tr>
             {% endif %}
@@ -722,10 +722,12 @@
                     <div style="position: relative; height: 36px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 3px;">
                         <span style="position: absolute; left: 4px; top: 2px; font-size: 9px; color: #999; font-style: italic;">Signal Timeline</span>
                         <div style="position: relative; height: 29px;">
-                            {# Add subtle vertical reference lines at 25%, 50%, 75% #}
-                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.1);"></div>
-                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.15);"></div>
-                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.1);"></div>
+                            {# Dynamic month markers - Finviz chart shows ~9 months (~270 calendar days) ending today #}
+                            {# Calculate positions based on current date - each month start position as % from chart start #}
+                            {% set today = None %}
+                            {% set chart_days = 270 %}
+                            {# Month markers will be rendered by JavaScript below for accuracy #}
+                            <div class="month-markers" data-chart-days="270"></div>
                             
                             {# Sort and render dots by date - only if there are confirmations #}
                             {% if has_confirmations %}
@@ -964,7 +966,7 @@
                         {% set max_call_oi = [walls.call_wall_1.oi or 0, walls.call_wall_2.oi or 0, walls.call_wall_3.oi or 0]|max %}
                         {% set max_put_oi = [walls.put_wall_1.oi or 0, walls.put_wall_2.oi or 0, walls.put_wall_3.oi or 0]|max %}
                         <br>
-                        <strong>🏰 Options Walls:</strong><br>
+                        <strong><img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f9f1.png" alt="🧱" style="height: 14px; vertical-align: middle;"> Options Walls:</strong><br>
                         <div style="font-size: 11px; margin-left: 10px; line-height: 1.6; border: 1px solid #5dade2; padding: 6px; border-radius: 4px; background: #eaf6fc; max-width: 70%;">
                             <div style="display: flex; gap: 8px;">
                                 <div style="flex: 1;">
@@ -1178,6 +1180,38 @@
                 const scanner = dot.getAttribute('data-scanner');
                 const color = getScannerColor(scanner);
                 dot.style.color = color;
+            });
+            
+            // Generate dynamic month markers for timeline
+            // Finviz chart shows ~270 calendar days (~9 months) ending today
+            document.querySelectorAll('.month-markers').forEach(container => {
+                const parent = container.parentElement;
+                const chartDays = 270; // ~9 months
+                const today = new Date();
+                const chartStart = new Date(today);
+                chartStart.setDate(chartStart.getDate() - chartDays);
+                
+                // Find first day of each month between chartStart and today
+                let currentDate = new Date(chartStart);
+                currentDate.setDate(1); // Go to first of the month
+                if (currentDate < chartStart) {
+                    currentDate.setMonth(currentDate.getMonth() + 1); // Move to next month if before chart start
+                }
+                
+                while (currentDate <= today) {
+                    // Calculate position as percentage
+                    const daysFromStart = Math.floor((currentDate - chartStart) / (1000 * 60 * 60 * 24));
+                    const position = (daysFromStart / chartDays) * 100;
+                    
+                    if (position >= 0 && position <= 100) {
+                        const marker = document.createElement('div');
+                        marker.style.cssText = `position: absolute; left: ${position}%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.08);`;
+                        parent.appendChild(marker);
+                    }
+                    
+                    // Move to next month
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                }
             });
         });
     </script>
