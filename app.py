@@ -4242,8 +4242,14 @@ async def index(
             FROM scanner_results
         """).fetchone()
         if latest_timestamp and latest_timestamp[0]:
-            # Format as datetime string
-            last_updated = str(latest_timestamp[0])
+            # Format as datetime string with date and time
+            ts = latest_timestamp[0]
+            if hasattr(ts, 'strftime'):
+                last_updated = ts.strftime('%Y-%m-%d %H:%M')
+            else:
+                # If it's a string, try to parse and format it
+                ts_str = str(ts)
+                last_updated = ts_str[:16] if len(ts_str) >= 16 else ts_str
     except Exception as e:
         print(f"Could not get last update time: {e}")
 
