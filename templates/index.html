@@ -1186,7 +1186,7 @@
             // Chart area: left edge ~5.5%, right edge ~95% (candle area only)
             document.querySelectorAll('.month-markers').forEach(container => {
                 const parent = container.parentElement;
-                const tradingDaysOnChart = 200; // trading days visible on Finviz daily chart
+                const tradingDaysOnChart = 205; // trading days visible on Finviz daily chart
                 const chartLeftEdge = 6; // Where first candle starts (after DAILY label)
                 const chartRightEdge = 95; // Where last candle ends (before price labels)
                 const chartWidth = chartRightEdge - chartLeftEdge; // ~89%
@@ -1194,7 +1194,7 @@
                 
                 // Calculate chart start by going back trading days
                 // Trading days = calendar days * (5/7) approximately
-                const calendarDaysBack = Math.round(tradingDaysOnChart * (7/5)); // ~280 calendar days
+                const calendarDaysBack = Math.round(tradingDaysOnChart * (7/5)); // ~287 calendar days
                 const chartStart = new Date(today);
                 chartStart.setDate(chartStart.getDate() - calendarDaysBack);
                 
