@@ -1182,10 +1182,13 @@
             });
             
             // Generate dynamic month markers for timeline
-            // Finviz chart shows ~270 calendar days (~9 months) ending today
+            // Finviz daily chart shows ~10 months of data ending today
+            // The chart area starts at ~3% and ends at ~97% (due to padding/labels)
             document.querySelectorAll('.month-markers').forEach(container => {
                 const parent = container.parentElement;
-                const chartDays = 270; // ~9 months
+                const chartDays = 280; // ~10 months (Mar to Dec)
+                const chartLeftPadding = 3; // Chart starts ~3% from left edge
+                const chartWidth = 94; // Chart spans ~94% of width (3% to 97%)
                 const today = new Date();
                 const chartStart = new Date(today);
                 chartStart.setDate(chartStart.getDate() - chartDays);
@@ -1198,11 +1201,12 @@
                 }
                 
                 while (currentDate <= today) {
-                    // Calculate position as percentage
+                    // Calculate position as percentage of chart area
                     const daysFromStart = Math.floor((currentDate - chartStart) / (1000 * 60 * 60 * 24));
-                    const position = (daysFromStart / chartDays) * 100;
+                    const rawPosition = (daysFromStart / chartDays) * chartWidth;
+                    const position = chartLeftPadding + rawPosition;
                     
-                    if (position >= 0 && position <= 100) {
+                    if (position >= chartLeftPadding && position <= (chartLeftPadding + chartWidth)) {
                         const marker = document.createElement('div');
                         marker.style.cssText = `position: absolute; left: ${position}%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.08);`;
                         parent.appendChild(marker);
