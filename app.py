@@ -13,7 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from authlib.integrations.starlette_client import OAuth, OAuthError
+# OAuth disabled for now
+# from authlib.integrations.starlette_client import OAuth, OAuthError
 from contextlib import asynccontextmanager
 
 # Configure logging
@@ -49,9 +50,9 @@ logger.info(f"SECRET_KEY set: {bool(os.environ.get('SECRET_KEY'))}")
 logger.info(f"motherduck_token set: {bool(os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN'))}")
 logger.info(f"options_motherduck_token set: {bool(os.environ.get('options_motherduck_token') or os.environ.get('OPTIONS_MOTHERDUCK_TOKEN'))}")
 
-# Initialize OAuth
-oauth = OAuth()
-logger.info("OAuth initialized")
+# Initialize OAuth - DISABLED FOR NOW
+# oauth = OAuth()
+# logger.info("OAuth initialized")
 
 # HARDCODED SCANNER COLOR MAPPING - Single source of truth
 # This must match the JavaScript SCANNER_COLORS in index.html
@@ -180,99 +181,99 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def favicon():
     return FileResponse("static/favicon.png", media_type="image/png")
 
-# Configure Google OAuth
-oauth.register(
-    name='google',
-    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={
-        'scope': 'openid email profile'
-    }
-)
+# Configure Google OAuth - DISABLED FOR NOW
+# oauth.register(
+#     name='google',
+#     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+#     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+#     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+#     client_kwargs={
+#         'scope': 'openid email profile'
+#     }
+# )
 
-# Helper: get allowed emails from env
-def get_allowed_emails():
-    return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
+# Helper: get allowed emails from env - DISABLED FOR NOW
+# def get_allowed_emails():
+#     return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
 
-# Dependency: require login and allowed email
-def require_login(request: Request):
-    user = request.session.get('user')
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authenticated')
-    
-    email = user.get('email')
-    allowed = get_allowed_emails()
-    if not email or email not in allowed:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Access denied - not in authorized user list')
-    return email
+# Dependency: require login and allowed email - DISABLED FOR NOW
+# def require_login(request: Request):
+#     user = request.session.get('user')
+#     if not user:
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authenticated')
+#     
+#     email = user.get('email')
+#     allowed = get_allowed_emails()
+#     if not email or email not in allowed:
+#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Access denied - not in authorized user list')
+#     return email
 
-# Login page - redirect to Google OAuth
-@app.get('/login', response_class=HTMLResponse)
-async def login_form(request: Request):
-    # Check if user is already logged in
-    user = request.session.get('user')
-    if user:
-        email = user.get('email')
-        if email in get_allowed_emails():
-            return RedirectResponse('/', status_code=302)
-    
-    # Show login page with Google button
-    return templates.TemplateResponse('login.html', {'request': request, 'error': None})
+# Login page - DISABLED FOR NOW
+# @app.get('/login', response_class=HTMLResponse)
+# async def login_form(request: Request):
+#     # Check if user is already logged in
+#     user = request.session.get('user')
+#     if user:
+#         email = user.get('email')
+#         if email in get_allowed_emails():
+#             return RedirectResponse('/', status_code=302)
+#     
+#     # Show login page with Google button
+#     return templates.TemplateResponse('login.html', {'request': request, 'error': None})
 
-# Google OAuth login redirect
-@app.get('/auth/google')
-async def google_login(request: Request):
-    redirect_uri = request.url_for('google_callback')
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+# Google OAuth login redirect - DISABLED FOR NOW
+# @app.get('/auth/google')
+# async def google_login(request: Request):
+#     redirect_uri = request.url_for('google_callback')
+#     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-# Google OAuth callback
-@app.get('/auth/google/callback')
-async def google_callback(request: Request):
-    try:
-        token = await oauth.google.authorize_access_token(request)
-        user_info = token.get('userinfo')
-        
-        if not user_info:
-            return templates.TemplateResponse('login.html', {
-                'request': request, 
-                'error': 'Failed to get user information from Google'
-            })
-        
-        email = user_info.get('email')
-        allowed = get_allowed_emails()
-        
-        print(f"DEBUG: Google OAuth callback - Email: {email}")
-        print(f"DEBUG: Allowed emails: {allowed}")
-        
-        if email not in allowed:
-            return templates.TemplateResponse('login.html', {
-                'request': request,
-                'error': f'Access denied. Email {email} is not authorized to access this application.'
-            })
-        
-        # Store user info in session
-        request.session['user'] = {
-            'email': email,
-            'name': user_info.get('name'),
-            'picture': user_info.get('picture')
-        }
-        
-        print(f"DEBUG: Login successful for {email}")
-        return RedirectResponse('/', status_code=302)
-        
-    except OAuthError as e:
-        print(f"ERROR: OAuth error: {e}")
-        return templates.TemplateResponse('login.html', {
-            'request': request,
-            'error': f'Authentication failed: {str(e)}'
-        })
+# Google OAuth callback - DISABLED FOR NOW
+# @app.get('/auth/google/callback')
+# async def google_callback(request: Request):
+#     try:
+#         token = await oauth.google.authorize_access_token(request)
+#         user_info = token.get('userinfo')
+#         
+#         if not user_info:
+#             return templates.TemplateResponse('login.html', {
+#                 'request': request, 
+#                 'error': 'Failed to get user information from Google'
+#             })
+#         
+#         email = user_info.get('email')
+#         allowed = get_allowed_emails()
+#         
+#         print(f"DEBUG: Google OAuth callback - Email: {email}")
+#         print(f"DEBUG: Allowed emails: {allowed}")
+#         
+#         if email not in allowed:
+#             return templates.TemplateResponse('login.html', {
+#                 'request': request,
+#                 'error': f'Access denied. Email {email} is not authorized to access this application.'
+#             })
+#         
+#         # Store user info in session
+#         request.session['user'] = {
+#             'email': email,
+#             'name': user_info.get('name'),
+#             'picture': user_info.get('picture')
+#         }
+#         
+#         print(f"DEBUG: Login successful for {email}")
+#         return RedirectResponse('/', status_code=302)
+#         
+#     except OAuthError as e:
+#         print(f"ERROR: OAuth error: {e}")
+#         return templates.TemplateResponse('login.html', {
+#             'request': request,
+#             'error': f'Authentication failed: {str(e)}'
+#         })
 
-# Logout
-@app.get('/logout')
-async def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse('/login', status_code=302)
+# Logout - DISABLED FOR NOW
+# @app.get('/logout')
+# async def logout(request: Request):
+#     request.session.clear()
+#     return RedirectResponse('/login', status_code=302)
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")
