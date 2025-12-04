@@ -718,7 +718,8 @@
                     {% set has_confirmations = stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
                     {% set has_options = stocks[stock].get(pattern + '_options_signals') and stocks[stock][pattern + '_options_signals']|length > 0 %}
                     {% if has_confirmations or has_options %}
-                    <div style="position: relative; height: 36px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #0066cc; margin-top: 2px; padding: 3px;">
+                    {# ⚠️ DO NOT CHANGE THE TIMELINE ALIGNMENT - CAREFULLY CALIBRATED TO MATCH FINVIZ CHART! ⚠️ #}
+                    <div style="position: relative; height: 36px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #555; margin-top: 2px; padding: 3px;">
                         <span style="position: absolute; left: 4px; top: 2px; font-size: 9px; color: #999; font-style: italic;">Signal Timeline</span>
                         <div style="position: relative; height: 29px;">
                             {# Dynamic month markers - Finviz chart shows ~9 months (~270 calendar days) ending today #}
@@ -1181,14 +1182,17 @@
                 dot.style.color = color;
             });
             
+            // ⚠️⚠️⚠️ DO NOT CHANGE THESE VALUES! ⚠️⚠️⚠️
+            // TIMELINE ALIGNMENT CAREFULLY CALIBRATED TO MATCH FINVIZ CHART!
+            // Took a lot of time to align this perfectly - do not modify!
             // Generate dynamic month markers for timeline
             // Finviz daily chart uses TRADING DAYS (excludes weekends), not calendar days
-            // Chart area: left edge ~5.5%, right edge ~95% (candle area only)
+            // Chart area: left edge ~6%, right edge ~95% (candle area only)
             document.querySelectorAll('.month-markers').forEach(container => {
                 const parent = container.parentElement;
-                const tradingDaysOnChart = 205; // trading days visible on Finviz daily chart
-                const chartLeftEdge = 6; // Where first candle starts (after DAILY label)
-                const chartRightEdge = 95; // Where last candle ends (before price labels)
+                const tradingDaysOnChart = 205; // ⚠️ DO NOT CHANGE - carefully calibrated!
+                const chartLeftEdge = 6; // ⚠️ DO NOT CHANGE - carefully calibrated!
+                const chartRightEdge = 95; // ⚠️ DO NOT CHANGE - carefully calibrated!
                 const chartWidth = chartRightEdge - chartLeftEdge; // ~89%
                 const today = new Date();
                 
