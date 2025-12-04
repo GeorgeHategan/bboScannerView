@@ -730,6 +730,8 @@
                             <div class="month-markers" data-chart-days="270"></div>
                             
                             {# Sort and render dots by date - only if there are confirmations #}
+                            {# ⚠️ POSITION CALCULATION MUST MATCH THE JAVASCRIPT MONTH MARKERS! ⚠️ #}
+                            {# tradingDaysOnChart = 205, chartLeftEdge = 6%, chartRightEdge = 95% #}
                             {% if has_confirmations %}
                             {% set ns = namespace(processed_dates=[]) %}
                             {% for conf in stocks[stock][pattern + '_confirmations'] | sort(attribute='date') %}
@@ -743,73 +745,13 @@
                                     {% endif %}
                                 {% endfor %}
                                 
-                                {# Calculate position based on trading days (Finviz chart shows ~9 months, ~22 trading days/month) #}
-                                {% set year = conf.date[0:4]|int %}
-                                {% set month = conf.date[5:7]|int %}
-                                {% set day = conf.date[8:10]|int %}
+                                {# Store date for JavaScript positioning #}
+                                {% set conf_date = conf.date %}
                                 
-                                {# Finviz chart timeline: Mar 1 (start, 0%) to Nov 26 (today, ~96%) = ~9 months #}
-                                {# Adjusting so Nov 5-6 aligns with start of November section on chart #}
-                                {# Timeline positions: Mar=0-10.5%, Apr=10.5-21%, May=21-31.5%, Jun=31.5-42%, Jul=42-52.5%, Aug=52.5-63%, Sep=63-73.5%, Oct=73.5-85.5%, Nov=85.5-96% #}
-                                
-                                {# Month start positions on timeline #}
-                                {% if month == 3 %}
-                                    {% set month_start = 0 %}
-                                    {% set month_width = 10.5 %}
-                                    {% set trading_days_in_month = 21 %}
-                                {% elif month == 4 %}
-                                    {% set month_start = 10.5 %}
-                                    {% set month_width = 10.5 %}
-                                    {% set trading_days_in_month = 22 %}
-                                {% elif month == 5 %}
-                                    {% set month_start = 21 %}
-                                    {% set month_width = 10.5 %}
-                                    {% set trading_days_in_month = 22 %}
-                                {% elif month == 6 %}
-                                    {% set month_start = 31.5 %}
-                                    {% set month_width = 10.5 %}
-                                    {% set trading_days_in_month = 21 %}
-                                {% elif month == 7 %}
-                                    {% set month_start = 42 %}
-                                    {% set month_width = 10.5 %}
-                                    {% set trading_days_in_month = 23 %}
-                                {% elif month == 8 %}
-                                    {% set month_start = 52.5 %}
-                                    {% set month_width = 10.5 %}
-                                    {% set trading_days_in_month = 22 %}
-                                {% elif month == 9 %}
-                                    {% set month_start = 63 %}
-                                    {% set month_width = 10.5 %}
-                                    {% set trading_days_in_month = 21 %}
-                                {% elif month == 10 %}
-                                    {% set month_start = 73.5 %}
-                                    {% set month_width = 13.1 %}
-                                    {% set trading_days_in_month = 23 %}
-                                {% elif month == 11 %}
-                                    {% set month_start = 86.6 %}
-                                    {% set month_width = 9.4 %}
-                                    {% set trading_days_in_month = 19 %}
-                                {% else %}
-                                    {# Default for other months (shouldn't happen) #}
-                                    {% set month_start = 0 %}
-                                    {% set month_width = 10.5 %}
-                                    {% set trading_days_in_month = 22 %}
-                                {% endif %}
-                                
-                                {# Calculate position within the month based on day of month #}
-                                {# Approximate: day/30 * trading_days gives rough trading day position #}
-                                {% set approx_trading_day = (day / 30.0) * trading_days_in_month %}
-                                {% set day_offset = (approx_trading_day / trading_days_in_month) * month_width %}
-                                {% set position = month_start + day_offset %}
-                                
-                                {# Clamp to valid range #}
-                                {% set position = [0, position]|max %}
-                                {% set position = [96, position]|min %}
-                                
-                                {# Stack dots vertically for same date - use JavaScript color mapping #}
+                                {# Stack dots vertically for same date - JavaScript will calculate position #}
                                 {% for c in same_date_confs %}
                                 {% set vertical_offset = loop.index0 * 12 %}
-                                <div class="timeline-dot" data-scanner="{{ c.scanner }}" style="position: absolute; left: {{ position }}%; width: 10px; height: 10px; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
+                                <div class="timeline-dot" data-scanner="{{ c.scanner }}" data-date="{{ c.date }}" style="position: absolute; left: 0; width: 10px; height: 10px; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
                                      title="{{ c.scanner.replace('_', ' ').title() }} - {{ c.date }}"></div>
                                 {% endfor %}
                             {% endif %}
@@ -822,29 +764,6 @@
                             {% for opt in stocks[stock][pattern + '_options_signals'] | sort(attribute='date') %}
                             {% if opt.date and opt.date not in opts_ns.processed_opts_dates %}
                                 {% set _ = opts_ns.processed_opts_dates.append(opt.date) %}
-                                
-                                {# Calculate position for options signal #}
-                                {% set opt_month = opt.date[5:7]|int %}
-                                {% set opt_day = opt.date[8:10]|int %}
-                                
-                                {% if opt_month == 10 %}
-                                    {% set opt_month_start = 73.5 %}
-                                    {% set opt_month_width = 13.1 %}
-                                    {% set opt_trading_days = 23 %}
-                                {% elif opt_month == 11 %}
-                                    {% set opt_month_start = 86.6 %}
-                                    {% set opt_month_width = 9.4 %}
-                                    {% set opt_trading_days = 19 %}
-                                {% else %}
-                                    {% set opt_month_start = 73.5 %}
-                                    {% set opt_month_width = 13.1 %}
-                                    {% set opt_trading_days = 22 %}
-                                {% endif %}
-                                
-                                {% set opt_day_offset = (opt_day / 30.0) * opt_month_width %}
-                                {% set opt_position = opt_month_start + opt_day_offset %}
-                                {% set opt_position = [0, opt_position]|max %}
-                                {% set opt_position = [96, opt_position]|min %}
                                 
                                 {# Count signals for this date #}
                                 {% set opt_count = namespace(value=0) %}
@@ -867,9 +786,9 @@
                                     {% set opt_color = '#7f8c8d' %}{# Gray #}
                                 {% endif %}
                                 
-                                {# Triangle pointing up (CSS triangle) #}
-                                <div class="options-triangle" data-strength="{{ opt.strength }}" 
-                                     style="position: absolute; left: calc({{ opt_position }}% - 6px); bottom: -8px; width: 0; height: 0; 
+                                {# Triangle pointing up - JavaScript will position it #}
+                                <div class="options-triangle" data-date="{{ opt.date }}" data-strength="{{ opt.strength }}" 
+                                     style="position: absolute; left: 0; bottom: -8px; width: 0; height: 0; 
                                             border-left: 6px solid transparent; border-right: 6px solid transparent; 
                                             border-bottom: 10px solid {{ opt_color }}; cursor: pointer;"
                                      title="📈 {{ opt.signal_type.replace('_', ' ').title() }} ({{ opt.strength }}) - {{ opt.date }}"></div>
@@ -1237,6 +1156,76 @@
                     
                     // Move to next month
                     currentDate.setMonth(currentDate.getMonth() + 1);
+                }
+            });
+            
+            // ⚠️ Position timeline dots using same trading day calculation ⚠️
+            // This must match the month marker positioning above!
+            document.querySelectorAll('.timeline-dot').forEach(dot => {
+                const dateStr = dot.getAttribute('data-date');
+                if (!dateStr) return;
+                
+                const tradingDaysOnChart = 205; // ⚠️ MUST MATCH ABOVE!
+                const chartLeftEdge = 6;
+                const chartRightEdge = 95;
+                const chartWidth = chartRightEdge - chartLeftEdge;
+                const today = new Date();
+                const calendarDaysBack = Math.round(tradingDaysOnChart * (7/5));
+                const chartStart = new Date(today);
+                chartStart.setDate(chartStart.getDate() - calendarDaysBack);
+                
+                const dotDate = new Date(dateStr);
+                
+                // Count trading days from chart start to dot date
+                let tradingDaysFromStart = 0;
+                let current = new Date(chartStart);
+                while (current <= dotDate) {
+                    const dayOfWeek = current.getDay();
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        tradingDaysFromStart++;
+                    }
+                    current.setDate(current.getDate() + 1);
+                }
+                
+                const rawPosition = (tradingDaysFromStart / tradingDaysOnChart) * chartWidth;
+                const position = chartLeftEdge + rawPosition;
+                
+                if (position >= chartLeftEdge && position <= chartRightEdge) {
+                    dot.style.left = position + '%';
+                }
+            });
+            
+            // ⚠️ Position options triangles using same trading day calculation ⚠️
+            document.querySelectorAll('.options-triangle').forEach(tri => {
+                const dateStr = tri.getAttribute('data-date');
+                if (!dateStr) return;
+                
+                const tradingDaysOnChart = 205;
+                const chartLeftEdge = 6;
+                const chartRightEdge = 95;
+                const chartWidth = chartRightEdge - chartLeftEdge;
+                const today = new Date();
+                const calendarDaysBack = Math.round(tradingDaysOnChart * (7/5));
+                const chartStart = new Date(today);
+                chartStart.setDate(chartStart.getDate() - calendarDaysBack);
+                
+                const triDate = new Date(dateStr);
+                
+                let tradingDaysFromStart = 0;
+                let current = new Date(chartStart);
+                while (current <= triDate) {
+                    const dayOfWeek = current.getDay();
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        tradingDaysFromStart++;
+                    }
+                    current.setDate(current.getDate() + 1);
+                }
+                
+                const rawPosition = (tradingDaysFromStart / tradingDaysOnChart) * chartWidth;
+                const position = chartLeftEdge + rawPosition;
+                
+                if (position >= chartLeftEdge && position <= chartRightEdge) {
+                    tri.style.left = `calc(${position}% - 6px)`;
                 }
             });
         });
