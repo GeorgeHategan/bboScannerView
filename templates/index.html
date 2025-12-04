@@ -1183,12 +1183,13 @@
             
             // Generate dynamic month markers for timeline
             // Finviz daily chart shows ~10 months of data ending today
-            // The chart area starts at ~3% and ends at ~97% (due to padding/labels)
+            // Chart area: left edge ~5.5%, right edge ~95% (candle area only)
             document.querySelectorAll('.month-markers').forEach(container => {
                 const parent = container.parentElement;
                 const chartDays = 280; // ~10 months (Mar to Dec)
-                const chartLeftPadding = 3; // Chart starts ~3% from left edge
-                const chartWidth = 94; // Chart spans ~94% of width (3% to 97%)
+                const chartLeftEdge = 5.5; // Where first candle starts (after DAILY label)
+                const chartRightEdge = 95; // Where last candle ends (before price labels)
+                const chartWidth = chartRightEdge - chartLeftEdge; // ~89.5%
                 const today = new Date();
                 const chartStart = new Date(today);
                 chartStart.setDate(chartStart.getDate() - chartDays);
@@ -1204,9 +1205,9 @@
                     // Calculate position as percentage of chart area
                     const daysFromStart = Math.floor((currentDate - chartStart) / (1000 * 60 * 60 * 24));
                     const rawPosition = (daysFromStart / chartDays) * chartWidth;
-                    const position = chartLeftPadding + rawPosition;
+                    const position = chartLeftEdge + rawPosition;
                     
-                    if (position >= chartLeftPadding && position <= (chartLeftPadding + chartWidth)) {
+                    if (position >= chartLeftEdge && position <= chartRightEdge) {
                         const marker = document.createElement('div');
                         marker.style.cssText = `position: absolute; left: ${position}%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.08);`;
                         parent.appendChild(marker);
