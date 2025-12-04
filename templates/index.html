@@ -751,7 +751,7 @@
                                 {# Stack dots vertically for same date - JavaScript will calculate position #}
                                 {% for c in same_date_confs %}
                                 {% set vertical_offset = loop.index0 * 12 %}
-                                <div class="timeline-dot" data-scanner="{{ c.scanner }}" data-date="{{ c.date }}" style="position: absolute; left: 0; width: 10px; height: 10px; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" 
+                                <div class="timeline-dot" data-scanner="{{ c.scanner }}" data-date="{{ c.date }}" style="position: absolute; left: 0; width: 10px; height: 10px; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transform: translateX(-50%);" 
                                      title="{{ c.scanner.replace('_', ' ').title() }} - {{ c.date }}"></div>
                                 {% endfor %}
                             {% endif %}
@@ -790,7 +790,7 @@
                                 <div class="options-triangle" data-date="{{ opt.date }}" data-strength="{{ opt.strength }}" 
                                      style="position: absolute; left: 0; bottom: -8px; width: 0; height: 0; 
                                             border-left: 6px solid transparent; border-right: 6px solid transparent; 
-                                            border-bottom: 10px solid {{ opt_color }}; cursor: pointer;"
+                                            border-bottom: 10px solid {{ opt_color }}; cursor: pointer; transform: translateX(-50%);"
                                      title="📈 {{ opt.signal_type.replace('_', ' ').title() }} ({{ opt.strength }}) - {{ opt.date }}"></div>
                             {% endif %}
                             {% endfor %}
