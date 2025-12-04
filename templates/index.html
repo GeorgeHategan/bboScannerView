@@ -1182,17 +1182,35 @@
             });
             
             // Generate dynamic month markers for timeline
-            // Finviz daily chart shows ~10 months of data ending today
+            // Finviz daily chart uses TRADING DAYS (excludes weekends), not calendar days
             // Chart area: left edge ~5.5%, right edge ~95% (candle area only)
             document.querySelectorAll('.month-markers').forEach(container => {
                 const parent = container.parentElement;
-                const chartDays = 280; // ~10 months (Mar to Dec)
+                const tradingDaysOnChart = 195; // ~195 trading days visible on Finviz daily chart
                 const chartLeftEdge = 5.5; // Where first candle starts (after DAILY label)
                 const chartRightEdge = 95; // Where last candle ends (before price labels)
                 const chartWidth = chartRightEdge - chartLeftEdge; // ~89.5%
                 const today = new Date();
+                
+                // Calculate chart start by going back ~195 trading days
+                // Trading days = calendar days * (5/7) approximately
+                const calendarDaysBack = Math.round(tradingDaysOnChart * (7/5)); // ~273 calendar days
                 const chartStart = new Date(today);
-                chartStart.setDate(chartStart.getDate() - chartDays);
+                chartStart.setDate(chartStart.getDate() - calendarDaysBack);
+                
+                // Function to count trading days between two dates
+                function countTradingDays(startDate, endDate) {
+                    let count = 0;
+                    let current = new Date(startDate);
+                    while (current <= endDate) {
+                        const dayOfWeek = current.getDay();
+                        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not Sunday or Saturday
+                            count++;
+                        }
+                        current.setDate(current.getDate() + 1);
+                    }
+                    return count;
+                }
                 
                 // Find first day of each month between chartStart and today
                 let currentDate = new Date(chartStart);
@@ -1202,9 +1220,9 @@
                 }
                 
                 while (currentDate <= today) {
-                    // Calculate position as percentage of chart area
-                    const daysFromStart = Math.floor((currentDate - chartStart) / (1000 * 60 * 60 * 24));
-                    const rawPosition = (daysFromStart / chartDays) * chartWidth;
+                    // Calculate position based on trading days from start
+                    const tradingDaysFromStart = countTradingDays(chartStart, currentDate);
+                    const rawPosition = (tradingDaysFromStart / tradingDaysOnChart) * chartWidth;
                     const position = chartLeftEdge + rawPosition;
                     
                     if (position >= chartLeftEdge && position <= chartRightEdge) {
