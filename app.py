@@ -1634,6 +1634,241 @@ async def options_signals(
         })
 
 
+@app.get("/darkpool-signals", response_class=HTMLResponse)
+async def darkpool_signals(
+    request: Request,
+    signal_type: Optional[str] = Query(None),
+    signal_strength: Optional[str] = Query(None),
+    direction: Optional[str] = Query(None),
+    symbol: Optional[str] = Query(None),
+    min_confidence: Optional[str] = Query(None),
+    min_premium: Optional[str] = Query(None),
+    scan_date: Optional[str] = Query(None)
+):
+    """Display dark pool signals from the options_data database."""
+    
+    min_confidence_val = int(min_confidence) if min_confidence else None
+    min_premium_val = int(min_premium) if min_premium else None
+    
+    if not OPTIONS_DUCKDB_PATH:
+        return templates.TemplateResponse('darkpool_signals.html', {
+            'request': request,
+            'error': 'Options database not configured.',
+            'signals': [],
+            'signal_types': [],
+            'signal_strengths': [],
+            'directions': [],
+            'stats': {}
+        })
+    
+    try:
+        conn = get_options_db_connection()
+        if not conn:
+            raise Exception("Could not connect to options database")
+        
+        # Get available filter options
+        signal_types = [row[0] for row in conn.execute(
+            "SELECT DISTINCT signal_type FROM darkpool_signals ORDER BY signal_type"
+        ).fetchall()]
+        
+        signal_strengths = [row[0] for row in conn.execute(
+            "SELECT DISTINCT signal_strength FROM darkpool_signals ORDER BY signal_strength"
+        ).fetchall()]
+        
+        directions = [row[0] for row in conn.execute(
+            "SELECT DISTINCT direction FROM darkpool_signals WHERE direction IS NOT NULL ORDER BY direction"
+        ).fetchall()]
+        
+        available_dates = [str(row[0]) for row in conn.execute(
+            "SELECT DISTINCT signal_date FROM darkpool_signals ORDER BY signal_date DESC LIMIT 30"
+        ).fetchall()]
+        
+        # Build the query with filters
+        query = """
+            SELECT 
+                signal_id,
+                signal_date,
+                signal_type,
+                ticker,
+                direction,
+                dp_volume,
+                dp_premium,
+                avg_price,
+                buy_volume,
+                sell_volume,
+                buy_sell_ratio,
+                block_count,
+                avg_block_size,
+                consecutive_days,
+                confidence_score,
+                signal_strength,
+                notes
+            FROM darkpool_signals
+            WHERE 1=1
+        """
+        params = []
+        
+        if signal_type:
+            query += " AND signal_type = ?"
+            params.append(signal_type)
+        
+        if signal_strength:
+            query += " AND signal_strength = ?"
+            params.append(signal_strength)
+        
+        if direction:
+            query += " AND direction = ?"
+            params.append(direction)
+        
+        if symbol:
+            query += " AND ticker = ?"
+            params.append(symbol.upper())
+        
+        if min_confidence_val:
+            query += " AND confidence_score >= ?"
+            params.append(min_confidence_val)
+        
+        if min_premium_val:
+            query += " AND dp_premium >= ?"
+            params.append(min_premium_val)
+        
+        if scan_date:
+            query += " AND signal_date = ?"
+            params.append(scan_date)
+        elif not symbol:
+            latest_date = conn.execute(
+                "SELECT MAX(signal_date) FROM darkpool_signals"
+            ).fetchone()[0]
+            if latest_date:
+                query += " AND signal_date = ?"
+                params.append(str(latest_date))
+                scan_date = str(latest_date)
+        
+        query += " ORDER BY signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 200"
+        
+        results = conn.execute(query, params).fetchall()
+        
+        signals = []
+        for row in results:
+            signals.append({
+                'signal_id': row[0],
+                'signal_date': str(row[1]) if row[1] else '',
+                'signal_type': row[2],
+                'ticker': row[3],
+                'direction': row[4],
+                'dp_volume': row[5],
+                'dp_premium': row[6],
+                'avg_price': row[7],
+                'buy_volume': row[8],
+                'sell_volume': row[9],
+                'buy_sell_ratio': row[10],
+                'block_count': row[11],
+                'avg_block_size': row[12],
+                'consecutive_days': row[13],
+                'confidence_score': row[14],
+                'signal_strength': row[15],
+                'notes': row[16]
+            })
+        
+        # Get stats
+        stats_query = """
+            SELECT 
+                COUNT(*) as total_signals,
+                COUNT(DISTINCT ticker) as unique_symbols,
+                SUM(dp_premium) as total_premium,
+                AVG(confidence_score) as avg_confidence,
+                SUM(CASE WHEN signal_strength = 'EXTREME' THEN 1 ELSE 0 END) as extreme_count,
+                SUM(CASE WHEN signal_strength = 'VERY_HIGH' THEN 1 ELSE 0 END) as very_high_count,
+                SUM(CASE WHEN signal_strength = 'HIGH' THEN 1 ELSE 0 END) as high_count,
+                SUM(CASE WHEN direction = 'BUY' OR direction = 'BULLISH' THEN 1 ELSE 0 END) as buy_count,
+                SUM(CASE WHEN direction = 'SELL' OR direction = 'BEARISH' THEN 1 ELSE 0 END) as sell_count
+            FROM darkpool_signals
+        """
+        if scan_date:
+            stats_query += " WHERE signal_date = ?"
+            stats_result = conn.execute(stats_query, [scan_date]).fetchone()
+        elif symbol:
+            stats_query += " WHERE ticker = ?"
+            stats_result = conn.execute(stats_query, [symbol.upper()]).fetchone()
+        else:
+            stats_result = conn.execute(stats_query).fetchone()
+        
+        stats = {
+            'total_signals': stats_result[0],
+            'unique_symbols': stats_result[1],
+            'total_premium': stats_result[2],
+            'avg_confidence': round(stats_result[3], 1) if stats_result[3] else 0,
+            'extreme_count': stats_result[4],
+            'very_high_count': stats_result[5],
+            'high_count': stats_result[6],
+            'buy_count': stats_result[7],
+            'sell_count': stats_result[8]
+        }
+        
+        # Get top symbols by premium
+        if scan_date:
+            top_symbols = conn.execute("""
+                SELECT ticker, 
+                       COUNT(*) as signal_count,
+                       SUM(dp_premium) as total_premium,
+                       MAX(confidence_score) as max_confidence
+                FROM darkpool_signals
+                WHERE signal_date = ?
+                GROUP BY ticker
+                ORDER BY total_premium DESC
+                LIMIT 10
+            """, [scan_date]).fetchall()
+        elif symbol:
+            top_symbols = conn.execute("""
+                SELECT signal_date, 
+                       COUNT(*) as signal_count,
+                       SUM(dp_premium) as total_premium,
+                       MAX(confidence_score) as max_confidence
+                FROM darkpool_signals
+                WHERE ticker = ?
+                GROUP BY signal_date
+                ORDER BY signal_date DESC
+                LIMIT 10
+            """, [symbol.upper()]).fetchall()
+        else:
+            top_symbols = []
+        
+        conn.close()
+        
+        return templates.TemplateResponse('darkpool_signals.html', {
+            'request': request,
+            'signals': signals,
+            'signal_types': signal_types,
+            'signal_strengths': signal_strengths,
+            'directions': directions,
+            'available_dates': available_dates,
+            'selected_signal_type': signal_type,
+            'selected_signal_strength': signal_strength,
+            'selected_direction': direction,
+            'selected_symbol': symbol,
+            'selected_min_confidence': min_confidence_val,
+            'selected_min_premium': min_premium_val,
+            'selected_scan_date': scan_date,
+            'stats': stats,
+            'top_symbols': [{'symbol': r[0], 'count': r[1], 'premium': r[2], 'confidence': r[3]} for r in top_symbols],
+            'error': None
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse('darkpool_signals.html', {
+            'request': request,
+            'error': f'Error loading dark pool signals: {str(e)}',
+            'signals': [],
+            'signal_types': [],
+            'signal_strengths': [],
+            'directions': [],
+            'available_dates': [],
+            'stats': {}
+        })
+
+
 @app.get("/ranked", response_class=HTMLResponse)
 async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     """Display AI-ranked stock analysis results."""
@@ -3730,6 +3965,71 @@ async def index(
                 print(f'Options signals query failed: {e}')
                 options_signals_dict = {}
         
+        # Fetch dark pool signals for each symbol (from options_data database)
+        darkpool_signals_dict = {}
+        if symbols_list and OPTIONS_DUCKDB_PATH:
+            try:
+                dp_conn = get_options_db_connection()
+                if dp_conn:
+                    placeholders = ','.join(['?' for _ in symbols_list])
+                    dp_query = f'''
+                        SELECT ticker, signal_date, signal_type, 
+                               signal_strength, confidence_score, direction,
+                               dp_volume, dp_premium, avg_price,
+                               buy_volume, sell_volume, buy_sell_ratio,
+                               block_count, avg_block_size, consecutive_days, notes
+                        FROM darkpool_signals
+                        WHERE ticker IN ({placeholders})
+                        ORDER BY ticker, signal_date DESC
+                    '''
+                    dp_results = dp_conn.execute(
+                        dp_query, symbols_list
+                    ).fetchall()
+                    
+                    for row in dp_results:
+                        sym = row[0]
+                        sig_date = str(row[1]) if row[1] else ''
+                        sig_type = row[2]
+                        sig_strength = row[3]
+                        confidence = row[4]
+                        direction = row[5]
+                        dp_volume = row[6]
+                        dp_premium = row[7]
+                        avg_price = row[8]
+                        buy_vol = row[9]
+                        sell_vol = row[10]
+                        buy_sell_ratio = row[11]
+                        block_count = row[12]
+                        avg_block_size = row[13]
+                        consecutive_days = row[14]
+                        notes = row[15]
+                        
+                        if sym not in darkpool_signals_dict:
+                            darkpool_signals_dict[sym] = []
+                        darkpool_signals_dict[sym].append({
+                            'date': sig_date,
+                            'signal_type': sig_type,
+                            'strength': sig_strength,
+                            'confidence': confidence,
+                            'direction': direction,
+                            'dp_volume': dp_volume,
+                            'dp_premium': dp_premium,
+                            'avg_price': avg_price,
+                            'buy_volume': buy_vol,
+                            'sell_volume': sell_vol,
+                            'buy_sell_ratio': buy_sell_ratio,
+                            'block_count': block_count,
+                            'avg_block_size': avg_block_size,
+                            'consecutive_days': consecutive_days,
+                            'notes': notes
+                        })
+                    
+                    dp_conn.close()
+                    print(f'Loaded dark pool signals for {len(darkpool_signals_dict)} symbols')
+            except Exception as e:
+                print(f'Dark pool signals query failed: {e}')
+                darkpool_signals_dict = {}
+        
         # Fetch options walls data for each symbol (from options_data database)
         # Filter by selected scan date if one is chosen, otherwise get latest
         # Note: Scanner runs after market close, so walls should be from previous trading day
@@ -3983,6 +4283,12 @@ async def index(
                             stocks[symbol][f'{pattern}_options_signals'] = options_signals_dict[symbol]
                         else:
                             stocks[symbol][f'{pattern}_options_signals'] = []
+                        
+                        # Add dark pool signals for this symbol
+                        if symbol in darkpool_signals_dict:
+                            stocks[symbol][f'{pattern}_darkpool_signals'] = darkpool_signals_dict[symbol]
+                        else:
+                            stocks[symbol][f'{pattern}_darkpool_signals'] = []
                         
                         # Add options walls for this symbol
                         if symbol in options_walls_dict:

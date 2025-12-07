@@ -1,0 +1,373 @@
+<html>
+<head>
+    <title>Dark Pool Signals</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: arial; margin: 0; padding: 0; padding-top: 200px; background: #f5f5f5; }
+        .sticky-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            z-index: 1000;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .sticky-header-content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .nav-links {
+            display: flex;
+            gap: 10px;
+        }
+        .nav-links a {
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: normal;
+            border: 1px solid #ddd;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card.extreme { background: linear-gradient(135deg, #8e44ad 0%, #6c3483 100%); }
+        .stat-card.very-high { background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); }
+        .stat-card.high { background: linear-gradient(135deg, #a569bd 0%, #9b59b6 100%); }
+        .stat-card.buy { background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); }
+        .stat-card.sell { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+        .stat-value { font-size: 1.8em; font-weight: bold; }
+        .stat-label { font-size: 0.9em; opacity: 0.9; margin-top: 5px; }
+        
+        .signals-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            margin: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .signals-table th {
+            background: #8e44ad;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 12px;
+        }
+        .signals-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .signals-table tr:hover { background: #f8f9fa; }
+        
+        .strength-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .strength-EXTREME { background: #8e44ad; color: white; }
+        .strength-VERY_HIGH { background: #9b59b6; color: white; }
+        .strength-HIGH { background: #a569bd; color: white; }
+        .strength-MODERATE { background: #95a5a6; color: white; }
+        
+        .direction-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .direction-BUY, .direction-BULLISH { background: #27ae60; color: white; }
+        .direction-SELL, .direction-BEARISH { background: #e74c3c; color: white; }
+        .direction-NEUTRAL { background: #f39c12; color: white; }
+        
+        .symbol-link {
+            color: #8e44ad;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .symbol-link:hover { text-decoration: underline; }
+        
+        .premium-high { color: #8e44ad; font-weight: bold; }
+        .premium-medium { color: #9b59b6; }
+        .premium-low { color: #666; }
+        
+        .filters-form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .filters-form select, .filters-form input {
+            padding: 8px 12px;
+            font-size: 13px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: white;
+        }
+        .filters-form select:focus, .filters-form input:focus {
+            border-color: #8e44ad;
+            outline: none;
+        }
+        
+        .top-symbols {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 20px;
+        }
+        .top-symbol-card {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 100px;
+        }
+        .top-symbol-card .symbol { font-weight: bold; color: #8e44ad; font-size: 16px; }
+        .top-symbol-card .premium { font-size: 12px; color: #27ae60; }
+        .top-symbol-card .count { font-size: 11px; color: #666; }
+        
+        .notes-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 11px;
+            color: #666;
+        }
+        .notes-cell:hover {
+            white-space: normal;
+            overflow: visible;
+        }
+        
+        .error-banner {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px 20px;
+            margin: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sticky-header">
+        <div class="sticky-header-content">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="margin: 0 0 5px 0;">🌑 Dark Pool Signals</h1>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                        Detecting institutional dark pool activity and block trade patterns
+                    </p>
+                </div>
+                <div class="nav-links">
+                    <a href="/" style="background: #e8f4f8; color: #2c5f7a; border-color: #d0e5ed;">🔍 Scanners</a>
+                    <a href="/options-signals" style="background: #fffbf0; color: #f39c12; border-color: #f39c12;">📈 Options</a>
+                    <a href="/ranked" style="background: #f0f0f0; color: #666;">🏆 Top Ranked</a>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <form method="GET" action="/darkpool-signals" class="filters-form">
+                <select name="scan_date" onchange="this.form.submit()">
+                    <option value="">-- Select Date --</option>
+                    {% for date in available_dates %}
+                    <option value="{{ date }}" {% if selected_scan_date == date %}selected{% endif %}>{{ date }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="signal_strength" onchange="this.form.submit()">
+                    <option value="">-- All Strengths --</option>
+                    {% for strength in signal_strengths %}
+                    <option value="{{ strength }}" {% if selected_signal_strength == strength %}selected{% endif %}>{{ strength }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="signal_type" onchange="this.form.submit()">
+                    <option value="">-- All Signal Types --</option>
+                    {% for type in signal_types %}
+                    <option value="{{ type }}" {% if selected_signal_type == type %}selected{% endif %}>{{ type.replace('_', ' ').title() }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="direction" onchange="this.form.submit()">
+                    <option value="">-- All Directions --</option>
+                    {% for dir in directions %}
+                    <option value="{{ dir }}" {% if selected_direction == dir %}selected{% endif %}>{{ dir }}</option>
+                    {% endfor %}
+                </select>
+                
+                <input type="text" name="symbol" placeholder="🔍 Symbol..." 
+                       value="{{ selected_symbol or '' }}" 
+                       style="width: 100px; text-transform: uppercase;"
+                       onchange="this.form.submit()">
+                
+                <select name="min_confidence" onchange="this.form.submit()">
+                    <option value="">-- Min Confidence --</option>
+                    <option value="90" {% if selected_min_confidence == 90 %}selected{% endif %}>90+</option>
+                    <option value="80" {% if selected_min_confidence == 80 %}selected{% endif %}>80+</option>
+                    <option value="70" {% if selected_min_confidence == 70 %}selected{% endif %}>70+</option>
+                    <option value="60" {% if selected_min_confidence == 60 %}selected{% endif %}>60+</option>
+                </select>
+                
+                <a href="/darkpool-signals" style="padding: 8px 15px; background: #e74c3c; color: white; border-radius: 5px; text-decoration: none; font-size: 13px;">Clear</a>
+            </form>
+        </div>
+    </div>
+    
+    {% if error %}
+    <div class="error-banner">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% else %}
+    
+    <!-- Stats Cards -->
+    <div style="padding: 0 20px;">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ "{:,}".format(stats.total_signals or 0) }}</div>
+                <div class="stat-label">Total Signals</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.unique_symbols or 0 }}</div>
+                <div class="stat-label">Unique Symbols</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${{ "{:,.0f}".format((stats.total_premium or 0) / 1000000) }}M</div>
+                <div class="stat-label">Total Premium</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.avg_confidence or 0 }}</div>
+                <div class="stat-label">Avg Confidence</div>
+            </div>
+            <div class="stat-card buy">
+                <div class="stat-value">{{ stats.buy_count or 0 }}</div>
+                <div class="stat-label">📈 BUY Signals</div>
+            </div>
+            <div class="stat-card sell">
+                <div class="stat-value">{{ stats.sell_count or 0 }}</div>
+                <div class="stat-label">📉 SELL Signals</div>
+            </div>
+            <div class="stat-card extreme">
+                <div class="stat-value">{{ stats.extreme_count or 0 }}</div>
+                <div class="stat-label">★ EXTREME</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Symbols by Premium -->
+    {% if top_symbols %}
+    <div style="padding: 0 20px;">
+        <h3 style="margin: 20px 0 10px 0; color: #333;">🏆 Top Symbols by Dark Pool Premium</h3>
+        <div class="top-symbols">
+            {% for sym in top_symbols %}
+            <div class="top-symbol-card">
+                <a href="/darkpool-signals?symbol={{ sym.symbol }}" class="symbol">{{ sym.symbol }}</a>
+                <div class="premium">${{ "{:,.0f}".format(sym.premium or 0) }}</div>
+                <div class="count">{{ sym.count }} signals | Conf: {{ "%.0f"|format(sym.confidence or 0) }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Signals Table -->
+    <div style="padding: 0 20px; overflow-x: auto;">
+        <h3 style="margin: 20px 0 10px 0; color: #333;">
+            📋 Dark Pool Signals ({{ signals|length }} results)
+            {% if selected_scan_date %} - {{ selected_scan_date }}{% endif %}
+        </h3>
+        
+        {% if signals %}
+        <table class="signals-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Date</th>
+                    <th>Signal Type</th>
+                    <th>Direction</th>
+                    <th>Strength</th>
+                    <th>Confidence</th>
+                    <th>DP Volume</th>
+                    <th>DP Premium</th>
+                    <th>Avg Price</th>
+                    <th>Buy Vol</th>
+                    <th>Sell Vol</th>
+                    <th>B/S Ratio</th>
+                    <th>Blocks</th>
+                    <th>Consec Days</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for signal in signals %}
+                <tr>
+                    <td>
+                        <a href="https://www.tradingview.com/chart/?symbol={{ signal.ticker }}" 
+                           target="_blank" class="symbol-link">
+                            {{ signal.ticker }}
+                        </a>
+                    </td>
+                    <td style="white-space: nowrap;">{{ signal.signal_date }}</td>
+                    <td><span style="font-size: 11px; background: #f5eef8; padding: 3px 6px; border-radius: 3px;">{{ signal.signal_type.replace('_', ' ').title() if signal.signal_type else 'N/A' }}</span></td>
+                    <td><span class="direction-badge direction-{{ signal.direction }}">{{ signal.direction or 'N/A' }}</span></td>
+                    <td><span class="strength-badge strength-{{ signal.signal_strength }}">{{ signal.signal_strength }}</span></td>
+                    <td style="text-align: center; font-weight: bold;">{{ "%.0f"|format(signal.confidence_score) if signal.confidence_score else 'N/A' }}</td>
+                    <td style="text-align: right;">{{ "{:,}".format(signal.dp_volume) if signal.dp_volume else 'N/A' }}</td>
+                    <td class="{% if signal.dp_premium and signal.dp_premium > 1000000 %}premium-high{% elif signal.dp_premium and signal.dp_premium > 100000 %}premium-medium{% else %}premium-low{% endif %}">
+                        {% if signal.dp_premium %}${{ "{:,.0f}".format(signal.dp_premium) }}{% else %}N/A{% endif %}
+                    </td>
+                    <td style="text-align: right;">{% if signal.avg_price %}${{ "%.2f"|format(signal.avg_price) }}{% else %}N/A{% endif %}</td>
+                    <td style="text-align: right; color: #27ae60;">{{ "{:,}".format(signal.buy_volume) if signal.buy_volume else '-' }}</td>
+                    <td style="text-align: right; color: #e74c3c;">{{ "{:,}".format(signal.sell_volume) if signal.sell_volume else '-' }}</td>
+                    <td style="text-align: center;">
+                        {% if signal.buy_sell_ratio %}
+                            {% if signal.buy_sell_ratio > 1.5 %}
+                            <span style="color: #27ae60; font-weight: bold;">{{ "%.2f"|format(signal.buy_sell_ratio) }}</span>
+                            {% elif signal.buy_sell_ratio < 0.67 %}
+                            <span style="color: #e74c3c; font-weight: bold;">{{ "%.2f"|format(signal.buy_sell_ratio) }}</span>
+                            {% else %}
+                            {{ "%.2f"|format(signal.buy_sell_ratio) }}
+                            {% endif %}
+                        {% else %}-{% endif %}
+                    </td>
+                    <td style="text-align: center;">{{ signal.block_count or '-' }}</td>
+                    <td style="text-align: center;">
+                        {% if signal.consecutive_days and signal.consecutive_days >= 3 %}
+                        <span style="color: #8e44ad; font-weight: bold;">{{ signal.consecutive_days }}d</span>
+                        {% else %}
+                        {{ signal.consecutive_days or '-' }}
+                        {% endif %}
+                    </td>
+                    <td class="notes-cell" title="{{ signal.notes }}">{{ (signal.notes or '')[:60] }}{% if signal.notes and signal.notes|length > 60 %}...{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align: center; padding: 40px; background: white; border-radius: 8px; margin: 20px 0;">
+            <p style="color: #666; font-size: 16px;">No dark pool signals found for the selected filters.</p>
+            <a href="/darkpool-signals" style="color: #8e44ad;">Clear filters</a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</body>
+</html>

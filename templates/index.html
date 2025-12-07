@@ -795,6 +795,30 @@
                             {% endif %}
                             {% endfor %}
                             {% endif %}
+                            
+                            {# Dark pool signals as stars #}
+                            {% if stocks[stock].get(pattern + '_darkpool_signals') %}
+                            {% set dp_ns = namespace(processed_dp_dates=[]) %}
+                            {% for dp in stocks[stock][pattern + '_darkpool_signals'] | sort(attribute='date') %}
+                            {% if dp.date and dp.date not in dp_ns.processed_dp_dates %}
+                                {% set _ = dp_ns.processed_dp_dates.append(dp.date) %}
+                                
+                                {# Color based on direction #}
+                                {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}
+                                    {% set dp_color = '#27ae60' %}{# Green #}
+                                {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}
+                                    {% set dp_color = '#e74c3c' %}{# Red #}
+                                {% else %}
+                                    {% set dp_color = '#f39c12' %}{# Orange/Neutral #}
+                                {% endif %}
+                                
+                                {# Star marker - JavaScript will position it #}
+                                <div class="darkpool-star" data-date="{{ dp.date }}" data-direction="{{ dp.direction }}" 
+                                     style="position: absolute; left: 0; bottom: -10px; font-size: 14px; color: {{ dp_color }}; cursor: pointer; transform: translateX(-50%);"
+                                     title="🌑 Dark Pool {{ dp.signal_type.replace('_', ' ').title() }} ({{ dp.direction }}) - {{ dp.date }}">★</div>
+                            {% endif %}
+                            {% endfor %}
+                            {% endif %}
                         </div>
                     </div>
                     {% endif %}
@@ -877,6 +901,32 @@
                         {% endfor %}
                         </div>
                         <a href="/options-signals?symbol={{ stock }}" style="font-size: 11px; color: #f39c12; text-decoration: none;">→ View all options signals for {{ stock }}</a>
+                        {% endif %}
+                        
+                        {# Dark Pool Signals Section #}
+                        {% if stocks[stock].get(pattern + '_darkpool_signals') and stocks[stock][pattern + '_darkpool_signals']|length > 0 %}
+                        <br>
+                        <strong>🌑 Dark Pool Signals ({{ stocks[stock][pattern + '_darkpool_signals']|length }}):</strong><br>
+                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #8e44ad; padding: 8px; border-radius: 4px; background: #f5eef8; max-width: 70%;">
+                        {% for dp in stocks[stock][pattern + '_darkpool_signals'] %}
+                            {# Color based on direction #}
+                            {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}
+                                {% set dp_color = '#27ae60' %}{# Green #}
+                            {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}
+                                {% set dp_color = '#e74c3c' %}{# Red #}
+                            {% else %}
+                                {% set dp_color = '#f39c12' %}{# Orange/Neutral #}
+                            {% endif %}
+                            <span style="color: {{ dp_color }}; font-weight: bold;">★</span>
+                            <span style="color: {{ dp_color }}; font-weight: bold;">{{ dp.signal_type.replace('_', ' ').title() }}</span>
+                            <span style="color: #666;">({{ dp.date }}, {{ dp.direction }}, 
+                            {% if dp.dp_premium and dp.dp_premium >= 1000000 %}<span style="color: #8e44ad; font-weight: bold;">${{ "{:,.0f}".format(dp.dp_premium / 1000) }}K</span>{% elif dp.dp_premium %}<span>${{ "{:,.0f}".format(dp.dp_premium) }}</span>{% else %}N/A{% endif %} premium,
+                            {{ "{:,}".format(dp.block_count) if dp.block_count else 0 }} blocks)</span>
+                            <span class="strength-badge-sm" style="background: {% if dp.strength == 'EXTREME' %}#8e44ad{% elif dp.strength == 'VERY_HIGH' %}#9b59b6{% else %}#a569bd{% endif %}; color: white; padding: 1px 6px; border-radius: 8px; font-size: 10px; margin-left: 4px;">{{ dp.strength }}</span>
+                            <br>
+                        {% endfor %}
+                        </div>
+                        <a href="/darkpool-signals?symbol={{ stock }}" style="font-size: 11px; color: #8e44ad; text-decoration: none;">→ View all dark pool signals for {{ stock }}</a>
                         {% endif %}
                         
                         {# Options Walls Section #}
@@ -1226,6 +1276,40 @@
                 
                 if (position >= chartLeftEdge && position <= chartRightEdge) {
                     tri.style.left = `calc(${position}% - 6px)`;
+                }
+            });
+            
+            // ★ Position dark pool stars using same trading day calculation ★
+            document.querySelectorAll('.darkpool-star').forEach(star => {
+                const dateStr = star.getAttribute('data-date');
+                if (!dateStr) return;
+                
+                const tradingDaysOnChart = 205;
+                const chartLeftEdge = 6;
+                const chartRightEdge = 95;
+                const chartWidth = chartRightEdge - chartLeftEdge;
+                const today = new Date();
+                const calendarDaysBack = Math.round(tradingDaysOnChart * (7/5));
+                const chartStart = new Date(today);
+                chartStart.setDate(chartStart.getDate() - calendarDaysBack);
+                
+                const starDate = new Date(dateStr);
+                
+                let tradingDaysFromStart = 0;
+                let current = new Date(chartStart);
+                while (current <= starDate) {
+                    const dayOfWeek = current.getDay();
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        tradingDaysFromStart++;
+                    }
+                    current.setDate(current.getDate() + 1);
+                }
+                
+                const rawPosition = (tradingDaysFromStart / tradingDaysOnChart) * chartWidth;
+                const position = chartLeftEdge + rawPosition;
+                
+                if (position >= chartLeftEdge && position <= chartRightEdge) {
+                    star.style.left = `calc(${position}% - 7px)`;
                 }
             });
         });
