@@ -1,7 +1,7 @@
 <html>
 <head>
     <title>Dark Pool Signals</title>
-    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="icon" type="image/png" href="/static/favIcon.png">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: arial; margin: 0; padding: 0; padding-top: 200px; background: #f5f5f5; }
@@ -165,6 +165,51 @@
             margin: 20px;
             border-radius: 5px;
         }
+        
+        /* Signal Type Tooltips */
+        .signal-type-badge {
+            position: relative;
+            display: inline-block;
+            font-size: 11px;
+            background: #f5eef8;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: help;
+        }
+        .signal-type-badge:hover .signal-tooltip {
+            display: block;
+        }
+        .signal-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c3e50;
+            color: white;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            width: 280px;
+            z-index: 1000;
+            text-align: left;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .signal-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: #2c3e50;
+        }
+        .signal-tooltip strong {
+            color: #9b59b6;
+            display: block;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -178,9 +223,11 @@
                     </p>
                 </div>
                 <div class="nav-links">
+                    <a href="/focus-list" style="background: #ffebee; color: #c62828; border-color: #ef9a9a;">🎯 Focus List</a>
                     <a href="/" style="background: #e8f4f8; color: #2c5f7a; border-color: #d0e5ed;">🔍 Scanners</a>
-                    <a href="/options-signals" style="background: #fffbf0; color: #f39c12; border-color: #f39c12;">📈 Options</a>
+                    <a href="/options-signals" style="background: #fff3e0; color: #e65100; border-color: #ffcc80;">📈 Options Flows</a>
                     <a href="/ranked" style="background: #f0f0f0; color: #666;">🏆 Top Ranked</a>
+                    <a href="/stats" style="background: #f3e5f5; color: #6a1b9a; border-color: #e1bee7;">📊 Stats</a>
                 </div>
             </div>
             
@@ -214,16 +261,10 @@
                     {% endfor %}
                 </select>
                 
-                <select name="asset_type" onchange="this.form.submit()">
-                    <option value="">-- Stocks & ETFs --</option>
-                    <option value="Stock" {% if selected_asset_type == 'Stock' %}selected{% endif %}>Stocks Only</option>
-                    <option value="ETF" {% if selected_asset_type == 'ETF' %}selected{% endif %}>ETFs Only</option>
-                </select>
-                
                 <input type="text" name="symbol" placeholder="🔍 Symbol..." 
                        value="{{ selected_symbol or '' }}" 
                        style="width: 100px; text-transform: uppercase;"
-                       onchange="this.form.submit()">
+                       onchange="if(this.value) { document.querySelector('select[name=scan_date]').value = ''; } this.form.submit()">
                 
                 <select name="min_confidence" onchange="this.form.submit()">
                     <option value="">-- Min Confidence --</option>
@@ -278,9 +319,21 @@
         </div>
     </div>
     
-    <!-- Top Symbols by Premium -->
+    <!-- Top Symbols by Premium OR Activity by Date when viewing single symbol -->
     {% if top_symbols %}
     <div style="padding: 0 20px;">
+        {% if selected_symbol %}
+        <h3 style="margin: 20px 0 10px 0; color: #333;">📅 {{ selected_symbol.upper() }} Activity by Date</h3>
+        <div class="top-symbols">
+            {% for sym in top_symbols %}
+            <div class="top-symbol-card">
+                <span class="symbol">{{ sym.symbol }}</span>
+                <div class="premium">${{ "{:,.0f}".format(sym.premium or 0) }}</div>
+                <div class="count">{{ sym.count }} signals | Conf: {{ "%.0f"|format(sym.confidence or 0) }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
         <h3 style="margin: 20px 0 10px 0; color: #333;">🏆 Top Symbols by Dark Pool Premium</h3>
         <div class="top-symbols">
             {% for sym in top_symbols %}
@@ -291,6 +344,7 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
     </div>
     {% endif %}
     
@@ -298,7 +352,13 @@
     <div style="padding: 0 20px; overflow-x: auto;">
         <h3 style="margin: 20px 0 10px 0; color: #333;">
             📋 Dark Pool Signals ({{ signals|length }} results)
-            {% if selected_scan_date %} - {{ selected_scan_date }}{% endif %}
+            {% if selected_symbol and not selected_scan_date %}
+                - {{ selected_symbol.upper() }} (All Dates)
+            {% elif selected_symbol and selected_scan_date %}
+                - {{ selected_symbol.upper() }} on {{ selected_scan_date }}
+            {% elif selected_scan_date %}
+                - {{ selected_scan_date }}
+            {% endif %}
         </h3>
         
         {% if signals %}
@@ -332,7 +392,29 @@
                         </a>
                     </td>
                     <td style="white-space: nowrap;">{{ signal.signal_date }}</td>
-                    <td><span style="font-size: 11px; background: #f5eef8; padding: 3px 6px; border-radius: 3px;">{{ signal.signal_type.replace('_', ' ').title() if signal.signal_type else 'N/A' }}</span></td>
+                    <td>
+                        <span class="signal-type-badge">
+                            {{ signal.signal_type.replace('_', ' ').title() if signal.signal_type else 'N/A' }}
+                            <span class="signal-tooltip">
+                                {% if signal.signal_type == 'BLOCK_CLUSTERING' %}
+                                <strong>🧱 Block Clustering</strong>
+                                Multiple large block trades (10K+ shares) occurring in a short time window. Indicates coordinated institutional buying/selling where large orders are broken into smaller blocks to minimize market impact.
+                                {% elif signal.signal_type == 'BUY_SELL_IMBALANCE' %}
+                                <strong>⚖️ Buy/Sell Imbalance</strong>
+                                Significant imbalance between dark pool buy and sell volume (ratio > 1.5 or < 0.67). Strong imbalances suggest directional institutional conviction.
+                                {% elif signal.signal_type == 'PREMIUM_TREND' %}
+                                <strong>💰 Premium Trend</strong>
+                                Sustained elevated dark pool dollar volume (premium) over consecutive days. High premium indicates large institutional positions being accumulated or distributed.
+                                {% elif signal.signal_type == 'DP_VOLUME_SPIKE' %}
+                                <strong>📊 DP Volume Spike</strong>
+                                Dark pool volume significantly exceeds historical average (typically 2x+). Sudden spikes often precede major price moves as institutions position ahead of catalysts.
+                                {% else %}
+                                <strong>🌑 Dark Pool Signal</strong>
+                                Unusual dark pool activity detected based on volume, premium, or trade patterns that deviate from normal institutional flow.
+                                {% endif %}
+                            </span>
+                        </span>
+                    </td>
                     <td><span class="direction-badge direction-{{ signal.direction }}">{{ signal.direction or 'N/A' }}</span></td>
                     <td><span class="strength-badge strength-{{ signal.signal_strength }}">{{ signal.signal_strength }}</span></td>
                     <td style="text-align: center; font-weight: bold;">{{ "%.0f"|format(signal.confidence_score) if signal.confidence_score else 'N/A' }}</td>

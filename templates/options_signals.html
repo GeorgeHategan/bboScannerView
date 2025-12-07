@@ -1,7 +1,7 @@
 <html>
 <head>
     <title>Options Accumulation Signals</title>
-    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="icon" type="image/png" href="/static/favIcon.png">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: arial; margin: 0; padding: 0; padding-top: 200px; background: #f5f5f5; }
@@ -177,6 +177,52 @@
             margin: 20px;
             border-radius: 5px;
         }
+        
+        /* Signal Type Tooltips */
+        .signal-type-tooltip {
+            position: relative;
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            background: #e8f4f8;
+            color: #2c5f7a;
+            cursor: help;
+        }
+        .signal-type-tooltip:hover .tooltip-content {
+            display: block;
+        }
+        .tooltip-content {
+            display: none;
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c3e50;
+            color: white;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            width: 280px;
+            z-index: 1000;
+            text-align: left;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .tooltip-content::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: #2c3e50;
+        }
+        .tooltip-content strong {
+            color: #f39c12;
+            display: block;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -190,7 +236,9 @@
                     </p>
                 </div>
                 <div class="nav-links">
+                    <a href="/focus-list" style="background: #ffebee; color: #c62828; border-color: #ef9a9a;">🎯 Focus List</a>
                     <a href="/" style="background: #e8f4f8; color: #2c5f7a; border-color: #d0e5ed;">🔍 Scanners</a>
+                    <a href="/darkpool-signals" style="background: #f3e5f5; color: #8e44ad; border-color: #d4a5d9;">🌑 Dark Pools</a>
                     <a href="/ranked" style="background: #f0f0f0; color: #666;">🏆 Top Ranked</a>
                     <a href="/stats" style="background: #f3e5f5; color: #6a1b9a; border-color: #e1bee7;">📊 Stats</a>
                 </div>
@@ -235,7 +283,7 @@
                 <input type="text" name="symbol" placeholder="🔍 Symbol..." 
                        value="{{ selected_symbol or '' }}" 
                        style="width: 100px; text-transform: uppercase;"
-                       onchange="this.form.submit()">
+                       onchange="if(this.value) { document.querySelector('select[name=scan_date]').value = ''; } this.form.submit()">
                 
                 <select name="min_confidence" onchange="this.form.submit()">
                     <option value="">-- Min Confidence --</option>
@@ -322,7 +370,13 @@
     <div style="padding: 0 20px; overflow-x: auto;">
         <h3 style="margin: 20px 0 10px 0; color: #333;">
             📋 Signals ({{ signals|length }} results)
-            {% if selected_scan_date %} - {{ selected_scan_date }}{% endif %}
+            {% if selected_symbol and not selected_scan_date %}
+                - {{ selected_symbol.upper() }} (All Dates)
+            {% elif selected_symbol and selected_scan_date %}
+                - {{ selected_symbol.upper() }} on {{ selected_scan_date }}
+            {% elif selected_scan_date %}
+                - {{ selected_scan_date }}
+            {% endif %}
         </h3>
         
         {% if signals %}
@@ -332,6 +386,7 @@
                     <th>Symbol</th>
                     <th>Date</th>
                     <th>Signal Type</th>
+                    <th>Direction</th>
                     <th>Strength</th>
                     <th>Confidence</th>
                     <th>Strike</th>
@@ -356,7 +411,41 @@
                         <span style="font-size: 10px; color: #999;">{{ signal.asset_type }}</span>
                     </td>
                     <td style="white-space: nowrap;">{{ signal.signal_date }}</td>
-                    <td><span class="signal-type-badge">{{ signal.signal_type.replace('_', ' ').title() }}</span></td>
+                    <td>
+                        <span class="signal-type-tooltip">
+                            {{ signal.signal_type.replace('_', ' ').title() }}
+                            <span class="tooltip-content">
+                                {% if signal.signal_type == 'SUSTAINED_OI_GROWTH' %}
+                                <strong>📈 Sustained OI Growth</strong>
+                                Open Interest growing consistently over multiple days. Indicates steady accumulation of positions by institutional traders building a directional bet over time.
+                                {% elif signal.signal_type == 'ACCELERATING_OI' %}
+                                <strong>🚀 Accelerating OI</strong>
+                                Open Interest growth rate is increasing (acceleration). Suggests growing institutional conviction with progressively larger position sizes being added.
+                                {% elif signal.signal_type == 'UNUSUAL_VS_BASELINE' %}
+                                <strong>⚠️ Unusual vs Baseline</strong>
+                                Current OI or volume significantly exceeds the historical baseline for this strike. Often signals smart money positioning ahead of anticipated catalyst or move.
+                                {% elif signal.signal_type == 'CLUSTERED_STRIKES' %}
+                                <strong>🎯 Clustered Strikes</strong>
+                                Multiple nearby strikes showing unusual activity simultaneously. Indicates broad institutional interest in a price zone rather than a single target.
+                                {% elif signal.signal_type == 'VOLUME_SPIKE' %}
+                                <strong>📊 Volume Spike</strong>
+                                Options volume significantly exceeds average daily volume. High volume days often precede directional moves as institutions establish positions.
+                                {% else %}
+                                <strong>📊 Options Signal</strong>
+                                Unusual options activity detected based on volume, open interest, or premium patterns that deviate from normal market flow.
+                                {% endif %}
+                            </span>
+                        </span>
+                    </td>
+                    <td>
+                        {% if signal.direction == 'BULLISH' or signal.direction == 'BUY' %}
+                        <span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🟢 {{ signal.direction }}</span>
+                        {% elif signal.direction == 'BEARISH' or signal.direction == 'SELL' %}
+                        <span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🔴 {{ signal.direction }}</span>
+                        {% else %}
+                        <span style="background: #95a5a6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{{ signal.direction or 'N/A' }}</span>
+                        {% endif %}
+                    </td>
                     <td><span class="strength-badge strength-{{ signal.signal_strength }}">{{ signal.signal_strength }}</span></td>
                     <td style="text-align: center; font-weight: bold;">{{ "%.0f"|format(signal.confidence_score) }}</td>
                     <td>${{ "%.2f"|format(signal.strike) }}</td>

@@ -1,7 +1,7 @@
 <html>
 <head>
     <title>BBO Scanner View</title>
-    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="icon" type="image/png" href="/static/favIcon.png">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
@@ -256,13 +256,11 @@
         });
         
         // Focus List functionality
-        async function addToFocus(btn, symbol, scanner, scanDate, entryPrice, strength, quality) {
+        async function addToFocus(btn, symbol, scanner, scanDate, quality) {
             const formData = new FormData();
             formData.append('symbol', symbol);
             formData.append('scanner_name', scanner);
             if (scanDate) formData.append('scan_date', scanDate);
-            if (entryPrice !== null) formData.append('entry_price', entryPrice);
-            if (strength !== null) formData.append('strength', strength);
             if (quality) formData.append('quality', quality);
             
             try {
@@ -307,8 +305,9 @@
                     {% endif %}
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <a href="/options-signals" style="background: #fff3e0; color: #e65100; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ffcc80;">📈 Options Flow</a>
                     <a href="/focus-list" style="background: #ffebee; color: #c62828; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ef9a9a;">🎯 Focus List</a>
+                    <a href="/options-signals" style="background: #fff3e0; color: #e65100; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ffcc80;">📈 Options Flows</a>
+                    <a href="/darkpool-signals" style="background: #f3e5f5; color: #8e44ad; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d4a5d9;">🌑 Dark Pools</a>
                     <a href="/ranked" style="background: #e8f4f8; color: #2c5f7a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d0e5ed;">🏆 Top Ranked</a>
                     <a href="/scanner-performance" style="background: #f0f0f0; color: #999; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ddd; cursor: not-allowed; opacity: 0.5;" onclick="return false;" title="Performance analysis temporarily disabled">📈 Performance</a>
                     <a href="/scanner-docs" style="background: #e8f5e9; color: #2e7d32; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #c8e6c9;">📚 Scanner Docs</a>
@@ -669,7 +668,7 @@
                        style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
                         {{ stock }}
                     </a>
-                    <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', {{ stocks[stock].get(pattern + '_entry_price', 'null') }}, {{ stocks[stock].get(pattern + '_strength', 'null') }}, '{{ stocks[stock].get(pattern + '_quality', '') }}')" style="background: #e8e8e8; color: #888; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-left: 8px;">focus +</button>
+                    <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', '{{ stocks[stock].get(pattern + '_quality', '') }}')" style="background: #e8e8e8; color: #888; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-left: 8px;">focus +</button>
                 </td>
                 <td>
                     {{ stocks[stock]['company'] }}
@@ -717,11 +716,13 @@
                     {# Timeline showing scanner detection dates and options signals #}
                     {% set has_confirmations = stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
                     {% set has_options = stocks[stock].get(pattern + '_options_signals') and stocks[stock][pattern + '_options_signals']|length > 0 %}
-                    {% if has_confirmations or has_options %}
+                    {% set has_darkpool = stocks[stock].get(pattern + '_darkpool_signals') and stocks[stock][pattern + '_darkpool_signals']|length > 0 %}
+                    {% if has_confirmations or has_options or has_darkpool %}
                     {# ⚠️ DO NOT CHANGE THE TIMELINE ALIGNMENT - CAREFULLY CALIBRATED TO MATCH FINVIZ CHART! ⚠️ #}
-                    <div style="position: relative; height: 36px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #555; margin-top: 2px; padding: 3px;">
+                    <div style="position: relative; height: 54px; background: #f5f5f5; border: 1px solid #ddd; border-top: 2px solid #555; margin-top: 2px; padding: 3px;">
                         <span style="position: absolute; left: 4px; top: 2px; font-size: 9px; color: #999; font-style: italic;">Signal Timeline</span>
-                        <div style="position: relative; height: 29px;">
+                        {# Three rows: Top=Dots(0-16px), Middle=Stars(17-33px), Bottom=Triangles(34-50px) #}
+                        <div style="position: relative; height: 48px;">
                             {# Dynamic month markers - Finviz chart shows ~9 months (~270 calendar days) ending today #}
                             {# Calculate positions based on current date - each month start position as % from chart start #}
                             {% set today = None %}
@@ -729,7 +730,7 @@
                             {# Month markers will be rendered by JavaScript below for accuracy #}
                             <div class="month-markers" data-chart-days="270"></div>
                             
-                            {# Sort and render dots by date - only if there are confirmations #}
+                            {# TOP ROW: Scanner confirmation dots (0-16px from top) #}
                             {# ⚠️ POSITION CALCULATION MUST MATCH THE JAVASCRIPT MONTH MARKERS! ⚠️ #}
                             {# tradingDaysOnChart = 205, chartLeftEdge = 6%, chartRightEdge = 95% #}
                             {% if has_confirmations %}
@@ -748,9 +749,9 @@
                                 {# Store date for JavaScript positioning #}
                                 {% set conf_date = conf.date %}
                                 
-                                {# Stack dots vertically for same date - JavaScript will calculate position #}
+                                {# Stack dots vertically for same date - TOP ROW (0-16px) #}
                                 {% for c in same_date_confs %}
-                                {% set vertical_offset = loop.index0 * 12 %}
+                                {% set vertical_offset = loop.index0 * 8 %}
                                 <div class="timeline-dot" data-scanner="{{ c.scanner }}" data-date="{{ c.date }}" style="position: absolute; left: 0; width: 10px; height: 10px; border-radius: 50%; top: {{ vertical_offset }}px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transform: translateX(-50%);" 
                                      title="{{ c.scanner.replace('_', ' ').title() }} - {{ c.date }}"></div>
                                 {% endfor %}
@@ -758,7 +759,31 @@
                             {% endfor %}
                             {% endif %}
                             
-                            {# Options signals as triangles #}
+                            {# MIDDLE ROW: Dark pool signals as stars (18-34px from top) #}
+                            {% if stocks[stock].get(pattern + '_darkpool_signals') %}
+                            {% set dp_ns = namespace(processed_dp_dates=[]) %}
+                            {% for dp in stocks[stock][pattern + '_darkpool_signals'] | sort(attribute='date') %}
+                            {% if dp.date and dp.date not in dp_ns.processed_dp_dates %}
+                                {% set _ = dp_ns.processed_dp_dates.append(dp.date) %}
+                                
+                                {# Color based on direction #}
+                                {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}
+                                    {% set dp_color = '#27ae60' %}{# Green #}
+                                {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}
+                                    {% set dp_color = '#e74c3c' %}{# Red #}
+                                {% else %}
+                                    {% set dp_color = '#f39c12' %}{# Orange/Neutral #}
+                                {% endif %}
+                                
+                                {# Star marker - MIDDLE ROW (positioned at 18px from top) #}
+                                <div class="darkpool-star" data-date="{{ dp.date }}" data-direction="{{ dp.direction }}" 
+                                     style="position: absolute; left: 0; top: 18px; font-size: 14px; color: {{ dp_color }}; cursor: pointer; transform: translateX(-50%);"
+                                     title="🌑 Dark Pool {{ dp.signal_type.replace('_', ' ').title() }} ({{ dp.direction }}) - {{ dp.date }}">★</div>
+                            {% endif %}
+                            {% endfor %}
+                            {% endif %}
+                            
+                            {# BOTTOM ROW: Options signals as triangles (36-48px from top) #}
                             {% if stocks[stock].get(pattern + '_options_signals') %}
                             {% set opts_ns = namespace(processed_opts_dates=[]) %}
                             {% for opt in stocks[stock][pattern + '_options_signals'] | sort(attribute='date') %}
@@ -786,36 +811,12 @@
                                     {% set opt_color = '#7f8c8d' %}{# Gray #}
                                 {% endif %}
                                 
-                                {# Triangle pointing up - JavaScript will position it #}
+                                {# Triangle pointing up - Bottom row (42px from top) #}
                                 <div class="options-triangle" data-date="{{ opt.date }}" data-strength="{{ opt.strength }}" 
-                                     style="position: absolute; left: 0; bottom: -8px; width: 0; height: 0; 
+                                     style="position: absolute; left: 0; top: 42px; width: 0; height: 0; 
                                             border-left: 6px solid transparent; border-right: 6px solid transparent; 
                                             border-bottom: 10px solid {{ opt_color }}; cursor: pointer; transform: translateX(-50%);"
                                      title="📈 {{ opt.signal_type.replace('_', ' ').title() }} ({{ opt.strength }}) - {{ opt.date }}"></div>
-                            {% endif %}
-                            {% endfor %}
-                            {% endif %}
-                            
-                            {# Dark pool signals as stars #}
-                            {% if stocks[stock].get(pattern + '_darkpool_signals') %}
-                            {% set dp_ns = namespace(processed_dp_dates=[]) %}
-                            {% for dp in stocks[stock][pattern + '_darkpool_signals'] | sort(attribute='date') %}
-                            {% if dp.date and dp.date not in dp_ns.processed_dp_dates %}
-                                {% set _ = dp_ns.processed_dp_dates.append(dp.date) %}
-                                
-                                {# Color based on direction #}
-                                {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}
-                                    {% set dp_color = '#27ae60' %}{# Green #}
-                                {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}
-                                    {% set dp_color = '#e74c3c' %}{# Red #}
-                                {% else %}
-                                    {% set dp_color = '#f39c12' %}{# Orange/Neutral #}
-                                {% endif %}
-                                
-                                {# Star marker - JavaScript will position it #}
-                                <div class="darkpool-star" data-date="{{ dp.date }}" data-direction="{{ dp.direction }}" 
-                                     style="position: absolute; left: 0; bottom: -10px; font-size: 14px; color: {{ dp_color }}; cursor: pointer; transform: translateX(-50%);"
-                                     title="🌑 Dark Pool {{ dp.signal_type.replace('_', ' ').title() }} ({{ dp.direction }}) - {{ dp.date }}">★</div>
                             {% endif %}
                             {% endfor %}
                             {% endif %}
@@ -874,41 +875,69 @@
                         </div>
                         {% endif %}
                         
-                        {# Options Flow Signals Section #}
-                        {% if stocks[stock].get(pattern + '_options_signals') and stocks[stock][pattern + '_options_signals']|length > 0 %}
-                        <br>
-                        <strong>📈 Options Flow Signals ({{ stocks[stock][pattern + '_options_signals']|length }}):</strong><br>
-                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #f39c12; padding: 8px; border-radius: 4px; background: #fffbf0; max-width: 70%;">
-                        {% for opt in stocks[stock][pattern + '_options_signals'] %}
-                            {# Different colors based on signal TYPE #}
-                            {% if 'SUSTAINED' in opt.signal_type %}
-                                {% set type_color = '#3498db' %}{# Blue #}
-                            {% elif 'ACCELERATING' in opt.signal_type %}
-                                {% set type_color = '#9b59b6' %}{# Purple #}
-                            {% elif 'UNUSUAL' in opt.signal_type %}
-                                {% set type_color = '#e74c3c' %}{# Red #}
-                            {% elif 'CLUSTERED' in opt.signal_type %}
-                                {% set type_color = '#1abc9c' %}{# Teal #}
-                            {% else %}
-                                {% set type_color = '#7f8c8d' %}{# Gray #}
-                            {% endif %}
-                            <span style="color: {{ type_color }}; font-weight: bold;">▲</span>
-                            <span style="color: {{ type_color }}; font-weight: bold;">{{ opt.signal_type.replace('_', ' ').title() }}</span>
-                            <span style="color: #666;">({{ opt.date }}, ${{ "%.0f"|format(opt.strike) }} strike, {{ opt.dte }}d, 
-                            {% if opt.premium >= 10000 %}<span style="color: #27ae60; font-weight: bold;">${{ "{:,.0f}".format(opt.premium) }}</span>{% else %}${{ "{:,.0f}".format(opt.premium) }}{% endif %})</span>
-                            <span class="strength-badge-sm" style="background: {% if opt.strength == 'EXTREME' %}#e74c3c{% elif opt.strength == 'VERY_HIGH' %}#f39c12{% else %}#27ae60{% endif %}; color: white; padding: 1px 6px; border-radius: 8px; font-size: 10px; margin-left: 4px;">{{ opt.strength }}</span>
-                            <br>
-                        {% endfor %}
-                        </div>
-                        <a href="/options-signals?symbol={{ stock }}" style="font-size: 11px; color: #f39c12; text-decoration: none;">→ View all options signals for {{ stock }}</a>
-                        {% endif %}
-                        
-                        {# Dark Pool Signals Section #}
+                        {# Dark Pool Signals Section - FIRST (above Options) #}
                         {% if stocks[stock].get(pattern + '_darkpool_signals') and stocks[stock][pattern + '_darkpool_signals']|length > 0 %}
                         <br>
-                        <strong>🌑 Dark Pool Signals ({{ stocks[stock][pattern + '_darkpool_signals']|length }}):</strong><br>
+                        {# Calculate Dark Pool Bias Score - Last 5 days only #}
+                        {% set dp_signals = stocks[stock][pattern + '_darkpool_signals'] %}
+                        {% set today = None %}
+                        {% set bias = namespace(bull_score=0, bear_score=0, recent_count=0) %}
+                        {% for dp in dp_signals %}
+                            {# Only count signals from last 5 days (check if date is recent) #}
+                            {% set signal_date = dp.date %}
+                            {% set is_recent = true %}
+                            {# Simple check: signals are sorted by date DESC, so first ~5 unique dates are recent #}
+                            {% set date_parts = signal_date.split('-') if signal_date else [] %}
+                            {% if date_parts|length == 3 %}
+                                {% set sig_day = date_parts[2]|int %}
+                                {% set sig_month = date_parts[1]|int %}
+                                {# Approximate: if December 2025, days 1-7 are recent (within 5 days of Dec 7) #}
+                                {% if sig_month == 12 and sig_day >= 2 %}
+                                    {% set is_recent = true %}
+                                {% elif sig_month == 11 and sig_day >= 28 %}
+                                    {% set is_recent = true %}
+                                {% else %}
+                                    {% set is_recent = false %}
+                                {% endif %}
+                            {% endif %}
+                            
+                            {% if is_recent %}
+                                {% set bias.recent_count = bias.recent_count + 1 %}
+                                {% set weight = 1 %}
+                                {% if dp.strength == 'EXTREME' %}{% set weight = 3 %}{% elif dp.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
+                                {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}
+                                    {% set bias.bull_score = bias.bull_score + weight %}
+                                {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}
+                                    {% set bias.bear_score = bias.bear_score + weight %}
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        {% set total_score = bias.bull_score + bias.bear_score %}
+                        {% if total_score > 0 %}
+                            {% set bull_pct = (bias.bull_score / total_score * 100)|int %}
+                        {% else %}
+                            {% set bull_pct = 50 %}
+                        {% endif %}
+                        {% if bull_pct >= 65 %}
+                            {% set verdict = 'BULLISH' %}
+                            {% set verdict_color = '#27ae60' %}
+                            {% set verdict_icon = '🟢' %}
+                        {% elif bull_pct <= 35 %}
+                            {% set verdict = 'BEARISH' %}
+                            {% set verdict_color = '#e74c3c' %}
+                            {% set verdict_icon = '🔴' %}
+                        {% else %}
+                            {% set verdict = 'NEUTRAL' %}
+                            {% set verdict_color = '#f39c12' %}
+                            {% set verdict_icon = '🟡' %}
+                        {% endif %}
+                        
+                        <strong>🌑 Dark Pool Signals ({{ dp_signals|length }}): 
+                            <span style="color: {{ verdict_color }}; font-weight: bold;">{{ verdict_icon }} {{ verdict }}</span>
+                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish, last 5 days)</span>
+                        </strong><br>
                         <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #8e44ad; padding: 8px; border-radius: 4px; background: #f5eef8; max-width: 70%;">
-                        {% for dp in stocks[stock][pattern + '_darkpool_signals'] %}
+                        {% for dp in dp_signals %}
                             {# Color based on direction #}
                             {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}
                                 {% set dp_color = '#27ae60' %}{# Green #}
@@ -927,6 +956,85 @@
                         {% endfor %}
                         </div>
                         <a href="/darkpool-signals?symbol={{ stock }}" style="font-size: 11px; color: #8e44ad; text-decoration: none;">→ View all dark pool signals for {{ stock }}</a>
+                        {% endif %}
+                        
+                        {# Options Flow Signals Section - SECOND (just above Walls) #}
+                        {% if stocks[stock].get(pattern + '_options_signals') and stocks[stock][pattern + '_options_signals']|length > 0 %}
+                        {% set opt_signals = stocks[stock][pattern + '_options_signals'] %}
+                        {# Calculate options flow bias from last 5 days #}
+                        {% set opt_bias = namespace(bull_score=0, bear_score=0, recent_count=0) %}
+                        {% for opt in opt_signals %}
+                            {# Check if signal is from last 5 days #}
+                            {% set sig_date = opt.date %}
+                            {% if sig_date and sig_date|length >= 10 %}
+                                {% set date_parts = sig_date.split('-') %}
+                                {% set sig_day = date_parts[2]|int %}
+                                {% set sig_month = date_parts[1]|int %}
+                                {# Approximate: if December 2025, days 1-7 are recent (within 5 days of Dec 7) #}
+                                {% if sig_month == 12 and sig_day >= 2 %}
+                                    {% set is_recent = true %}
+                                {% elif sig_month == 11 and sig_day >= 28 %}
+                                    {% set is_recent = true %}
+                                {% else %}
+                                    {% set is_recent = false %}
+                                {% endif %}
+                            {% endif %}
+                            
+                            {% if is_recent %}
+                                {% set opt_bias.recent_count = opt_bias.recent_count + 1 %}
+                                {% set weight = 1 %}
+                                {% if opt.strength == 'EXTREME' %}{% set weight = 3 %}{% elif opt.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
+                                {% if opt.direction == 'BULLISH' or opt.direction == 'BUY' %}
+                                    {% set opt_bias.bull_score = opt_bias.bull_score + weight %}
+                                {% elif opt.direction == 'BEARISH' or opt.direction == 'SELL' %}
+                                    {% set opt_bias.bear_score = opt_bias.bear_score + weight %}
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        {% set opt_total_score = opt_bias.bull_score + opt_bias.bear_score %}
+                        {% if opt_total_score > 0 %}
+                            {% set opt_bull_pct = (opt_bias.bull_score / opt_total_score * 100)|int %}
+                        {% else %}
+                            {% set opt_bull_pct = 50 %}
+                        {% endif %}
+                        {% if opt_bull_pct >= 65 %}
+                            {% set opt_verdict = 'BULLISH' %}
+                            {% set opt_verdict_color = '#27ae60' %}
+                            {% set opt_verdict_icon = '🟢' %}
+                        {% elif opt_bull_pct <= 35 %}
+                            {% set opt_verdict = 'BEARISH' %}
+                            {% set opt_verdict_color = '#e74c3c' %}
+                            {% set opt_verdict_icon = '🔴' %}
+                        {% else %}
+                            {% set opt_verdict = 'NEUTRAL' %}
+                            {% set opt_verdict_color = '#f39c12' %}
+                            {% set opt_verdict_icon = '🟡' %}
+                        {% endif %}
+                        
+                        <br>
+                        <strong>📈 Options Flow Signals ({{ opt_signals|length }}): 
+                            <span style="color: {{ opt_verdict_color }}; font-weight: bold;">{{ opt_verdict_icon }} {{ opt_verdict }}</span>
+                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ opt_bull_pct }}% bullish, last 5 days)</span>
+                        </strong><br>
+                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #f39c12; padding: 8px; border-radius: 4px; background: #fffbf0; max-width: 70%;">
+                        {% for opt in opt_signals %}
+                            {# Color based on direction #}
+                            {% if opt.direction == 'BULLISH' or opt.direction == 'BUY' %}
+                                {% set opt_color = '#27ae60' %}{# Green #}
+                            {% elif opt.direction == 'BEARISH' or opt.direction == 'SELL' %}
+                                {% set opt_color = '#e74c3c' %}{# Red #}
+                            {% else %}
+                                {% set opt_color = '#f39c12' %}{# Orange/Neutral #}
+                            {% endif %}
+                            <span style="color: {{ opt_color }}; font-weight: bold;">▲</span>
+                            <span style="color: {{ opt_color }}; font-weight: bold;">{{ opt.signal_type.replace('_', ' ').title() }}</span>
+                            <span style="color: #666;">({{ opt.date }}, {{ opt.direction or 'N/A' }}, ${{ "%.0f"|format(opt.strike) }} strike, {{ opt.dte }}d, 
+                            {% if opt.premium >= 10000 %}<span style="color: #27ae60; font-weight: bold;">${{ "{:,.0f}".format(opt.premium) }}</span>{% else %}${{ "{:,.0f}".format(opt.premium) }}{% endif %})</span>
+                            <span class="strength-badge-sm" style="background: {% if opt.strength == 'EXTREME' %}#e74c3c{% elif opt.strength == 'VERY_HIGH' %}#f39c12{% else %}#27ae60{% endif %}; color: white; padding: 1px 6px; border-radius: 8px; font-size: 10px; margin-left: 4px;">{{ opt.strength }}</span>
+                            <br>
+                        {% endfor %}
+                        </div>
+                        <a href="/options-signals?symbol={{ stock }}" style="font-size: 11px; color: #f39c12; text-decoration: none;">→ View all options signals for {{ stock }}</a>
                         {% endif %}
                         
                         {# Options Walls Section #}

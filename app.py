@@ -17,6 +17,14 @@ from typing import Optional, Dict, Any
 # from authlib.integrations.starlette_client import OAuth, OAuthError
 from contextlib import asynccontextmanager
 
+# OpenAI integration
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("WARNING: openai package not installed - AI analysis disabled")
+
 # Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
@@ -179,7 +187,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Favicon route
 @app.get("/favicon.ico")
 async def favicon():
-    return FileResponse("static/favicon.png", media_type="image/png")
+    return FileResponse("static/favIcon.png", media_type="image/png")
 
 # Configure Google OAuth - DISABLED FOR NOW
 # oauth.register(
@@ -552,9 +560,15 @@ def init_focus_list_table():
                 strength INTEGER,
                 quality VARCHAR,
                 notes VARCHAR,
+                ai_analysis VARCHAR,
                 added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Add ai_analysis column if it doesn't exist (for existing tables)
+        try:
+            conn.execute("ALTER TABLE focus_list ADD COLUMN ai_analysis VARCHAR")
+        except:
+            pass  # Column already exists
         conn.close()
         print("Focus list table initialized in MotherDuck")
         return True
@@ -568,25 +582,339 @@ def init_focus_list_table():
 init_focus_list_table()
 
 
+# ============================================
+# OpenAI Analysis for Focus List
+# ============================================
+
+def get_openai_client():
+    """Get OpenAI client if available."""
+    if not OPENAI_AVAILABLE:
+        return None
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        print("WARNING: OPENAI_API_KEY not set - AI analysis disabled")
+        return None
+    return OpenAI(api_key=api_key)
+
+
+def get_stock_data_for_analysis(symbol: str) -> dict:
+    """Fetch dark pool signals, options signals, price history, technicals, and options walls for AI analysis."""
+    data = {
+        'symbol': symbol, 
+        'darkpool_signals': [], 
+        'options_signals': [],
+        'price_history': [],
+        'options_walls': None,
+        'technical_indicators': None
+    }
+    
+    # Get options data (dark pool signals, options signals, and walls)
+    conn = get_options_db_connection()
+    if conn:
+        try:
+            # Get recent dark pool signals (last 20)
+            dp_results = conn.execute("""
+                SELECT signal_date, signal_type, direction, signal_strength,
+                       dp_premium, block_count, buy_sell_ratio
+                FROM darkpool_signals 
+                WHERE ticker = ?
+                ORDER BY signal_date DESC
+                LIMIT 20
+            """, [symbol]).fetchall()
+            
+            for row in dp_results:
+                data['darkpool_signals'].append({
+                    'date': str(row[0]),
+                    'type': row[1],
+                    'direction': row[2],
+                    'strength': row[3],
+                    'premium': row[4],
+                    'blocks': row[5],
+                    'buy_sell_ratio': row[6]
+                })
+            
+            # Get recent options signals (last 20)
+            opt_results = conn.execute("""
+                SELECT signal_date, signal_type, direction, signal_strength,
+                       strike, dte, premium_spent, confidence_score
+                FROM accumulation_signals
+                WHERE underlying_symbol = ?
+                ORDER BY signal_date DESC
+                LIMIT 20
+            """, [symbol]).fetchall()
+            
+            for row in opt_results:
+                data['options_signals'].append({
+                    'date': str(row[0]),
+                    'type': row[1],
+                    'direction': row[2],
+                    'strength': row[3],
+                    'strike': row[4],
+                    'dte': row[5],
+                    'premium': row[6],
+                    'confidence': row[7]
+                })
+            
+            # Get latest options walls (call/put walls)
+            walls_result = conn.execute("""
+                SELECT scan_date, stock_price,
+                       call_wall_strike, call_wall_oi,
+                       call_wall_2_strike, call_wall_2_oi,
+                       call_wall_3_strike, call_wall_3_oi,
+                       put_wall_strike, put_wall_oi,
+                       put_wall_2_strike, put_wall_2_oi,
+                       put_wall_3_strike, put_wall_3_oi,
+                       total_call_oi, total_put_oi, put_call_ratio
+                FROM options_walls
+                WHERE underlying_symbol = ?
+                ORDER BY scan_date DESC
+                LIMIT 1
+            """, [symbol]).fetchone()
+            
+            if walls_result:
+                stock_price = walls_result[1] or 0
+                call_wall_1 = walls_result[2] or 0
+                put_wall_1 = walls_result[8] or 0
+                gamma_flip = (call_wall_1 + put_wall_1) / 2 if call_wall_1 and put_wall_1 else None
+                
+                data['options_walls'] = {
+                    'scan_date': str(walls_result[0]),
+                    'stock_price': stock_price,
+                    'call_walls': [
+                        {'strike': walls_result[2], 'oi': walls_result[3]},
+                        {'strike': walls_result[4], 'oi': walls_result[5]},
+                        {'strike': walls_result[6], 'oi': walls_result[7]}
+                    ],
+                    'put_walls': [
+                        {'strike': walls_result[8], 'oi': walls_result[9]},
+                        {'strike': walls_result[10], 'oi': walls_result[11]},
+                        {'strike': walls_result[12], 'oi': walls_result[13]}
+                    ],
+                    'total_call_oi': walls_result[14],
+                    'total_put_oi': walls_result[15],
+                    'put_call_ratio': walls_result[16],
+                    'gamma_flip': gamma_flip
+                }
+            
+            conn.close()
+        except Exception as e:
+            print(f"Error fetching options data for AI analysis: {e}")
+            if conn:
+                conn.close()
+    
+    # Get price history and technical indicators from scanner_data database
+    try:
+        scanner_conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+        price_results = scanner_conn.execute("""
+            SELECT date, open, high, low, close, volume,
+                   sma_20, sma_50, sma_200,
+                   ema_9, ema_21,
+                   atr_10, atr_14,
+                   rsi_14
+            FROM scanner_data.daily_cache
+            WHERE symbol = ?
+            ORDER BY date DESC
+            LIMIT 20
+        """, [symbol]).fetchall()
+        
+        for row in price_results:
+            data['price_history'].append({
+                'date': str(row[0]),
+                'open': round(row[1], 2) if row[1] else None,
+                'high': round(row[2], 2) if row[2] else None,
+                'low': round(row[3], 2) if row[3] else None,
+                'close': round(row[4], 2) if row[4] else None,
+                'volume': row[5]
+            })
+        
+        # Get the latest technical indicators (first row since ordered DESC)
+        if price_results:
+            latest = price_results[0]
+            data['technical_indicators'] = {
+                'sma_20': round(latest[6], 2) if latest[6] else None,
+                'sma_50': round(latest[7], 2) if latest[7] else None,
+                'sma_200': round(latest[8], 2) if latest[8] else None,
+                'ema_9': round(latest[9], 2) if latest[9] else None,
+                'ema_21': round(latest[10], 2) if latest[10] else None,
+                'atr_10': round(latest[11], 2) if latest[11] else None,
+                'atr_14': round(latest[12], 2) if latest[12] else None,
+                'rsi_14': round(latest[13], 2) if latest[13] else None
+            }
+        
+        # Reverse to get chronological order (oldest first)
+        data['price_history'] = list(reversed(data['price_history']))
+        
+        scanner_conn.close()
+    except Exception as e:
+        print(f"Error fetching price history for AI analysis: {e}")
+    
+    return data
+
+
+def analyze_stock_with_openai(symbol: str, scanner_name: str = None) -> str:
+    """Call OpenAI to analyze stock based on price action, flow data, and options walls."""
+    client = get_openai_client()
+    if not client:
+        return None
+    
+    # Get stock data
+    data = get_stock_data_for_analysis(symbol)
+    
+    # Build price history summary
+    price_summary = ""
+    if data['price_history']:
+        prices = data['price_history']
+        latest = prices[-1] if prices else None
+        oldest = prices[0] if prices else None
+        
+        if latest and oldest:
+            price_change = ((latest['close'] - oldest['close']) / oldest['close'] * 100) if oldest['close'] else 0
+            high_20d = max(p['high'] for p in prices if p['high'])
+            low_20d = min(p['low'] for p in prices if p['low'])
+            
+            price_summary = f"""
+Price Action (Last {len(prices)} days):
+- Current Price: ${latest['close']}
+- 20-Day Range: ${low_20d} - ${high_20d}
+- 20-Day Change: {price_change:+.1f}%
+- Recent OHLC: {json.dumps(prices[-5:], indent=2)}
+"""
+    
+    # Build options walls summary
+    walls_summary = ""
+    if data['options_walls']:
+        walls = data['options_walls']
+        call_walls = [w for w in walls['call_walls'] if w['strike']]
+        put_walls = [w for w in walls['put_walls'] if w['strike']]
+        
+        gamma_flip_str = f"${walls['gamma_flip']:.2f}" if walls['gamma_flip'] else 'N/A'
+        pcr_str = f"{walls['put_call_ratio']:.2f}" if walls['put_call_ratio'] else 'N/A'
+        
+        walls_summary = f"""
+Options Walls (Key Levels):
+- Stock Price: ${walls['stock_price']:.2f}
+- Gamma Flip (resistance/support pivot): {gamma_flip_str}
+- Call Walls (resistance): {', '.join([f"${w['strike']:.0f} ({w['oi']:,} OI)" for w in call_walls[:3]])}
+- Put Walls (support): {', '.join([f"${w['strike']:.0f} ({w['oi']:,} OI)" for w in put_walls[:3]])}
+- Put/Call Ratio: {pcr_str}
+"""
+    
+    # Build dark pool summary
+    dp_summary = ""
+    if data['darkpool_signals']:
+        bullish = sum(1 for s in data['darkpool_signals'] 
+                     if s['direction'] in ('BUY', 'BULLISH'))
+        bearish = sum(1 for s in data['darkpool_signals'] 
+                     if s['direction'] in ('SELL', 'BEARISH'))
+        dp_summary = f"""
+Dark Pool Signals ({len(data['darkpool_signals'])} recent):
+- Bullish signals: {bullish}
+- Bearish signals: {bearish}
+- Recent activity: {json.dumps(data['darkpool_signals'][:5], indent=2)}
+"""
+    
+    # Build options flow summary
+    opt_summary = ""
+    if data['options_signals']:
+        bullish = sum(1 for s in data['options_signals'] 
+                     if s['direction'] in ('BULLISH', 'BUY'))
+        bearish = sum(1 for s in data['options_signals'] 
+                     if s['direction'] in ('BEARISH', 'SELL'))
+        opt_summary = f"""
+Options Flow Signals ({len(data['options_signals'])} recent):
+- Bullish signals: {bullish}
+- Bearish signals: {bearish}
+- Recent activity: {json.dumps(data['options_signals'][:5], indent=2)}
+"""
+    
+    # Build technical indicators summary
+    tech_summary = ""
+    if data['technical_indicators']:
+        ti = data['technical_indicators']
+        current_price = data['price_history'][-1]['close'] if data['price_history'] else 0
+        
+        # Determine trend based on SMAs
+        trend_signals = []
+        if ti['sma_20'] and current_price:
+            trend_signals.append(f"{'Above' if current_price > ti['sma_20'] else 'Below'} SMA20 (${ti['sma_20']})")
+        if ti['sma_50'] and current_price:
+            trend_signals.append(f"{'Above' if current_price > ti['sma_50'] else 'Below'} SMA50 (${ti['sma_50']})")
+        if ti['sma_200'] and current_price:
+            trend_signals.append(f"{'Above' if current_price > ti['sma_200'] else 'Below'} SMA200 (${ti['sma_200']})")
+        
+        rsi_status = "Overbought" if ti['rsi_14'] and ti['rsi_14'] > 70 else "Oversold" if ti['rsi_14'] and ti['rsi_14'] < 30 else "Neutral"
+        
+        tech_summary = f"""
+Technical Indicators:
+- RSI(14): {ti['rsi_14']} ({rsi_status})
+- SMA Trend: {', '.join(trend_signals)}
+- EMA(9): ${ti['ema_9']}, EMA(21): ${ti['ema_21']}
+- ATR(14): ${ti['atr_14']} (volatility measure)
+"""
+    
+    if not dp_summary and not opt_summary and not price_summary:
+        return "No data available for analysis."
+    
+    prompt = f"""Analyze {symbol} for a swing trader based on the following data:
+
+Scanner: {scanner_name or 'N/A'}
+{price_summary}
+{tech_summary}
+{walls_summary}
+{dp_summary}
+{opt_summary}
+
+Provide analysis in exactly this format with 4 numbered points:
+
+1. **Institutional Sentiment**: [BULLISH/BEARISH/NEUTRAL] - Brief explanation of dark pool and options flow signals.
+
+2. **Technical Setup**: Current trend status, RSI reading, and position relative to key moving averages.
+
+3. **Key Levels**: Important support levels (from put walls) and resistance levels (from call walls).
+
+4. **Trade Plan**: Entry zone: $X-$Y | Stop Loss: $Z (below support) | Take Profit: $W (at resistance) | Risk/Reward ratio.
+
+Be specific with price levels. Use the ATR for stop loss sizing."""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a professional swing trader and stock analyst. Always provide specific price levels for entries, stops, and targets. Be concise but actionable."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=350,
+            temperature=0.7
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"OpenAI API error: {e}")
+        return f"AI analysis failed: {str(e)}"
+
+
 def add_to_focus_list(symbol: str, scanner_name: str = None, scan_date: str = None, 
                       entry_price: float = None, strength: int = None, quality: str = None, 
                       notes: str = None):
-    """Add a setup to the focus list."""
+    """Add a setup to the focus list with AI analysis."""
     conn = get_options_db_connection_write()
     if not conn:
         return {"status": "error", "message": "Database not available"}
     
     try:
+        # Get AI analysis for the stock
+        ai_analysis = analyze_stock_with_openai(symbol, scanner_name)
+        
         # Get next ID
         result = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM focus_list").fetchone()
         next_id = result[0]
         
         conn.execute("""
-            INSERT INTO focus_list (id, symbol, scanner_name, scan_date, entry_price, strength, quality, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, [next_id, symbol, scanner_name, scan_date, entry_price, strength, quality, notes])
+            INSERT INTO focus_list 
+            (id, symbol, scanner_name, scan_date, entry_price, strength, quality, notes, ai_analysis)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, [next_id, symbol, scanner_name, scan_date, entry_price, strength, quality, notes, ai_analysis])
         conn.close()
-        return {"status": "ok", "id": next_id, "symbol": symbol}
+        return {"status": "ok", "id": next_id, "symbol": symbol, "ai_analysis": ai_analysis}
     except Exception as e:
         if conn:
             conn.close()
@@ -617,7 +945,8 @@ def get_focus_list():
     
     try:
         result = conn.execute("""
-            SELECT id, symbol, scanner_name, scan_date, entry_price, strength, quality, notes, added_date
+            SELECT id, symbol, scanner_name, scan_date, entry_price, 
+                   strength, quality, notes, ai_analysis, added_date
             FROM focus_list 
             ORDER BY added_date DESC
         """).fetchall()
@@ -634,7 +963,8 @@ def get_focus_list():
                 'strength': row[5],
                 'quality': row[6],
                 'notes': row[7],
-                'added_date': row[8].isoformat() if hasattr(row[8], 'isoformat') else str(row[8])
+                'ai_analysis': row[8],
+                'added_date': str(row[9]) if row[9] else None
             })
         return items
     except Exception as e:
@@ -1180,7 +1510,7 @@ async def api_add_to_focus_list(
     scanner_name: str = Form(None),
     scan_date: str = Form(None),
     entry_price: float = Form(None),
-    strength: int = Form(None),
+    strength: float = Form(None),
     quality: str = Form(None),
     notes: str = Form(None)
 ):
@@ -1190,7 +1520,7 @@ async def api_add_to_focus_list(
         scanner_name=scanner_name,
         scan_date=scan_date,
         entry_price=entry_price,
-        strength=strength,
+        strength=int(strength) if strength is not None else None,
         quality=quality,
         notes=notes
     )
@@ -1235,7 +1565,7 @@ async def focus_list_page(request: Request):
             metadata_dict = {
                 row[0]: {
                     'company': row[1] or '',
-                    'market_cap': row[2] or '',
+                    'market_cap': format_market_cap(row[2]) or '',
                     'sector': row[3] or '',
                     'industry': row[4] or ''
                 } for row in metadata_results
@@ -1420,7 +1750,8 @@ async def options_signals(
                 premium_spent,
                 confidence_score,
                 signal_strength,
-                notes
+                notes,
+                direction
             FROM accumulation_signals
             WHERE 1=1
         """
@@ -1441,6 +1772,8 @@ async def options_signals(
         if symbol:
             query += " AND underlying_symbol = ?"
             params.append(symbol.upper())
+            # When searching by symbol, ignore date filter to show full history
+            scan_date = None
         
         if min_confidence_val:
             query += " AND confidence_score >= ?"
@@ -1454,7 +1787,8 @@ async def options_signals(
             query += " AND asset_type = ?"
             params.append(asset_type)
         
-        if scan_date:
+        # Only apply date filter if no symbol is being searched
+        if scan_date and not symbol:
             query += " AND signal_date = ?"
             params.append(scan_date)
         elif not symbol:
@@ -1468,7 +1802,11 @@ async def options_signals(
                 params.append(str(latest_date))
                 scan_date = str(latest_date)
         
-        query += " ORDER BY signal_date DESC, confidence_score DESC, premium_spent DESC LIMIT 200"
+        # Increase limit when searching by symbol (showing full history)
+        if symbol:
+            query += " ORDER BY signal_date DESC, confidence_score DESC, premium_spent DESC LIMIT 500"
+        else:
+            query += " ORDER BY signal_date DESC, confidence_score DESC, premium_spent DESC LIMIT 200"
         
         results = conn.execute(query, params).fetchall()
         
@@ -1492,7 +1830,8 @@ async def options_signals(
                 'premium_spent': row[13],
                 'confidence_score': row[14],
                 'signal_strength': row[15],
-                'notes': row[16]
+                'notes': row[16],
+                'direction': row[17] if len(row) > 17 else None
             })
         
         # Get stats for the dashboard
@@ -1703,8 +2042,7 @@ async def darkpool_signals(
                 consecutive_days,
                 confidence_score,
                 signal_strength,
-                notes,
-                asset_type
+                notes
             FROM darkpool_signals
             WHERE 1=1
         """
@@ -1725,23 +2063,23 @@ async def darkpool_signals(
         if symbol:
             query += " AND ticker = ?"
             params.append(symbol.upper())
+            # When searching by symbol, ignore date filter to show full history
+            scan_date = None
         
         if min_confidence_val:
             query += " AND confidence_score >= ?"
             params.append(min_confidence_val)
         
-        if asset_type:
-            query += " AND asset_type = ?"
-            params.append(asset_type)
-        
         if min_premium_val:
             query += " AND dp_premium >= ?"
             params.append(min_premium_val)
         
-        if scan_date:
+        # Only apply date filter if no symbol is being searched
+        if scan_date and not symbol:
             query += " AND signal_date = ?"
             params.append(scan_date)
         elif not symbol:
+            # Auto-select latest date only when not searching for a symbol
             latest_date = conn.execute(
                 "SELECT MAX(signal_date) FROM darkpool_signals"
             ).fetchone()[0]
@@ -1750,7 +2088,11 @@ async def darkpool_signals(
                 params.append(str(latest_date))
                 scan_date = str(latest_date)
         
-        query += " ORDER BY signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 200"
+        # Increase limit when searching by symbol (showing full history)
+        if symbol:
+            query += " ORDER BY signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 500"
+        else:
+            query += " ORDER BY signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 200"
         
         results = conn.execute(query, params).fetchall()
         
@@ -1773,8 +2115,7 @@ async def darkpool_signals(
                 'consecutive_days': row[13],
                 'confidence_score': row[14],
                 'signal_strength': row[15],
-                'notes': row[16],
-                'asset_type': row[17]
+                'notes': row[16]
             })
         
         # Get stats
@@ -3934,7 +4275,7 @@ async def index(
                     options_query = f'''
                         SELECT underlying_symbol, signal_date, signal_type, 
                                signal_strength, confidence_score, strike, dte,
-                               premium_spent, notes
+                               premium_spent, notes, direction
                         FROM accumulation_signals
                         WHERE underlying_symbol IN ({placeholders})
                         ORDER BY underlying_symbol, signal_date DESC
@@ -3953,6 +4294,7 @@ async def index(
                         dte = row[6]
                         premium = row[7]
                         notes = row[8]
+                        direction = row[9] if len(row) > 9 else None
                         
                         if sym not in options_signals_dict:
                             options_signals_dict[sym] = []
@@ -3964,7 +4306,8 @@ async def index(
                             'strike': strike,
                             'dte': dte,
                             'premium': premium,
-                            'notes': notes
+                            'notes': notes,
+                            'direction': direction
                         })
                     
                     options_conn.close()
@@ -4034,6 +4377,7 @@ async def index(
                     
                     dp_conn.close()
                     print(f'Loaded dark pool signals for {len(darkpool_signals_dict)} symbols')
+                    
             except Exception as e:
                 print(f'Dark pool signals query failed: {e}')
                 darkpool_signals_dict = {}
