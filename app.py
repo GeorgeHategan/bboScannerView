@@ -1643,6 +1643,7 @@ async def darkpool_signals(
     symbol: Optional[str] = Query(None),
     min_confidence: Optional[str] = Query(None),
     min_premium: Optional[str] = Query(None),
+    asset_type: Optional[str] = Query(None),
     scan_date: Optional[str] = Query(None)
 ):
     """Display dark pool signals from the options_data database."""
@@ -1702,7 +1703,8 @@ async def darkpool_signals(
                 consecutive_days,
                 confidence_score,
                 signal_strength,
-                notes
+                notes,
+                asset_type
             FROM darkpool_signals
             WHERE 1=1
         """
@@ -1727,6 +1729,10 @@ async def darkpool_signals(
         if min_confidence_val:
             query += " AND confidence_score >= ?"
             params.append(min_confidence_val)
+        
+        if asset_type:
+            query += " AND asset_type = ?"
+            params.append(asset_type)
         
         if min_premium_val:
             query += " AND dp_premium >= ?"
@@ -1767,7 +1773,8 @@ async def darkpool_signals(
                 'consecutive_days': row[13],
                 'confidence_score': row[14],
                 'signal_strength': row[15],
-                'notes': row[16]
+                'notes': row[16],
+                'asset_type': row[17]
             })
         
         # Get stats
@@ -1848,6 +1855,7 @@ async def darkpool_signals(
             'selected_symbol': symbol,
             'selected_min_confidence': min_confidence_val,
             'selected_min_premium': min_premium_val,
+            'selected_asset_type': asset_type,
             'selected_scan_date': scan_date,
             'stats': stats,
             'top_symbols': [{'symbol': r[0], 'count': r[1], 'premium': r[2], 'confidence': r[3]} for r in top_symbols],

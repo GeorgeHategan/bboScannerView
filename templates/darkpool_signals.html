@@ -214,6 +214,12 @@
                     {% endfor %}
                 </select>
                 
+                <select name="asset_type" onchange="this.form.submit()">
+                    <option value="">-- Stocks & ETFs --</option>
+                    <option value="Stock" {% if selected_asset_type == 'Stock' %}selected{% endif %}>Stocks Only</option>
+                    <option value="ETF" {% if selected_asset_type == 'ETF' %}selected{% endif %}>ETFs Only</option>
+                </select>
+                
                 <input type="text" name="symbol" placeholder="🔍 Symbol..." 
                        value="{{ selected_symbol or '' }}" 
                        style="width: 100px; text-transform: uppercase;"
