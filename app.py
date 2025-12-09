@@ -364,8 +364,29 @@ app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", l
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        public_paths = ['/login', '/auth/google', '/auth/google/callback', '/favicon.ico', '/static', '/webhook']
+        public_paths = ['/login', '/auth/google', '/auth/google/callback',
+                        '/favicon.ico', '/static', '/webhook']
         path = request.url.path
+
+        # Log all visitors to non-static paths
+        if not any(path.startswith(p) for p in ['/favicon.ico', '/static']):
+            # Get user email if logged in
+            session_data = request.scope.get('session')
+            user_email = None
+            if session_data:
+                user = session_data.get('user')
+                if user:
+                    user_email = user.get('email')
+
+            # Log the visitor (runs in background, won't slow down request)
+            import threading
+            threading.Thread(
+                target=log_visitor,
+                args=(request, path, user_email),
+                daemon=True
+            ).start()
+
+        # Continue with authentication check
         if not any(path.startswith(p) for p in public_paths):
             session_data = request.scope.get('session')
             if not session_data:
@@ -586,6 +607,51 @@ def get_ip_location(ip: str) -> dict:
     except Exception as e:
         logger.warning(f"IP geolocation failed for {ip}: {e}")
     return {'country': 'Unknown', 'countryCode': '??', 'city': 'Unknown'}
+
+
+def log_visitor(request: Request, page_path: str = None,
+                email: str = None):
+    """Log any visitor to the site, even if not logged in."""
+    try:
+        conn = get_user_db_connection()
+        if not conn:
+            return
+
+        cursor = conn.cursor()
+        ip = request.client.host if request.client else 'unknown'
+        user_agent = request.headers.get('user-agent', 'unknown')[:500]
+        page = page_path or request.url.path
+
+        # Get IP location for all visitors
+        location = get_ip_location(ip)
+        country = location.get('country')
+        country_code = location.get('countryCode')
+        city = location.get('city')
+
+        if DATABASE_URL:
+            # PostgreSQL syntax
+            cursor.execute('''
+                INSERT INTO login_logs (email, ip_address, user_agent,
+                                       success, failure_reason, country,
+                                       country_code, city)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (email or 'visitor', ip, user_agent, False,
+                  f'page_visit:{page}', country, country_code, city))
+        else:
+            # SQLite syntax
+            cursor.execute('''
+                INSERT INTO login_logs (email, ip_address, user_agent,
+                                       success, failure_reason, country,
+                                       country_code, city)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (email or 'visitor', ip, user_agent, False,
+                  f'page_visit:{page}', country, country_code, city))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error logging visitor: {e}")
 
 
 def log_login_attempt(email: str, request: Request, success: bool,
