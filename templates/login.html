@@ -2,37 +2,90 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login - BBO Scanner</title>
+    <title>Login - Breakout Scanner</title>
+    <link rel="icon" type="image/png" href="/static/favIcon.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        * { box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             margin: 0;
-            padding: 0;
+            padding: 20px;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .login-container { 
-            max-width: 420px;
-            width: 90%;
-            background: #fff;
-            padding: 48px 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 900px;
+            width: 100%;
+            background: rgba(255,255,255,0.98);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .header {
             text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
         }
         h1 {
             margin: 0 0 8px 0;
-            font-size: 28px;
+            font-size: 36px;
             color: #1a1a1a;
-            font-weight: 600;
+            font-weight: 700;
         }
-        .subtitle {
+        .slogan {
             color: #666;
-            margin-bottom: 32px;
+            font-size: 16px;
+            font-style: italic;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin-bottom: 25px;
+        }
+        .stat-item { text-align: center; }
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #0066cc;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .charts-section {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-box {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+        }
+        .chart-box h3 {
+            margin: 0 0 15px 0;
             font-size: 14px;
+            color: #333;
+            text-align: center;
+        }
+        .chart-container {
+            height: 280px;
+            position: relative;
+        }
+        .login-section {
+            text-align: center;
+            padding-top: 25px;
+            border-top: 1px solid #eee;
         }
         .google-btn {
             display: inline-flex;
@@ -40,28 +93,25 @@
             justify-content: center;
             background: #fff;
             color: #444;
-            width: 100%;
-            padding: 12px 24px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+            padding: 14px 40px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
             font-size: 16px;
             font-weight: 500;
             cursor: pointer;
             text-decoration: none;
             transition: all 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .google-btn:hover {
             background: #f8f8f8;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            transform: translateY(-1px);
-        }
-        .google-btn:active {
-            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+            border-color: #4285F4;
         }
         .google-icon {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             margin-right: 12px;
         }
         .error { 
@@ -69,42 +119,171 @@
             border: 1px solid #fcc;
             color: #c33;
             padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 24px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             font-size: 14px;
-            line-height: 1.4;
+            text-align: center;
         }
         .info {
-            margin-top: 24px;
-            padding-top: 24px;
-            border-top: 1px solid #eee;
-            color: #666;
+            margin-top: 16px;
+            color: #888;
             font-size: 13px;
+        }
+        @media (max-width: 768px) {
+            .charts-section { flex-direction: column; }
+            .stats-row { gap: 25px; }
+            .stat-value { font-size: 28px; }
+            .login-container { padding: 25px; }
         }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h1>🎯 BBO Scanner</h1>
-        <p class="subtitle">Stock Scanner Dashboard</p>
+        <div class="header">
+            <h1>🎯 Breakout Scanner</h1>
+            <p class="slogan">...stacking the odds in your favor</p>
+        </div>
         
         {% if error %}
             <div class="error">{{ error }}</div>
         {% endif %}
         
-        <a href="/auth/google" class="google-btn">
-            <svg class="google-icon" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Sign in with Google
-        </a>
+        <!-- Stats Summary -->
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-value">{{ today_total or 0 }}</div>
+                <div class="stat-label">Setups Today</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ active_scanners or 0 }}</div>
+                <div class="stat-label">Active Scanners</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ month_avg or 0 }}</div>
+                <div class="stat-label">30-Day Avg</div>
+            </div>
+        </div>
         
-        <div class="info">
-            <strong>Note:</strong> Only authorized users can access this application.
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <!-- Pie Chart - Today's Distribution -->
+            <div class="chart-box">
+                <h3>📊 Today's Results by Scanner</h3>
+                <div class="chart-container">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Line Chart - 30 Day Evolution -->
+            <div class="chart-box">
+                <h3>📈 30-Day Evolution</h3>
+                <div class="chart-container">
+                    <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Login Section -->
+        <div class="login-section">
+            <a href="/auth/google" class="google-btn">
+                <svg class="google-icon" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Sign in with Google
+            </a>
+            <div class="info">
+                🔒 Access restricted to authorized users only
+            </div>
         </div>
     </div>
+    
+    <script>
+        const SCANNER_COLORS = {
+            'accumulation_distribution': '#F2AE7F',
+            'breakout': '#96FFBD',
+            'bull_flag': '#DC3E26',
+            'candlestick_bullish': '#CEE4B3',
+            'candlestick_continuation': '#F9EC7E',
+            'cup_and_handle': '#D5CAE4',
+            'fundamental_swing': '#80C4B7',
+            'golden_cross': '#9EE8E1',
+            'momentum_burst': '#EC6D67',
+            'supertrend': '#4AAFD5',
+            'tight_consolidation': '#E59462',
+            'volatility_macd': '#E3CCB2',
+            'wyckoff': '#D8905A',
+            'wyckoff_accumulation': '#6BAA6B'
+        };
+        
+        function getScannerColor(name) {
+            const normalized = name.toLowerCase().replace(/ /g, '_');
+            return SCANNER_COLORS[normalized] || '#999999';
+        }
+        
+        // Pie Chart
+        const pieData = {{ scanner_distribution | tojson | default('[]', true) }};
+        if (pieData && pieData.length > 0) {
+            const pieCtx = document.getElementById('pieChart').getContext('2d');
+            new Chart(pieCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: pieData.map(item => item.name + ' (' + item.count + ')'),
+                    datasets: [{
+                        data: pieData.map(item => item.count),
+                        backgroundColor: pieData.map(item => getScannerColor(item.name)),
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 10, padding: 6, font: { size: 9 } }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Line Chart
+        const historyData = {{ scanner_history | tojson | default('{"dates":[],"scanners":{}}', true) }};
+        if (historyData && historyData.dates && historyData.dates.length > 0) {
+            const lineCtx = document.getElementById('lineChart').getContext('2d');
+            const datasets = [];
+            
+            for (const [scannerKey, scannerData] of Object.entries(historyData.scanners || {})) {
+                datasets.push({
+                    label: scannerData.name,
+                    data: scannerData.data,
+                    borderColor: getScannerColor(scannerKey),
+                    backgroundColor: getScannerColor(scannerKey),
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.4
+                });
+            }
+            
+            new Chart(lineCtx, {
+                type: 'line',
+                data: { labels: historyData.dates, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { stacked: true, beginAtZero: true, ticks: { font: { size: 9 }, precision: 0 } },
+                        x: { stacked: true, ticks: { maxRotation: 45, minRotation: 45, font: { size: 8 }, maxTicksLimit: 10 } }
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>

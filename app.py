@@ -13,8 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-# OAuth disabled for now
-# from authlib.integrations.starlette_client import OAuth, OAuthError
+from authlib.integrations.starlette_client import OAuth, OAuthError
 from contextlib import asynccontextmanager
 
 # OpenAI integration
@@ -58,9 +57,9 @@ logger.info(f"SECRET_KEY set: {bool(os.environ.get('SECRET_KEY'))}")
 logger.info(f"motherduck_token set: {bool(os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN'))}")
 logger.info(f"options_motherduck_token set: {bool(os.environ.get('options_motherduck_token') or os.environ.get('OPTIONS_MOTHERDUCK_TOKEN'))}")
 
-# Initialize OAuth - DISABLED FOR NOW
-# oauth = OAuth()
-# logger.info("OAuth initialized")
+# Initialize OAuth
+oauth = OAuth()
+logger.info("OAuth initialized")
 
 # HARDCODED SCANNER COLOR MAPPING - Single source of truth
 # This must match the JavaScript SCANNER_COLORS in index.html
@@ -181,6 +180,33 @@ async def lifespan(app):
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
 
+# Authentication middleware - redirects to login if not authenticated
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    # Public paths that don't require auth
+    public_paths = ['/login', '/auth/google', '/auth/google/callback', '/favicon.ico', '/static']
+    
+    # Check if path is public
+    path = request.url.path
+    is_public = any(path.startswith(p) for p in public_paths)
+    
+    if not is_public:
+        # Check if user is logged in
+        user = request.session.get('user')
+        if not user:
+            return RedirectResponse('/login', status_code=302)
+        
+        # Check if email is allowed
+        email = user.get('email')
+        allowed = [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
+        if email not in allowed:
+            # Clear session and redirect to login with error
+            request.session.clear()
+            return RedirectResponse('/login', status_code=302)
+    
+    response = await call_next(request)
+    return response
+
 # Mount static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -189,99 +215,188 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def favicon():
     return FileResponse("static/favIcon.png", media_type="image/png")
 
-# Configure Google OAuth - DISABLED FOR NOW
-# oauth.register(
-#     name='google',
-#     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-#     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
-#     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-#     client_kwargs={
-#         'scope': 'openid email profile'
-#     }
-# )
+# Configure Google OAuth
+oauth.register(
+    name='google',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
-# Helper: get allowed emails from env - DISABLED FOR NOW
-# def get_allowed_emails():
-#     return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
+# Helper: get allowed emails from env
+def get_allowed_emails():
+    return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
 
-# Dependency: require login and allowed email - DISABLED FOR NOW
-# def require_login(request: Request):
-#     user = request.session.get('user')
-#     if not user:
-#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authenticated')
-#     
-#     email = user.get('email')
-#     allowed = get_allowed_emails()
-#     if not email or email not in allowed:
-#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Access denied - not in authorized user list')
-#     return email
+# Dependency: require login and allowed email
+def require_login(request: Request):
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authenticated')
+    
+    email = user.get('email')
+    allowed = get_allowed_emails()
+    if not email or email not in allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Access denied - not in authorized user list')
+    return email
 
-# Login page - DISABLED FOR NOW
-# @app.get('/login', response_class=HTMLResponse)
-# async def login_form(request: Request):
-#     # Check if user is already logged in
-#     user = request.session.get('user')
-#     if user:
-#         email = user.get('email')
-#         if email in get_allowed_emails():
-#             return RedirectResponse('/', status_code=302)
-#     
-#     # Show login page with Google button
-#     return templates.TemplateResponse('login.html', {'request': request, 'error': None})
+# Login page with charts
+@app.get('/login', response_class=HTMLResponse)
+async def login_form(request: Request):
+    # Check if user is already logged in
+    user = request.session.get('user')
+    if user:
+        email = user.get('email')
+        if email in get_allowed_emails():
+            return RedirectResponse('/', status_code=302)
+    
+    # Fetch data for charts
+    scanner_distribution = []
+    scanner_history = {"dates": [], "scanners": {}}
+    today_total = 0
+    active_scanners = 0
+    month_avg = 0
+    
+    try:
+        conn = duckdb.connect(DUCKDB_PATH)
+        
+        # Today's distribution
+        today = datetime.now().strftime('%Y-%m-%d')
+        dist_query = f"""
+            SELECT scanner_name, COUNT(*) as count
+            FROM scanner_picks
+            WHERE CAST(discovered_date AS DATE) = '{today}'
+            GROUP BY scanner_name
+            ORDER BY count DESC
+        """
+        dist_result = conn.execute(dist_query).fetchall()
+        scanner_distribution = [{"name": row[0], "count": row[1]} for row in dist_result]
+        today_total = sum(r["count"] for r in scanner_distribution)
+        active_scanners = len(scanner_distribution)
+        
+        # 30-day history
+        history_query = """
+            SELECT 
+                CAST(discovered_date AS DATE) as date,
+                scanner_name,
+                COUNT(*) as count
+            FROM scanner_picks
+            WHERE CAST(discovered_date AS DATE) >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY CAST(discovered_date AS DATE), scanner_name
+            ORDER BY date
+        """
+        history_result = conn.execute(history_query).fetchall()
+        
+        # Process history data
+        dates_set = set()
+        scanner_data = {}
+        for row in history_result:
+            date_str = row[0].strftime('%m/%d')
+            dates_set.add(date_str)
+            scanner = row[1]
+            if scanner not in scanner_data:
+                scanner_data[scanner] = {}
+            scanner_data[scanner][date_str] = row[2]
+        
+        dates = sorted(list(dates_set))
+        scanner_history["dates"] = dates
+        
+        for scanner, data in scanner_data.items():
+            scanner_key = scanner.lower().replace(' ', '_')
+            scanner_history["scanners"][scanner_key] = {
+                "name": scanner,
+                "data": [data.get(d, 0) for d in dates]
+            }
+        
+        # 30-day average
+        if len(dates) > 0:
+            total_30_days = sum(sum(s["data"]) for s in scanner_history["scanners"].values())
+            month_avg = round(total_30_days / len(dates))
+        
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error fetching login page data: {e}")
+    
+    return templates.TemplateResponse('login.html', {
+        'request': request, 
+        'error': None,
+        'scanner_distribution': scanner_distribution,
+        'scanner_history': scanner_history,
+        'today_total': today_total,
+        'active_scanners': active_scanners,
+        'month_avg': month_avg
+    })
 
-# Google OAuth login redirect - DISABLED FOR NOW
-# @app.get('/auth/google')
-# async def google_login(request: Request):
-#     redirect_uri = request.url_for('google_callback')
-#     return await oauth.google.authorize_redirect(request, redirect_uri)
+# Google OAuth login redirect
+@app.get('/auth/google')
+async def google_login(request: Request):
+    redirect_uri = request.url_for('google_callback')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
 
-# Google OAuth callback - DISABLED FOR NOW
-# @app.get('/auth/google/callback')
-# async def google_callback(request: Request):
-#     try:
-#         token = await oauth.google.authorize_access_token(request)
-#         user_info = token.get('userinfo')
-#         
-#         if not user_info:
-#             return templates.TemplateResponse('login.html', {
-#                 'request': request, 
-#                 'error': 'Failed to get user information from Google'
-#             })
-#         
-#         email = user_info.get('email')
-#         allowed = get_allowed_emails()
-#         
-#         print(f"DEBUG: Google OAuth callback - Email: {email}")
-#         print(f"DEBUG: Allowed emails: {allowed}")
-#         
-#         if email not in allowed:
-#             return templates.TemplateResponse('login.html', {
-#                 'request': request,
-#                 'error': f'Access denied. Email {email} is not authorized to access this application.'
-#             })
-#         
-#         # Store user info in session
-#         request.session['user'] = {
-#             'email': email,
-#             'name': user_info.get('name'),
-#             'picture': user_info.get('picture')
-#         }
-#         
-#         print(f"DEBUG: Login successful for {email}")
-#         return RedirectResponse('/', status_code=302)
-#         
-#     except OAuthError as e:
-#         print(f"ERROR: OAuth error: {e}")
-#         return templates.TemplateResponse('login.html', {
-#             'request': request,
-#             'error': f'Authentication failed: {str(e)}'
-#         })
+# Google OAuth callback
+@app.get('/auth/google/callback')
+async def google_callback(request: Request):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+        
+        if not user_info:
+            return templates.TemplateResponse('login.html', {
+                'request': request, 
+                'error': 'Failed to get user information from Google',
+                'scanner_distribution': [],
+                'scanner_history': {"dates": [], "scanners": {}},
+                'today_total': 0,
+                'active_scanners': 0,
+                'month_avg': 0
+            })
+        
+        email = user_info.get('email')
+        allowed = get_allowed_emails()
+        
+        logger.info(f"Google OAuth callback - Email: {email}")
+        logger.info(f"Allowed emails: {allowed}")
+        
+        if email not in allowed:
+            return templates.TemplateResponse('login.html', {
+                'request': request,
+                'error': f'Access denied. Email {email} is not authorized to access this application.',
+                'scanner_distribution': [],
+                'scanner_history': {"dates": [], "scanners": {}},
+                'today_total': 0,
+                'active_scanners': 0,
+                'month_avg': 0
+            })
+        
+        # Store user info in session
+        request.session['user'] = {
+            'email': email,
+            'name': user_info.get('name'),
+            'picture': user_info.get('picture')
+        }
+        
+        logger.info(f"Login successful for {email}")
+        return RedirectResponse('/', status_code=302)
+        
+    except OAuthError as e:
+        logger.error(f"OAuth error: {e}")
+        return templates.TemplateResponse('login.html', {
+            'request': request,
+            'error': f'Authentication failed: {str(e)}',
+            'scanner_distribution': [],
+            'scanner_history': {"dates": [], "scanners": {}},
+            'today_total': 0,
+            'active_scanners': 0,
+            'month_avg': 0
+        })
 
-# Logout - DISABLED FOR NOW
-# @app.get('/logout')
-# async def logout(request: Request):
-#     request.session.clear()
-#     return RedirectResponse('/login', status_code=302)
+# Logout
+@app.get('/logout')
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse('/login', status_code=302)
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")

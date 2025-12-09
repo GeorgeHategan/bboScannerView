@@ -1,5 +1,5 @@
-# authlib - disabled for now (OAuth not needed)
-# httpx - disabled for now (OAuth not needed)
+authlib==1.3.2
+httpx==0.27.2
 python-dotenv==1.2.1
 fastapi==0.121.0
 uvicorn[standard]==0.38.0
