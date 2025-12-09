@@ -364,7 +364,7 @@ app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", l
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        public_paths = ['/login', '/auth/google', '/auth/google/callback', '/favicon.ico', '/static']
+        public_paths = ['/login', '/auth/google', '/auth/google/callback', '/favicon.ico', '/static', '/webhook']
         path = request.url.path
         if not any(path.startswith(p) for p in public_paths):
             session_data = request.scope.get('session')
