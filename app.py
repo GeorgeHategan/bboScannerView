@@ -2447,6 +2447,41 @@ async def api_get_focus_list():
     return JSONResponse({"status": "ok", "items": items, "count": len(items)})
 
 
+@app.get("/api/chart-data/{symbol}")
+async def api_get_chart_data(symbol: str, days: int = 30):
+    """Get OHLCV data for charting."""
+    try:
+        conn = get_db_connection(DUCKDB_PATH)
+        results = conn.execute("""
+            SELECT date, open, high, low, close, volume
+            FROM scanner_data.daily_cache
+            WHERE symbol = ?
+            ORDER BY date DESC
+            LIMIT ?
+        """, [symbol.upper(), days]).fetchall()
+        conn.close()
+        
+        if not results:
+            return JSONResponse({"status": "error", "message": "No data found"})
+        
+        # Reverse to get chronological order
+        results.reverse()
+        
+        chart_data = {
+            "symbol": symbol.upper(),
+            "dates": [str(row[0]) for row in results],
+            "open": [float(row[1]) if row[1] else None for row in results],
+            "high": [float(row[2]) if row[2] else None for row in results],
+            "low": [float(row[3]) if row[3] else None for row in results],
+            "close": [float(row[4]) if row[4] else None for row in results],
+            "volume": [int(row[5]) if row[5] else 0 for row in results]
+        }
+        
+        return JSONResponse({"status": "ok", "data": chart_data})
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)})
+
+
 @app.get("/focus-list", response_class=HTMLResponse)
 async def focus_list_page(request: Request):
     """Display the focus list page with day separators, charts and full stock info."""

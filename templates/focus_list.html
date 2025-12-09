@@ -3,6 +3,7 @@
 <head>
     <title>Focus List - BBO Scanner</title>
     <link rel="icon" type="image/png" href="/static/favicon.png?v=2">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
         body { font-family: arial; margin: 0; padding: 0; padding-top: 100px; }
         .sticky-header {
@@ -325,7 +326,7 @@
                 </tr>
                 <tr>
                     <td colspan="3" style="position: relative;">
-                        <img src="https://finviz.com/chart.ashx?t={{ item.symbol }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%; max-width: 750px;" />
+                        <div id="chart-{{ item.symbol }}" style="width: 100%; height: 400px;"></div>
                     </td>
                     <td colspan="3" style="vertical-align: top; padding-left: 20px;">
                         {% if item.confirmations and item.confirmations|length > 0 %}
@@ -365,5 +366,103 @@
     {% endfor %}
     
     {% endif %}
+    
+    <script>
+    // Load charts for all symbols
+    async function loadChart(symbol) {
+        try {
+            const response = await fetch(`/api/chart-data/${symbol}?days=30`);
+            const result = await response.json();
+            
+            if (result.status !== 'ok') {
+                console.error(`Failed to load chart for ${symbol}`);
+                return;
+            }
+            
+            const data = result.data;
+            
+            // Create candlestick trace
+            const candlestick = {
+                x: data.dates,
+                open: data.open,
+                high: data.high,
+                low: data.low,
+                close: data.close,
+                type: 'candlestick',
+                name: symbol,
+                increasing: {line: {color: '#26a69a'}},
+                decreasing: {line: {color: '#ef5350'}},
+                xaxis: 'x',
+                yaxis: 'y'
+            };
+            
+            // Create volume bars trace
+            const volumeColors = data.close.map((close, i) => {
+                if (i === 0) return '#999';
+                return close >= data.close[i-1] ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)';
+            });
+            
+            const volume = {
+                x: data.dates,
+                y: data.volume,
+                type: 'bar',
+                name: 'Volume',
+                marker: {color: volumeColors},
+                xaxis: 'x',
+                yaxis: 'y2'
+            };
+            
+            const layout = {
+                title: {
+                    text: `${symbol} - Last 30 Days`,
+                    font: {size: 14}
+                },
+                xaxis: {
+                    rangeslider: {visible: false},
+                    type: 'date'
+                },
+                yaxis: {
+                    title: 'Price',
+                    domain: [0.3, 1]
+                },
+                yaxis2: {
+                    title: 'Volume',
+                    domain: [0, 0.2]
+                },
+                margin: {l: 50, r: 50, t: 40, b: 40},
+                height: 400,
+                showlegend: false,
+                hovermode: 'x unified'
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
+            };
+            
+            Plotly.newPlot(`chart-${symbol}`, [candlestick, volume], layout, config);
+            
+        } catch (error) {
+            console.error(`Error loading chart for ${symbol}:`, error);
+        }
+    }
+    
+    // Load all charts when page is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        const symbols = [];
+        {% for day, items in grouped_items.items() %}
+            {% for item in items %}
+                symbols.push('{{ item.symbol }}');
+            {% endfor %}
+        {% endfor %}
+        
+        // Load charts with a slight delay between each to avoid overwhelming the server
+        symbols.forEach((symbol, index) => {
+            setTimeout(() => loadChart(symbol), index * 100);
+        });
+    });
+    </script>
 </body>
 </html>
