@@ -433,16 +433,26 @@ def init_user_db():
             ip_address TEXT,
             user_agent TEXT,
             success BOOLEAN DEFAULT 1,
-            failure_reason TEXT
+            failure_reason TEXT,
+            country TEXT,
+            country_code TEXT,
+            city TEXT
         )
     ''')
     
-    # Add failure_reason column if it doesn't exist (migration for existing DBs)
-    try:
-        cursor.execute("ALTER TABLE login_logs ADD COLUMN failure_reason TEXT")
-        logger.info("Added failure_reason column to login_logs table")
-    except sqlite3.OperationalError:
-        pass  # Column already exists
+    # Add columns if they don't exist (migration for existing DBs)
+    migrations = [
+        ("failure_reason", "TEXT"),
+        ("country", "TEXT"),
+        ("country_code", "TEXT"),
+        ("city", "TEXT")
+    ]
+    for col_name, col_type in migrations:
+        try:
+            cursor.execute(f"ALTER TABLE login_logs ADD COLUMN {col_name} {col_type}")
+            logger.info(f"Added {col_name} column to login_logs table")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
     
     # Ensure admin is always in the allowed users
     cursor.execute('''
@@ -482,17 +492,45 @@ def get_allowed_emails():
         # Fallback to env var
         return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
 
+def get_ip_location(ip: str) -> dict:
+    """Get country and city from IP address using ip-api.com."""
+    try:
+        # Skip localhost/private IPs
+        if ip in ['127.0.0.1', 'localhost', 'unknown'] or ip.startswith('192.168.') or ip.startswith('10.'):
+            return {'country': 'Local', 'countryCode': 'LO', 'city': 'localhost'}
+        
+        import urllib.request
+        import json
+        url = f"http://ip-api.com/json/{ip}?fields=status,country,countryCode,city"
+        with urllib.request.urlopen(url, timeout=3) as response:
+            data = json.loads(response.read().decode())
+            if data.get('status') == 'success':
+                return data
+    except Exception as e:
+        logger.warning(f"IP geolocation failed for {ip}: {e}")
+    return {'country': 'Unknown', 'countryCode': '??', 'city': 'Unknown'}
+
+
 def log_login_attempt(email: str, request: Request, success: bool, failure_reason: str = None):
-    """Log a login attempt with optional failure reason."""
+    """Log a login attempt with optional failure reason and IP geolocation."""
     try:
         conn = sqlite3.connect(USER_DB_PATH)
         cursor = conn.cursor()
         ip = request.client.host if request.client else 'unknown'
         user_agent = request.headers.get('user-agent', 'unknown')[:500]
+        
+        # Get IP location for failed attempts (to track intruders)
+        country, country_code, city = None, None, None
+        if not success:
+            location = get_ip_location(ip)
+            country = location.get('country')
+            country_code = location.get('countryCode')
+            city = location.get('city')
+        
         cursor.execute('''
-            INSERT INTO login_logs (email, ip_address, user_agent, success, failure_reason)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (email, ip, user_agent, success, failure_reason))
+            INSERT INTO login_logs (email, ip_address, user_agent, success, failure_reason, country, country_code, city)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (email, ip, user_agent, success, failure_reason, country, country_code, city))
         conn.commit()
         conn.close()
     except Exception as e:
@@ -959,7 +997,7 @@ async def admin_page(request: Request):
     
     # Get recent login logs
     cursor.execute('''
-        SELECT email, login_time, ip_address, success, failure_reason 
+        SELECT email, login_time, ip_address, success, failure_reason, country, country_code, city 
         FROM login_logs 
         ORDER BY login_time DESC 
         LIMIT 100
@@ -970,7 +1008,35 @@ async def admin_page(request: Request):
             'login_time': row[1],
             'ip_address': row[2],
             'success': row[3],
-            'failure_reason': row[4]
+            'failure_reason': row[4],
+            'country': row[5],
+            'country_code': row[6],
+            'city': row[7]
+        }
+        for row in cursor.fetchall()
+    ]
+    
+    # Get intruders (failed attempts grouped by IP)
+    cursor.execute('''
+        SELECT ip_address, country, country_code, city, 
+               COUNT(*) as attempts, 
+               GROUP_CONCAT(DISTINCT email) as emails,
+               MAX(login_time) as last_attempt
+        FROM login_logs 
+        WHERE success = 0
+        GROUP BY ip_address
+        ORDER BY attempts DESC, last_attempt DESC
+        LIMIT 50
+    ''')
+    intruders = [
+        {
+            'ip_address': row[0],
+            'country': row[1] or 'Unknown',
+            'country_code': row[2] or '??',
+            'city': row[3] or 'Unknown',
+            'attempts': row[4],
+            'emails': row[5],
+            'last_attempt': row[6]
         }
         for row in cursor.fetchall()
     ]
@@ -982,6 +1048,7 @@ async def admin_page(request: Request):
         'user': user,
         'users': users,
         'logs': logs,
+        'intruders': intruders,
         'admin_email': ADMIN_EMAIL
     })
 

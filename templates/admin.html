@@ -74,6 +74,9 @@
         .login-success { color: #28a745; }
         .login-failed { color: #dc3545; }
         .admin-badge { background: #667eea; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 8px; }
+        .attempt-count { background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
+        .country-flag { font-weight: 600; color: #667eea; margin-right: 5px; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab { padding: 10px 20px; background: #f0f0f0; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; color: #666; }
         .tab.active { background: #667eea; color: white; }
@@ -121,6 +124,7 @@
         </div>
         <div class="tabs">
             <button class="tab active" onclick="showTab('users')">👥 Manage Users</button>
+            <button class="tab" onclick="showTab('intruders')">🚨 Intruders</button>
             <button class="tab" onclick="showTab('logs')">📋 Login Logs</button>
         </div>
         <div id="users-tab" class="tab-content active">
@@ -157,17 +161,45 @@
                 </table>
             </div>
         </div>
+        <div id="intruders-tab" class="tab-content">
+            <div class="card">
+                <h2>🚨 Failed Login Attempts by IP (Intruders)</h2>
+                <p style="color:#666; margin-bottom: 15px;">IPs that tried to access the page but could not log in, with country of origin.</p>
+                <table>
+                    <thead><tr><th>IP Address</th><th>Country</th><th>City</th><th>Attempts</th><th>Emails Tried</th><th>Last Attempt</th></tr></thead>
+                    <tbody>
+                        {% for intruder in intruders %}
+                        <tr>
+                            <td><code>{{ intruder.ip_address }}</code></td>
+                            <td>
+                                <span class="country-flag">{{ intruder.country_code }}</span>
+                                {{ intruder.country }}
+                            </td>
+                            <td>{{ intruder.city }}</td>
+                            <td><span class="attempt-count">{{ intruder.attempts }}</span></td>
+                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">{{ intruder.emails }}</td>
+                            <td>{{ intruder.last_attempt }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not intruders %}
+                        <tr><td colspan="6" style="text-align:center; color:#999; padding: 30px;">No failed login attempts yet 🎉</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
         <div id="logs-tab" class="tab-content">
             <div class="card">
                 <h2>📋 Login Activity (Last 100)</h2>
                 <table>
-                    <thead><tr><th>Email</th><th>Time</th><th>IP Address</th><th>Status</th><th>Reason</th></tr></thead>
+                    <thead><tr><th>Email</th><th>Time</th><th>IP Address</th><th>Location</th><th>Status</th><th>Reason</th></tr></thead>
                     <tbody>
                         {% for log in logs %}
                         <tr>
                             <td>{{ log.email }}</td>
                             <td>{{ log.login_time }}</td>
-                            <td>{{ log.ip_address }}</td>
+                            <td><code>{{ log.ip_address }}</code></td>
+                            <td>{% if log.country %}{{ log.country_code }} {{ log.city }}, {{ log.country }}{% else %}-{% endif %}</td>
                             <td>{% if log.success %}<span class="login-success">✓ Success</span>{% else %}<span class="login-failed">✗ Denied</span>{% endif %}</td>
                             <td>{{ log.failure_reason or '-' }}</td>
                         </tr>
