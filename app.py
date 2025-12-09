@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from authlib.integrations.starlette_client import OAuth, OAuthError
@@ -178,34 +179,32 @@ async def lifespan(app):
     print(f"[Shutdown] Final sync result: {result}")
 
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", lifespan=lifespan)
-app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
 
-# Authentication middleware - redirects to login if not authenticated
-@app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    # Public paths that don't require auth
-    public_paths = ['/login', '/auth/google', '/auth/google/callback', '/favicon.ico', '/static']
-    
-    # Check if path is public
-    path = request.url.path
-    is_public = any(path.startswith(p) for p in public_paths)
-    
-    if not is_public:
-        # Check if user is logged in
-        user = request.session.get('user')
-        if not user:
-            return RedirectResponse('/login', status_code=302)
-        
-        # Check if email is allowed
-        email = user.get('email')
-        allowed = [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
-        if email not in allowed:
-            # Clear session and redirect to login with error
-            request.session.clear()
-            return RedirectResponse('/login', status_code=302)
-    
-    response = await call_next(request)
-    return response
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        public_paths = ['/login', '/auth/google', '/auth/google/callback', '/favicon.ico', '/static']
+        path = request.url.path
+        if not any(path.startswith(p) for p in public_paths):
+            session_data = request.scope.get('session')
+            if not session_data:
+                return RedirectResponse('/login', status_code=302)
+
+            user = session_data.get('user')
+            if not user:
+                return RedirectResponse('/login', status_code=302)
+
+            email = user.get('email')
+            allowed = get_allowed_emails()
+            if email not in allowed:
+                session_data.clear()
+                return RedirectResponse('/login', status_code=302)
+
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
 
 # Mount static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -226,9 +225,93 @@ oauth.register(
     }
 )
 
-# Helper: get allowed emails from env
+# Admin email - only this user can access admin panel
+ADMIN_EMAIL = 'hategan@gmail.com'
+
+# User management database (SQLite for persistence)
+USER_DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
+
+def init_user_db():
+    """Initialize the user management database."""
+    conn = sqlite3.connect(USER_DB_PATH)
+    cursor = conn.cursor()
+    
+    # Create allowed_users table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS allowed_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            added_by TEXT NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1
+        )
+    ''')
+    
+    # Create login_logs table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS login_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address TEXT,
+            user_agent TEXT,
+            success BOOLEAN DEFAULT 1
+        )
+    ''')
+    
+    # Ensure admin is always in the allowed users
+    cursor.execute('''
+        INSERT OR IGNORE INTO allowed_users (email, added_by) 
+        VALUES (?, 'system')
+    ''', (ADMIN_EMAIL,))
+    
+    # Also add any users from ALLOWED_EMAILS env var (for backwards compatibility)
+    env_emails = os.environ.get('ALLOWED_EMAILS', '').split(',')
+    for email in env_emails:
+        email = email.strip()
+        if email:
+            cursor.execute('''
+                INSERT OR IGNORE INTO allowed_users (email, added_by) 
+                VALUES (?, 'env_migration')
+            ''', (email,))
+    
+    conn.commit()
+    conn.close()
+    logger.info(f"User database initialized at {USER_DB_PATH}")
+
+# Initialize user database
+init_user_db()
+
+# Helper: get allowed emails from database
 def get_allowed_emails():
-    return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
+    """Get list of allowed emails from database."""
+    try:
+        conn = sqlite3.connect(USER_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT email FROM allowed_users WHERE is_active = 1')
+        emails = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return emails
+    except Exception as e:
+        logger.error(f"Error fetching allowed emails: {e}")
+        # Fallback to env var
+        return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
+
+def log_login_attempt(email: str, request: Request, success: bool):
+    """Log a login attempt."""
+    try:
+        conn = sqlite3.connect(USER_DB_PATH)
+        cursor = conn.cursor()
+        ip = request.client.host if request.client else 'unknown'
+        user_agent = request.headers.get('user-agent', 'unknown')[:500]
+        cursor.execute('''
+            INSERT INTO login_logs (email, ip_address, user_agent, success)
+            VALUES (?, ?, ?, ?)
+        ''', (email, ip, user_agent, success))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error logging login attempt: {e}")
 
 # Dependency: require login and allowed email
 def require_login(request: Request):
@@ -262,12 +345,12 @@ async def login_form(request: Request):
     try:
         conn = duckdb.connect(DUCKDB_PATH)
         
-        # Today's distribution
+        # Today's distribution - use scanner_results table with scan_date column
         today = datetime.now().strftime('%Y-%m-%d')
         dist_query = f"""
             SELECT scanner_name, COUNT(*) as count
-            FROM scanner_picks
-            WHERE CAST(discovered_date AS DATE) = '{today}'
+            FROM scanner_results
+            WHERE CAST(scan_date AS DATE) = '{today}'
             GROUP BY scanner_name
             ORDER BY count DESC
         """
@@ -279,12 +362,12 @@ async def login_form(request: Request):
         # 30-day history
         history_query = """
             SELECT 
-                CAST(discovered_date AS DATE) as date,
+                CAST(scan_date AS DATE) as date,
                 scanner_name,
                 COUNT(*) as count
-            FROM scanner_picks
-            WHERE CAST(discovered_date AS DATE) >= CURRENT_DATE - INTERVAL '30 days'
-            GROUP BY CAST(discovered_date AS DATE), scanner_name
+            FROM scanner_results
+            WHERE CAST(scan_date AS DATE) >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY CAST(scan_date AS DATE), scanner_name
             ORDER BY date
         """
         history_result = conn.execute(history_query).fetchall()
@@ -360,6 +443,7 @@ async def google_callback(request: Request):
         logger.info(f"Allowed emails: {allowed}")
         
         if email not in allowed:
+            log_login_attempt(email, request, success=False)
             return templates.TemplateResponse('login.html', {
                 'request': request,
                 'error': f'Access denied. Email {email} is not authorized to access this application.',
@@ -369,6 +453,9 @@ async def google_callback(request: Request):
                 'active_scanners': 0,
                 'month_avg': 0
             })
+        
+        # Log successful login
+        log_login_attempt(email, request, success=True)
         
         # Store user info in session
         request.session['user'] = {
@@ -397,6 +484,170 @@ async def google_callback(request: Request):
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse('/login', status_code=302)
+
+
+# Admin check helper
+def is_admin(request: Request) -> bool:
+    """Check if the current user is an admin."""
+    user = request.session.get('user')
+    if not user:
+        return False
+    return user.get('email') == ADMIN_EMAIL
+
+
+# Admin page - User management
+@app.get('/admin', response_class=HTMLResponse)
+async def admin_page(request: Request):
+    """Admin page for managing users and viewing login logs."""
+    user = request.session.get('user')
+    if not user or user.get('email') != ADMIN_EMAIL:
+        return RedirectResponse('/login', status_code=302)
+    
+    # Get all users
+    conn = sqlite3.connect(USER_DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, email, added_by, added_at, is_active 
+        FROM allowed_users 
+        ORDER BY added_at DESC
+    ''')
+    users = [
+        {
+            'id': row[0],
+            'email': row[1],
+            'added_by': row[2],
+            'added_at': row[3],
+            'is_active': row[4]
+        }
+        for row in cursor.fetchall()
+    ]
+    
+    # Get recent login logs
+    cursor.execute('''
+        SELECT email, login_time, ip_address, success 
+        FROM login_logs 
+        ORDER BY login_time DESC 
+        LIMIT 100
+    ''')
+    logs = [
+        {
+            'email': row[0],
+            'login_time': row[1],
+            'ip_address': row[2],
+            'success': row[3]
+        }
+        for row in cursor.fetchall()
+    ]
+    
+    conn.close()
+    
+    return templates.TemplateResponse('admin.html', {
+        'request': request,
+        'user': user,
+        'users': users,
+        'logs': logs,
+        'admin_email': ADMIN_EMAIL
+    })
+
+
+# Admin API - Add user
+@app.post('/admin/add-user')
+async def admin_add_user(request: Request, email: str = Form(...)):
+    """Add a new allowed user."""
+    user = request.session.get('user')
+    if not user or user.get('email') != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail='Admin access required')
+    
+    email = email.strip().lower()
+    if not email or '@' not in email:
+        raise HTTPException(status_code=400, detail='Invalid email address')
+    
+    try:
+        conn = sqlite3.connect(USER_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO allowed_users (email, added_by) 
+            VALUES (?, ?)
+        ''', (email, user.get('email')))
+        conn.commit()
+        conn.close()
+        logger.info(f"Admin added user: {email}")
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail='User already exists')
+    
+    return RedirectResponse('/admin', status_code=302)
+
+
+# Admin API - Remove user
+@app.post('/admin/remove-user/{user_id}')
+async def admin_remove_user(request: Request, user_id: int):
+    """Remove/deactivate a user."""
+    user = request.session.get('user')
+    if not user or user.get('email') != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail='Admin access required')
+    
+    conn = sqlite3.connect(USER_DB_PATH)
+    cursor = conn.cursor()
+    
+    # Get the user email first
+    cursor.execute('SELECT email FROM allowed_users WHERE id = ?', (user_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        raise HTTPException(status_code=404, detail='User not found')
+    
+    target_email = result[0]
+    
+    # Prevent removing admin
+    if target_email == ADMIN_EMAIL:
+        conn.close()
+        raise HTTPException(status_code=400, detail='Cannot remove admin user')
+    
+    # Delete the user
+    cursor.execute('DELETE FROM allowed_users WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    
+    logger.info(f"Admin removed user: {target_email}")
+    return RedirectResponse('/admin', status_code=302)
+
+
+# Admin API - Toggle user active status
+@app.post('/admin/toggle-user/{user_id}')
+async def admin_toggle_user(request: Request, user_id: int):
+    """Toggle a user's active status."""
+    user = request.session.get('user')
+    if not user or user.get('email') != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail='Admin access required')
+    
+    conn = sqlite3.connect(USER_DB_PATH)
+    cursor = conn.cursor()
+    
+    # Get the user email first
+    cursor.execute('SELECT email, is_active FROM allowed_users WHERE id = ?', (user_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        raise HTTPException(status_code=404, detail='User not found')
+    
+    target_email, is_active = result
+    
+    # Prevent deactivating admin
+    if target_email == ADMIN_EMAIL:
+        conn.close()
+        raise HTTPException(status_code=400, detail='Cannot deactivate admin user')
+    
+    # Toggle status
+    new_status = 0 if is_active else 1
+    cursor.execute('UPDATE allowed_users SET is_active = ? WHERE id = ?', (new_status, user_id))
+    conn.commit()
+    conn.close()
+    
+    logger.info(f"Admin toggled user {target_email} active status to {new_status}")
+    return RedirectResponse('/admin', status_code=302)
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")
@@ -819,7 +1070,7 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
     
     # Get price history and technical indicators from scanner_data database
     try:
-        scanner_conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+        scanner_conn = duckdb.connect(DUCKDB_PATH)
         price_results = scanner_conn.execute("""
             SELECT date, open, high, low, close, volume,
                    sma_20, sma_50, sma_200,
@@ -1667,7 +1918,7 @@ async def focus_list_page(request: Request):
         
         # Fetch metadata for all symbols
         try:
-            conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+            conn = duckdb.connect(DUCKDB_PATH)
             
             # Get fundamental cache data (earnings_date not in this table)
             placeholders = ','.join(['?' for _ in symbols])
@@ -2336,7 +2587,7 @@ async def darkpool_signals(
 @app.get("/ranked", response_class=HTMLResponse)
 async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     """Display AI-ranked stock analysis results."""
-    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    conn = duckdb.connect(DUCKDB_PATH)
     
     # Get today's date or use provided date
     today = datetime.now().strftime('%Y-%m-%d')
@@ -2417,7 +2668,7 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
 @app.get("/stats", response_class=HTMLResponse)
 async def stats(request: Request):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display database statistics landing page."""
-    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    conn = duckdb.connect(DUCKDB_PATH)
     
     stats_data = {}
     
@@ -2513,7 +2764,7 @@ async def scanner_performance(request: Request):
     
     try:
         # Use a fresh connection for this request
-        conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+        conn = duckdb.connect(DUCKDB_PATH)
         
         # Get all scanners
         scanners_query = """
@@ -2528,7 +2779,7 @@ async def scanner_performance(request: Request):
         
         for scanner in scanners:
             # Reconnect for each scanner to avoid timeout
-            conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+            conn = duckdb.connect(DUCKDB_PATH)
             
             # Get all picks for this scanner
             picks_query = """
@@ -2666,7 +2917,7 @@ async def scanner_performance(request: Request):
 @app.get("/scanner-docs", response_class=HTMLResponse)
 async def scanner_docs(request: Request):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display documentation landing page with all scanners."""
-    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    conn = duckdb.connect(DUCKDB_PATH)
     
     # Get scanner info
     scanner_data = conn.execute("""
@@ -2714,7 +2965,7 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
 @app.get("/scanner-docs/{scanner_name}", response_class=HTMLResponse)
 async def scanner_detail(request: Request, scanner_name: str):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display detailed documentation for a specific scanner."""
-    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    conn = duckdb.connect(DUCKDB_PATH)
     
     # Get overall scanner stats
     stats = conn.execute("""
@@ -2803,7 +3054,7 @@ async def ticker_search(request: Request, ticker: Optional[str] = Query(None)):
             'results': None
         })
     
-    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    conn = duckdb.connect(DUCKDB_PATH)
     
     try:
         # Get all historical and current results for this ticker
@@ -4103,7 +4354,7 @@ async def index(
     stocks = {}
 
     # Connect to DuckDB and get list of symbols
-    conn = duckdb.connect(DUCKDB_PATH, read_only=True)
+    conn = duckdb.connect(DUCKDB_PATH)
     
     # For ticker-only searches, ignore date filter to show all historical results
     if selected_ticker and not pattern:

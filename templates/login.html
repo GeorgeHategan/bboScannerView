@@ -9,36 +9,40 @@
         * { box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background-image: radial-gradient(circle, #d7d7d7 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-color: #f2f4f7;
+            color: #1e1f20;
             margin: 0;
-            padding: 20px;
+            padding: 30px 20px;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .login-container { 
-            max-width: 900px;
+            max-width: 940px;
             width: 100%;
-            background: rgba(255,255,255,0.98);
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            background: #f5f6fa;
+            padding: 42px;
+            border-radius: 18px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.1);
         }
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 32px;
             padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
         }
         h1 {
             margin: 0 0 8px 0;
             font-size: 36px;
-            color: #1a1a1a;
+            color: #141622;
             font-weight: 700;
         }
         .slogan {
-            color: #666;
+            color: rgba(20, 22, 34, 0.6);
             font-size: 16px;
             font-style: italic;
         }
@@ -47,45 +51,54 @@
             justify-content: center;
             gap: 50px;
             margin-bottom: 25px;
+            flex-wrap: wrap;
         }
         .stat-item { text-align: center; }
         .stat-value {
             font-size: 36px;
             font-weight: 700;
-            color: #0066cc;
+            color: #1f4a78;
         }
         .stat-label {
             font-size: 12px;
-            color: #666;
+            color: rgba(20, 22, 34, 0.6);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.7px;
         }
         .charts-section {
             display: flex;
-            gap: 20px;
+            flex-wrap: wrap;
+            gap: 18px;
             margin-bottom: 30px;
+            justify-content: space-between;
         }
         .chart-box {
             flex: 1;
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #e0e0e0;
+            min-width: 280px;
+            background: #ffffff;
+            padding: 22px;
+            border-radius: 14px;
+            border: 1px solid rgba(0,0,0,0.08);
+            box-shadow: 0 18px 35px rgba(15, 20, 42, 0.12);
         }
         .chart-box h3 {
             margin: 0 0 15px 0;
             font-size: 14px;
-            color: #333;
+            color: #1f2c45;
             text-align: center;
         }
         .chart-container {
             height: 280px;
             position: relative;
+            background: #f8f9fb;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 8px;
         }
         .login-section {
             text-align: center;
             padding-top: 25px;
-            border-top: 1px solid #eee;
+            border-top: 1px solid rgba(255,255,255,0.08);
         }
         .google-btn {
             display: inline-flex;
@@ -166,19 +179,19 @@
         
         <!-- Charts Section -->
         <div class="charts-section">
-            <!-- Pie Chart - Today's Distribution -->
-            <div class="chart-box">
-                <h3>📊 Today's Results by Scanner</h3>
-                <div class="chart-container">
-                    <canvas id="pieChart"></canvas>
-                </div>
-            </div>
-            
             <!-- Line Chart - 30 Day Evolution -->
             <div class="chart-box">
                 <h3>📈 30-Day Evolution</h3>
                 <div class="chart-container">
                     <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Pie Chart - Today's Distribution -->
+            <div class="chart-box">
+                <h3>📊 Today's Results by Scanner</h3>
+                <div class="chart-container">
+                    <canvas id="pieChart"></canvas>
                 </div>
             </div>
         </div>
