@@ -4,6 +4,8 @@ import json
 import sqlite3
 import asyncio
 import logging
+import threading
+from functools import wraps
 from dotenv import load_dotenv
 import duckdb
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
@@ -16,6 +18,122 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from contextlib import asynccontextmanager
+
+# ============================================================
+# CONNECTION POOL & CACHING SYSTEM
+# ============================================================
+
+class ConnectionPool:
+    """Thread-safe DuckDB/MotherDuck connection pool."""
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._connections = {}
+                    cls._instance._conn_lock = threading.Lock()
+        return cls._instance
+    
+    def get_connection(self, db_path: str):
+        """Get or create a connection for the given database path."""
+        with self._conn_lock:
+            if db_path not in self._connections:
+                try:
+                    self._connections[db_path] = duckdb.connect(db_path)
+                    print(f"[ConnectionPool] Created new connection for: {db_path[:50]}...")
+                except Exception as e:
+                    print(f"[ConnectionPool] Error creating connection: {e}")
+                    raise
+            return self._connections[db_path]
+    
+    def close_all(self):
+        """Close all connections."""
+        with self._conn_lock:
+            for path, conn in self._connections.items():
+                try:
+                    conn.close()
+                    print(f"[ConnectionPool] Closed connection: {path[:50]}...")
+                except:
+                    pass
+            self._connections.clear()
+
+# Global connection pool instance
+_connection_pool = ConnectionPool()
+
+def get_db_connection(db_path: str = None):
+    """Get a database connection from the pool."""
+    if db_path is None:
+        db_path = DUCKDB_PATH
+    return _connection_pool.get_connection(db_path)
+
+
+class TTLCache:
+    """Simple thread-safe TTL cache for query results."""
+    def __init__(self):
+        self._cache = {}
+        self._lock = threading.Lock()
+    
+    def get(self, key: str):
+        """Get value from cache if not expired."""
+        with self._lock:
+            if key in self._cache:
+                value, expiry = self._cache[key]
+                if datetime.now() < expiry:
+                    return value
+                else:
+                    del self._cache[key]
+        return None
+    
+    def set(self, key: str, value, ttl_seconds: int = 300):
+        """Set value in cache with TTL (default 5 minutes)."""
+        with self._lock:
+            expiry = datetime.now() + timedelta(seconds=ttl_seconds)
+            self._cache[key] = (value, expiry)
+    
+    def invalidate(self, key: str = None):
+        """Invalidate a specific key or all keys."""
+        with self._lock:
+            if key:
+                self._cache.pop(key, None)
+            else:
+                self._cache.clear()
+    
+    def stats(self):
+        """Get cache stats."""
+        with self._lock:
+            now = datetime.now()
+            valid = sum(1 for _, (_, exp) in self._cache.items() if now < exp)
+            return {"total": len(self._cache), "valid": valid}
+
+# Global cache instance
+_query_cache = TTLCache()
+
+def cached(ttl_seconds: int = 300, key_prefix: str = ""):
+    """Decorator to cache function results."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Create cache key from function name and arguments
+            cache_key = f"{key_prefix}{func.__name__}:{str(args)}:{str(sorted(kwargs.items()))}"
+            
+            # Check cache first
+            cached_result = _query_cache.get(cache_key)
+            if cached_result is not None:
+                return cached_result
+            
+            # Execute function and cache result
+            result = func(*args, **kwargs)
+            _query_cache.set(cache_key, result, ttl_seconds)
+            return result
+        return wrapper
+    return decorator
+
+# ============================================================
+# END CONNECTION POOL & CACHING SYSTEM
+# ============================================================
 
 # OpenAI integration
 try:
@@ -177,6 +295,11 @@ async def lifespan(app):
     result = sync_sqlite_to_motherduck()
     logger.info(f"[Shutdown] Final sync result: {result}")
     print(f"[Shutdown] Final sync result: {result}")
+    
+    # Close all database connections
+    logger.info("[Shutdown] Closing database connections...")
+    _connection_pool.close_all()
+    logger.info("[Shutdown] All connections closed")
 
 app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", lifespan=lifespan)
 
@@ -325,17 +448,14 @@ def require_login(request: Request):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Access denied - not in authorized user list')
     return email
 
-# Login page with charts
-@app.get('/login', response_class=HTMLResponse)
-async def login_form(request: Request):
-    # Check if user is already logged in
-    user = request.session.get('user')
-    if user:
-        email = user.get('email')
-        if email in get_allowed_emails():
-            return RedirectResponse('/', status_code=302)
+# Cached helper function for login page chart data
+def get_login_page_charts():
+    """Fetch login page chart data with 5-minute caching."""
+    cache_key = "login_page_charts"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
     
-    # Fetch data for charts
     scanner_distribution = []
     scanner_history = {"dates": [], "scanners": {}}
     today_total = 0
@@ -343,7 +463,7 @@ async def login_form(request: Request):
     month_avg = 0
     
     try:
-        conn = duckdb.connect(DUCKDB_PATH)
+        conn = get_db_connection(DUCKDB_PATH)
         
         # Today's distribution - use scanner_results table with scan_date column
         today = datetime.now().strftime('%Y-%m-%d')
@@ -398,18 +518,42 @@ async def login_form(request: Request):
             total_30_days = sum(sum(s["data"]) for s in scanner_history["scanners"].values())
             month_avg = round(total_30_days / len(dates))
         
-        conn.close()
     except Exception as e:
         logger.error(f"Error fetching login page data: {e}")
+    
+    result = {
+        "scanner_distribution": scanner_distribution,
+        "scanner_history": scanner_history,
+        "today_total": today_total,
+        "active_scanners": active_scanners,
+        "month_avg": month_avg
+    }
+    
+    # Cache for 5 minutes
+    _query_cache.set(cache_key, result, 300)
+    return result
+
+# Login page with charts
+@app.get('/login', response_class=HTMLResponse)
+async def login_form(request: Request):
+    # Check if user is already logged in
+    user = request.session.get('user')
+    if user:
+        email = user.get('email')
+        if email in get_allowed_emails():
+            return RedirectResponse('/', status_code=302)
+    
+    # Fetch cached chart data
+    chart_data = get_login_page_charts()
     
     return templates.TemplateResponse('login.html', {
         'request': request, 
         'error': None,
-        'scanner_distribution': scanner_distribution,
-        'scanner_history': scanner_history,
-        'today_total': today_total,
-        'active_scanners': active_scanners,
-        'month_avg': month_avg
+        'scanner_distribution': chart_data['scanner_distribution'],
+        'scanner_history': chart_data['scanner_history'],
+        'today_total': chart_data['today_total'],
+        'active_scanners': chart_data['active_scanners'],
+        'month_avg': chart_data['month_avg']
     })
 
 # Google OAuth login redirect
@@ -648,6 +792,40 @@ async def admin_toggle_user(request: Request, user_id: int):
     
     logger.info(f"Admin toggled user {target_email} active status to {new_status}")
     return RedirectResponse('/admin', status_code=302)
+
+
+# Admin API - Cache stats
+@app.get('/admin/cache-stats')
+async def admin_cache_stats(request: Request):
+    """Get cache statistics (admin only)."""
+    user = request.session.get('user')
+    if not user or user.get('email') != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail='Admin access required')
+    
+    stats = _query_cache.stats()
+    pool_connections = len(_connection_pool._connections) if hasattr(_connection_pool, '_connections') else 0
+    
+    return JSONResponse({
+        'cache': stats,
+        'connection_pool': {
+            'active_connections': pool_connections
+        }
+    })
+
+
+# Admin API - Clear cache
+@app.post('/admin/clear-cache')
+async def admin_clear_cache(request: Request):
+    """Clear the query cache (admin only)."""
+    user = request.session.get('user')
+    if not user or user.get('email') != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail='Admin access required')
+    
+    _query_cache.invalidate()
+    logger.info("Admin cleared query cache")
+    
+    return JSONResponse({'status': 'ok', 'message': 'Cache cleared'})
+
 
 # Setup templates
 templates = Jinja2Templates(directory="templates")
@@ -1070,7 +1248,7 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
     
     # Get price history and technical indicators from scanner_data database
     try:
-        scanner_conn = duckdb.connect(DUCKDB_PATH)
+        scanner_conn = get_db_connection(DUCKDB_PATH)
         price_results = scanner_conn.execute("""
             SELECT date, open, high, low, close, volume,
                    sma_20, sma_50, sma_200,
@@ -1424,7 +1602,7 @@ async def debug_info():
     # Test MotherDuck connection (scanner_data)
     try:
         if DUCKDB_PATH:
-            conn = duckdb.connect(DUCKDB_PATH)
+            conn = get_db_connection(DUCKDB_PATH)
             if conn:
                 debug_data["motherduck_scanner"] = "connected"
                 conn.close()
@@ -1918,7 +2096,7 @@ async def focus_list_page(request: Request):
         
         # Fetch metadata for all symbols
         try:
-            conn = duckdb.connect(DUCKDB_PATH)
+            conn = get_db_connection(DUCKDB_PATH)
             
             # Get fundamental cache data (earnings_date not in this table)
             placeholders = ','.join(['?' for _ in symbols])
@@ -2587,7 +2765,7 @@ async def darkpool_signals(
 @app.get("/ranked", response_class=HTMLResponse)
 async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     """Display AI-ranked stock analysis results."""
-    conn = duckdb.connect(DUCKDB_PATH)
+    conn = get_db_connection(DUCKDB_PATH)
     
     # Get today's date or use provided date
     today = datetime.now().strftime('%Y-%m-%d')
@@ -2668,7 +2846,7 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
 @app.get("/stats", response_class=HTMLResponse)
 async def stats(request: Request):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display database statistics landing page."""
-    conn = duckdb.connect(DUCKDB_PATH)
+    conn = get_db_connection(DUCKDB_PATH)
     
     stats_data = {}
     
@@ -2764,7 +2942,7 @@ async def scanner_performance(request: Request):
     
     try:
         # Use a fresh connection for this request
-        conn = duckdb.connect(DUCKDB_PATH)
+        conn = get_db_connection(DUCKDB_PATH)
         
         # Get all scanners
         scanners_query = """
@@ -2779,7 +2957,7 @@ async def scanner_performance(request: Request):
         
         for scanner in scanners:
             # Reconnect for each scanner to avoid timeout
-            conn = duckdb.connect(DUCKDB_PATH)
+            conn = get_db_connection(DUCKDB_PATH)
             
             # Get all picks for this scanner
             picks_query = """
@@ -2917,7 +3095,7 @@ async def scanner_performance(request: Request):
 @app.get("/scanner-docs", response_class=HTMLResponse)
 async def scanner_docs(request: Request):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display documentation landing page with all scanners."""
-    conn = duckdb.connect(DUCKDB_PATH)
+    conn = get_db_connection(DUCKDB_PATH)
     
     # Get scanner info
     scanner_data = conn.execute("""
@@ -2965,7 +3143,7 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
 @app.get("/scanner-docs/{scanner_name}", response_class=HTMLResponse)
 async def scanner_detail(request: Request, scanner_name: str):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display detailed documentation for a specific scanner."""
-    conn = duckdb.connect(DUCKDB_PATH)
+    conn = get_db_connection(DUCKDB_PATH)
     
     # Get overall scanner stats
     stats = conn.execute("""
@@ -3054,7 +3232,7 @@ async def ticker_search(request: Request, ticker: Optional[str] = Query(None)):
             'results': None
         })
     
-    conn = duckdb.connect(DUCKDB_PATH)
+    conn = get_db_connection(DUCKDB_PATH)
     
     try:
         # Get all historical and current results for this ticker
@@ -4353,8 +4531,8 @@ async def index(
     selected_ticker = ticker.strip().upper() if ticker else ''
     stocks = {}
 
-    # Connect to DuckDB and get list of symbols
-    conn = duckdb.connect(DUCKDB_PATH)
+    # Connect to DuckDB using connection pool
+    conn = get_db_connection(DUCKDB_PATH)
     
     # For ticker-only searches, ignore date filter to show all historical results
     if selected_ticker and not pattern:
