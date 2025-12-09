@@ -393,7 +393,7 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 # Favicon route
 @app.get("/favicon.ico")
 async def favicon():
-    return FileResponse(str(BASE_DIR / "static" / "favIcon.png"), media_type="image/png")
+    return FileResponse(str(BASE_DIR / "static" / "favicon.png"), media_type="image/png")
 
 # Configure Google OAuth
 oauth.register(
