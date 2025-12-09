@@ -6,8 +6,12 @@ import asyncio
 import logging
 import threading
 from functools import wraps
+from pathlib import Path
 from dotenv import load_dotenv
 import duckdb
+
+# Base directory for resolving relative paths (works on Render and locally)
+BASE_DIR = Path(__file__).resolve().parent
 from fastapi import FastAPI, Request, Query, Form, Depends, HTTPException, status
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
@@ -384,12 +388,12 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'supersecret'))
 
 # Mount static files directory
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 # Favicon route
 @app.get("/favicon.ico")
 async def favicon():
-    return FileResponse("static/favIcon.png", media_type="image/png")
+    return FileResponse(str(BASE_DIR / "static" / "favIcon.png"), media_type="image/png")
 
 # Configure Google OAuth
 oauth.register(
@@ -1186,7 +1190,7 @@ async def admin_clear_cache(request: Request):
 
 
 # Setup templates
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # Database configuration
 # For local development, use MotherDuck to access production data
