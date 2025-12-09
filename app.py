@@ -409,92 +409,165 @@ oauth.register(
 # Admin email - only this user can access admin panel
 ADMIN_EMAIL = 'hategan@gmail.com'
 
-# User management database (SQLite for persistence)
-USER_DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
+# User management database - PostgreSQL on Render for persistence
+# Get PostgreSQL connection string from environment
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
+
+
+def get_user_db_connection():
+    """Get connection to user management database (PostgreSQL or SQLite)."""
+    if DATABASE_URL:
+        # Production: Use PostgreSQL on Render
+        try:
+            import psycopg2
+            # Render uses postgresql:// but psycopg2 needs postgres://
+            db_url = DATABASE_URL.replace('postgresql://', 'postgres://')
+            conn = psycopg2.connect(db_url)
+            return conn
+        except Exception as e:
+            logger.error(f"Error connecting to PostgreSQL: {e}")
+            return None
+    else:
+        # Local development: Use SQLite
+        logger.warning("No DATABASE_URL - using local SQLite")
+        import sqlite3
+        USER_DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
+        return sqlite3.connect(USER_DB_PATH)
+
 
 def init_user_db():
-    """Initialize the user management database."""
-    conn = sqlite3.connect(USER_DB_PATH)
-    cursor = conn.cursor()
-    
-    # Create allowed_users table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS allowed_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            added_by TEXT NOT NULL,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active BOOLEAN DEFAULT 1
-        )
-    ''')
-    
-    # Create login_logs table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS login_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT NOT NULL,
-            login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            ip_address TEXT,
-            user_agent TEXT,
-            success BOOLEAN DEFAULT 1,
-            failure_reason TEXT,
-            country TEXT,
-            country_code TEXT,
-            city TEXT
-        )
-    ''')
-    
-    # Add columns if they don't exist (migration for existing DBs)
-    migrations = [
-        ("failure_reason", "TEXT"),
-        ("country", "TEXT"),
-        ("country_code", "TEXT"),
-        ("city", "TEXT")
-    ]
-    for col_name, col_type in migrations:
-        try:
-            cursor.execute(f"ALTER TABLE login_logs ADD COLUMN {col_name} {col_type}")
-            logger.info(f"Added {col_name} column to login_logs table")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
-    
-    # Ensure admin is always in the allowed users
-    cursor.execute('''
-        INSERT OR IGNORE INTO allowed_users (email, added_by) 
-        VALUES (?, 'system')
-    ''', (ADMIN_EMAIL,))
-    
-    # Also add any users from ALLOWED_EMAILS env var (for backwards compatibility)
-    env_emails = os.environ.get('ALLOWED_EMAILS', '').split(',')
-    for email in env_emails:
-        email = email.strip()
-        if email:
+    """Initialize user management database (PostgreSQL or SQLite)."""
+    conn = get_user_db_connection()
+    if not conn:
+        logger.error("Could not initialize user database")
+        return
+
+    try:
+        cursor = conn.cursor()
+
+        if DATABASE_URL:
+            # PostgreSQL syntax
             cursor.execute('''
-                INSERT OR IGNORE INTO allowed_users (email, added_by) 
-                VALUES (?, 'env_migration')
-            ''', (email,))
-    
-    conn.commit()
-    conn.close()
-    logger.info(f"User database initialized at {USER_DB_PATH}")
+                CREATE TABLE IF NOT EXISTS allowed_users (
+                    id SERIAL PRIMARY KEY,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    added_by VARCHAR(255) NOT NULL,
+                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_active BOOLEAN DEFAULT true
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS login_logs (
+                    id SERIAL PRIMARY KEY,
+                    email VARCHAR(255) NOT NULL,
+                    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address VARCHAR(50),
+                    user_agent TEXT,
+                    success BOOLEAN DEFAULT true,
+                    failure_reason TEXT,
+                    country VARCHAR(100),
+                    country_code VARCHAR(10),
+                    city VARCHAR(100)
+                )
+            ''')
+        else:
+            # SQLite syntax
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS allowed_users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE NOT NULL,
+                    added_by TEXT NOT NULL,
+                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_active BOOLEAN DEFAULT 1
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS login_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL,
+                    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    success BOOLEAN DEFAULT 1,
+                    failure_reason TEXT,
+                    country TEXT,
+                    country_code TEXT,
+                    city TEXT
+                )
+            ''')
+
+        # Ensure admin is always in allowed users
+        if DATABASE_URL:
+            cursor.execute('''
+                INSERT INTO allowed_users (email, added_by)
+                VALUES (%s, 'system')
+                ON CONFLICT (email) DO NOTHING
+            ''', (ADMIN_EMAIL,))
+        else:
+            cursor.execute('''
+                INSERT OR IGNORE INTO allowed_users (email, added_by)
+                VALUES (?, 'system')
+            ''', (ADMIN_EMAIL,))
+
+        # Add users from ALLOWED_EMAILS env var
+        env_emails = os.environ.get('ALLOWED_EMAILS', '').split(',')
+        for email in env_emails:
+            email = email.strip()
+            if email:
+                if DATABASE_URL:
+                    cursor.execute('''
+                        INSERT INTO allowed_users (email, added_by)
+                        VALUES (%s, 'env_migration')
+                        ON CONFLICT (email) DO NOTHING
+                    ''', (email,))
+                else:
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO allowed_users (email, added_by)
+                        VALUES (?, 'env_migration')
+                    ''', (email,))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info("User database initialized successfully")
+    except Exception as e:
+        logger.error(f"Error initializing user database: {e}")
+        if conn:
+            conn.close()
+
 
 # Initialize user database
 init_user_db()
+
 
 # Helper: get allowed emails from database
 def get_allowed_emails():
     """Get list of allowed emails from database."""
     try:
-        conn = sqlite3.connect(USER_DB_PATH)
+        conn = get_user_db_connection()
+        if not conn:
+            return [ADMIN_EMAIL]
+
         cursor = conn.cursor()
-        cursor.execute('SELECT email FROM allowed_users WHERE is_active = 1')
+        if DATABASE_URL:
+            cursor.execute(
+                'SELECT email FROM allowed_users WHERE is_active = true'
+            )
+        else:
+            cursor.execute(
+                'SELECT email FROM allowed_users WHERE is_active = 1'
+            )
+
         emails = [row[0] for row in cursor.fetchall()]
+        cursor.close()
         conn.close()
         return emails
     except Exception as e:
         logger.error(f"Error fetching allowed emails: {e}")
-        # Fallback to env var
-        return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
+        env_emails = os.environ.get('ALLOWED_EMAILS', '').split(',')
+        return [e.strip() for e in env_emails if e.strip()] or [ADMIN_EMAIL]
 
 def get_ip_location(ip: str) -> dict:
     """Get country and city from IP address using ip-api.com."""
@@ -515,14 +588,19 @@ def get_ip_location(ip: str) -> dict:
     return {'country': 'Unknown', 'countryCode': '??', 'city': 'Unknown'}
 
 
-def log_login_attempt(email: str, request: Request, success: bool, failure_reason: str = None):
-    """Log a login attempt with optional failure reason and IP geolocation."""
+def log_login_attempt(email: str, request: Request, success: bool,
+                      failure_reason: str = None):
+    """Log a login attempt with failure reason and IP geolocation."""
     try:
-        conn = sqlite3.connect(USER_DB_PATH)
+        conn = get_user_db_connection()
+        if not conn:
+            logger.warning("Could not log login - no database connection")
+            return
+
         cursor = conn.cursor()
         ip = request.client.host if request.client else 'unknown'
         user_agent = request.headers.get('user-agent', 'unknown')[:500]
-        
+
         # Get IP location for failed attempts (to track intruders)
         country, country_code, city = None, None, None
         if not success:
@@ -530,12 +608,28 @@ def log_login_attempt(email: str, request: Request, success: bool, failure_reaso
             country = location.get('country')
             country_code = location.get('countryCode')
             city = location.get('city')
-        
-        cursor.execute('''
-            INSERT INTO login_logs (email, ip_address, user_agent, success, failure_reason, country, country_code, city)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (email, ip, user_agent, success, failure_reason, country, country_code, city))
+
+        if DATABASE_URL:
+            # PostgreSQL syntax
+            cursor.execute('''
+                INSERT INTO login_logs (email, ip_address, user_agent,
+                                       success, failure_reason, country,
+                                       country_code, city)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (email, ip, user_agent, success, failure_reason,
+                  country, country_code, city))
+        else:
+            # SQLite syntax
+            cursor.execute('''
+                INSERT INTO login_logs (email, ip_address, user_agent,
+                                       success, failure_reason, country,
+                                       country_code, city)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (email, ip, user_agent, success, failure_reason,
+                  country, country_code, city))
+
         conn.commit()
+        cursor.close()
         conn.close()
     except Exception as e:
         logger.error(f"Error logging login attempt: {e}")
@@ -980,12 +1074,14 @@ async def admin_page(request: Request):
         return RedirectResponse('/login', status_code=302)
     
     # Get all users
-    conn = sqlite3.connect(USER_DB_PATH)
+    conn = get_user_db_connection()
+    if not conn:
+        return HTMLResponse("Database connection error", status_code=500)
+
     cursor = conn.cursor()
-    
     cursor.execute('''
-        SELECT id, email, added_by, added_at, is_active 
-        FROM allowed_users 
+        SELECT id, email, added_by, added_at, is_active
+        FROM allowed_users
         ORDER BY added_at DESC
     ''')
     users = [
@@ -998,12 +1094,13 @@ async def admin_page(request: Request):
         }
         for row in cursor.fetchall()
     ]
-    
+
     # Get recent login logs
     cursor.execute('''
-        SELECT email, login_time, ip_address, success, failure_reason, country, country_code, city 
-        FROM login_logs 
-        ORDER BY login_time DESC 
+        SELECT email, login_time, ip_address, success, failure_reason,
+               country, country_code, city
+        FROM login_logs
+        ORDER BY login_time DESC
         LIMIT 100
     ''')
     logs = [
@@ -1019,19 +1116,35 @@ async def admin_page(request: Request):
         }
         for row in cursor.fetchall()
     ]
-    
+
     # Get intruders (failed attempts grouped by IP)
-    cursor.execute('''
-        SELECT ip_address, country, country_code, city, 
-               COUNT(*) as attempts, 
-               GROUP_CONCAT(DISTINCT email) as emails,
-               MAX(login_time) as last_attempt
-        FROM login_logs 
-        WHERE success = 0
-        GROUP BY ip_address
-        ORDER BY attempts DESC, last_attempt DESC
-        LIMIT 50
-    ''')
+    if DATABASE_URL:
+        # PostgreSQL
+        cursor.execute('''
+            SELECT ip_address, country, country_code, city,
+                   COUNT(*) as attempts,
+                   STRING_AGG(DISTINCT email, ', ') as emails,
+                   MAX(login_time) as last_attempt
+            FROM login_logs
+            WHERE success = false
+            GROUP BY ip_address, country, country_code, city
+            ORDER BY attempts DESC, last_attempt DESC
+            LIMIT 50
+        ''')
+    else:
+        # SQLite
+        cursor.execute('''
+            SELECT ip_address, country, country_code, city,
+                   COUNT(*) as attempts,
+                   GROUP_CONCAT(DISTINCT email) as emails,
+                   MAX(login_time) as last_attempt
+            FROM login_logs
+            WHERE success = 0
+            GROUP BY ip_address
+            ORDER BY attempts DESC, last_attempt DESC
+            LIMIT 50
+        ''')
+
     intruders = [
         {
             'ip_address': row[0],
@@ -1044,9 +1157,10 @@ async def admin_page(request: Request):
         }
         for row in cursor.fetchall()
     ]
-    
+
+    cursor.close()
     conn.close()
-    
+
     return templates.TemplateResponse('admin.html', {
         'request': request,
         'user': user,
@@ -1068,20 +1182,37 @@ async def admin_add_user(request: Request, email: str = Form(...)):
     email = email.strip().lower()
     if not email or '@' not in email:
         raise HTTPException(status_code=400, detail='Invalid email address')
-    
+
     try:
-        conn = sqlite3.connect(USER_DB_PATH)
+        conn = get_user_db_connection()
+        if not conn:
+            raise HTTPException(status_code=500, detail='Database error')
+
         cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO allowed_users (email, added_by) 
-            VALUES (?, ?)
-        ''', (email, user.get('email')))
+
+        if DATABASE_URL:
+            # PostgreSQL syntax
+            cursor.execute('''
+                INSERT INTO allowed_users (email, added_by)
+                VALUES (%s, %s)
+            ''', (email, user.get('email')))
+        else:
+            # SQLite syntax
+            cursor.execute('''
+                INSERT INTO allowed_users (email, added_by)
+                VALUES (?, ?)
+            ''', (email, user.get('email')))
+
         conn.commit()
+        cursor.close()
         conn.close()
         logger.info(f"Admin added user: {email}")
-    except sqlite3.IntegrityError:
-        raise HTTPException(status_code=400, detail='User already exists')
-    
+    except Exception as e:
+        error_str = str(e)
+        if 'duplicate' in error_str.lower() or 'unique' in error_str.lower():
+            raise HTTPException(status_code=400, detail='User already exists')
+        raise HTTPException(status_code=500, detail=str(e))
+
     return RedirectResponse('/admin', status_code=302)
 
 
@@ -1092,30 +1223,50 @@ async def admin_remove_user(request: Request, user_id: int):
     user = request.session.get('user')
     if not user or user.get('email') != ADMIN_EMAIL:
         raise HTTPException(status_code=403, detail='Admin access required')
-    
-    conn = sqlite3.connect(USER_DB_PATH)
+
+    conn = get_user_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail='Database error')
+
     cursor = conn.cursor()
-    
+
     # Get the user email first
-    cursor.execute('SELECT email FROM allowed_users WHERE id = ?', (user_id,))
+    if DATABASE_URL:
+        cursor.execute(
+            'SELECT email FROM allowed_users WHERE id = %s', (user_id,)
+        )
+    else:
+        cursor.execute(
+            'SELECT email FROM allowed_users WHERE id = ?', (user_id,)
+        )
+
     result = cursor.fetchone()
-    
+
     if not result:
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=404, detail='User not found')
-    
+
     target_email = result[0]
-    
+
     # Prevent removing admin
     if target_email == ADMIN_EMAIL:
+        cursor.close()
         conn.close()
-        raise HTTPException(status_code=400, detail='Cannot remove admin user')
-    
+        raise HTTPException(
+            status_code=400, detail='Cannot remove admin user'
+        )
+
     # Delete the user
-    cursor.execute('DELETE FROM allowed_users WHERE id = ?', (user_id,))
+    if DATABASE_URL:
+        cursor.execute('DELETE FROM allowed_users WHERE id = %s', (user_id,))
+    else:
+        cursor.execute('DELETE FROM allowed_users WHERE id = ?', (user_id,))
+
     conn.commit()
+    cursor.close()
     conn.close()
-    
+
     logger.info(f"Admin removed user: {target_email}")
     return RedirectResponse('/admin', status_code=302)
 
@@ -1127,32 +1278,64 @@ async def admin_toggle_user(request: Request, user_id: int):
     user = request.session.get('user')
     if not user or user.get('email') != ADMIN_EMAIL:
         raise HTTPException(status_code=403, detail='Admin access required')
-    
-    conn = sqlite3.connect(USER_DB_PATH)
+
+    conn = get_user_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail='Database error')
+
     cursor = conn.cursor()
-    
+
     # Get the user email first
-    cursor.execute('SELECT email, is_active FROM allowed_users WHERE id = ?', (user_id,))
+    if DATABASE_URL:
+        cursor.execute(
+            'SELECT email, is_active FROM allowed_users WHERE id = %s',
+            (user_id,)
+        )
+    else:
+        cursor.execute(
+            'SELECT email, is_active FROM allowed_users WHERE id = ?',
+            (user_id,)
+        )
+
     result = cursor.fetchone()
-    
+
     if not result:
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=404, detail='User not found')
-    
+
     target_email, is_active = result
-    
+
     # Prevent deactivating admin
     if target_email == ADMIN_EMAIL:
+        cursor.close()
         conn.close()
-        raise HTTPException(status_code=400, detail='Cannot deactivate admin user')
-    
+        raise HTTPException(
+            status_code=400,
+            detail='Cannot deactivate admin user'
+        )
+
     # Toggle status
-    new_status = 0 if is_active else 1
-    cursor.execute('UPDATE allowed_users SET is_active = ? WHERE id = ?', (new_status, user_id))
+    new_status = not is_active
+
+    if DATABASE_URL:
+        cursor.execute(
+            'UPDATE allowed_users SET is_active = %s WHERE id = %s',
+            (new_status, user_id)
+        )
+    else:
+        cursor.execute(
+            'UPDATE allowed_users SET is_active = ? WHERE id = ?',
+            (new_status, user_id)
+        )
+
     conn.commit()
+    cursor.close()
     conn.close()
-    
-    logger.info(f"Admin toggled user {target_email} active status to {new_status}")
+
+    logger.info(
+        f"Admin toggled user {target_email} status to {new_status}"
+    )
     return RedirectResponse('/admin', status_code=302)
 
 
@@ -2449,8 +2632,9 @@ async def api_get_focus_list():
 
 @app.get("/api/chart-data/{symbol}")
 async def api_get_chart_data(symbol: str, days: int = 30):
-    """Get OHLCV data for charting."""
+    """Get OHLCV data and options walls for charting."""
     try:
+        # Get price data
         conn = get_db_connection(DUCKDB_PATH)
         results = conn.execute("""
             SELECT date, open, high, low, close, volume
@@ -2462,7 +2646,10 @@ async def api_get_chart_data(symbol: str, days: int = 30):
         conn.close()
         
         if not results:
-            return JSONResponse({"status": "error", "message": "No data found"})
+            return JSONResponse({
+                "status": "error",
+                "message": "No data found"
+            })
         
         # Reverse to get chronological order
         results.reverse()
@@ -2473,9 +2660,76 @@ async def api_get_chart_data(symbol: str, days: int = 30):
             "open": [float(row[1]) if row[1] else None for row in results],
             "high": [float(row[2]) if row[2] else None for row in results],
             "low": [float(row[3]) if row[3] else None for row in results],
-            "close": [float(row[4]) if row[4] else None for row in results],
+            "close": [
+                float(row[4]) if row[4] else None for row in results
+            ],
             "volume": [int(row[5]) if row[5] else 0 for row in results]
         }
+        
+        # Get options walls if available
+        walls_data = None
+        try:
+            opt_conn = get_options_db_connection()
+            walls_result = opt_conn.execute("""
+                SELECT stock_price,
+                       call_wall_strike, call_wall_oi,
+                       call_wall_2_strike, call_wall_2_oi,
+                       call_wall_3_strike, call_wall_3_oi,
+                       put_wall_strike, put_wall_oi,
+                       put_wall_2_strike, put_wall_2_oi,
+                       put_wall_3_strike, put_wall_3_oi
+                FROM options_walls
+                WHERE underlying_symbol = ?
+                ORDER BY scan_date DESC
+                LIMIT 1
+            """, [symbol.upper()]).fetchone()
+            opt_conn.close()
+            
+            if walls_result:
+                walls_data = {
+                    'stock_price': (
+                        float(walls_result[0]) if walls_result[0] else None
+                    ),
+                    'call_walls': [
+                        {
+                            'strike': float(walls_result[1]),
+                            'oi': int(walls_result[2])
+                        } if walls_result[1] else None,
+                        {
+                            'strike': float(walls_result[3]),
+                            'oi': int(walls_result[4])
+                        } if walls_result[3] else None,
+                        {
+                            'strike': float(walls_result[5]),
+                            'oi': int(walls_result[6])
+                        } if walls_result[5] else None
+                    ],
+                    'put_walls': [
+                        {
+                            'strike': float(walls_result[7]),
+                            'oi': int(walls_result[8])
+                        } if walls_result[7] else None,
+                        {
+                            'strike': float(walls_result[9]),
+                            'oi': int(walls_result[10])
+                        } if walls_result[9] else None,
+                        {
+                            'strike': float(walls_result[11]),
+                            'oi': int(walls_result[12])
+                        } if walls_result[11] else None
+                    ]
+                }
+                # Filter out None values
+                walls_data['call_walls'] = [
+                    w for w in walls_data['call_walls'] if w
+                ]
+                walls_data['put_walls'] = [
+                    w for w in walls_data['put_walls'] if w
+                ]
+        except Exception as e:
+            print(f"Options walls not available for {symbol}: {e}")
+        
+        chart_data['walls'] = walls_data
         
         return JSONResponse({"status": "ok", "data": chart_data})
     except Exception as e:
