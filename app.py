@@ -24,7 +24,7 @@ from contextlib import asynccontextmanager
 # ============================================================
 
 class ConnectionPool:
-    """Thread-safe DuckDB/MotherDuck connection pool."""
+    """Thread-safe DuckDB/MotherDuck connection pool with health checking."""
     _instance = None
     _lock = threading.Lock()
     
@@ -37,17 +37,56 @@ class ConnectionPool:
                     cls._instance._conn_lock = threading.Lock()
         return cls._instance
     
+    def _is_connection_healthy(self, conn) -> bool:
+        """Check if a connection is still valid."""
+        try:
+            conn.execute("SELECT 1").fetchone()
+            return True
+        except:
+            return False
+    
+    def _create_connection(self, db_path: str):
+        """Create a new connection."""
+        conn = duckdb.connect(db_path)
+        print(f"[ConnectionPool] Created new connection for: {db_path[:50]}...")
+        return conn
+    
     def get_connection(self, db_path: str):
-        """Get or create a connection for the given database path."""
+        """Get or create a healthy connection for the given database path."""
         with self._conn_lock:
-            if db_path not in self._connections:
-                try:
-                    self._connections[db_path] = duckdb.connect(db_path)
-                    print(f"[ConnectionPool] Created new connection for: {db_path[:50]}...")
-                except Exception as e:
-                    print(f"[ConnectionPool] Error creating connection: {e}")
-                    raise
+            # Check if we have an existing connection
+            if db_path in self._connections:
+                conn = self._connections[db_path]
+                # Verify it's still healthy
+                if self._is_connection_healthy(conn):
+                    return conn
+                else:
+                    # Connection is stale, close and remove it
+                    print(f"[ConnectionPool] Stale connection detected, reconnecting: {db_path[:50]}...")
+                    try:
+                        conn.close()
+                    except:
+                        pass
+                    del self._connections[db_path]
+            
+            # Create new connection
+            try:
+                self._connections[db_path] = self._create_connection(db_path)
+            except Exception as e:
+                print(f"[ConnectionPool] Error creating connection: {e}")
+                raise
             return self._connections[db_path]
+    
+    def invalidate_connection(self, db_path: str):
+        """Invalidate a specific connection (force reconnect on next use)."""
+        with self._conn_lock:
+            if db_path in self._connections:
+                try:
+                    self._connections[db_path].close()
+                except:
+                    pass
+                del self._connections[db_path]
+                print(f"[ConnectionPool] Invalidated connection: {db_path[:50]}...")
     
     def close_all(self):
         """Close all connections."""
@@ -64,9 +103,24 @@ class ConnectionPool:
 _connection_pool = ConnectionPool()
 
 def get_db_connection(db_path: str = None):
-    """Get a database connection from the pool."""
+    """Get a database connection.
+    
+    For MotherDuck connections (which can be unstable on free tier),
+    create a fresh connection each time to avoid 'connection closed' errors.
+    For local DuckDB files, use the connection pool.
+    """
     if db_path is None:
         db_path = DUCKDB_PATH
+    
+    # MotherDuck connections should NOT be pooled - they get throttled/closed
+    if 'motherduck_token' in db_path or db_path.startswith('md:'):
+        try:
+            return duckdb.connect(db_path)
+        except Exception as e:
+            print(f"[DB] Error connecting to MotherDuck: {e}")
+            raise
+    
+    # Local DuckDB files can be pooled
     return _connection_pool.get_connection(db_path)
 
 
@@ -532,6 +586,232 @@ def get_login_page_charts():
     # Cache for 5 minutes
     _query_cache.set(cache_key, result, 300)
     return result
+
+
+# ============================================================
+# CACHED DATA HELPERS FOR INDEX PAGE
+# ============================================================
+
+def get_cached_latest_scan_date():
+    """Get latest scan date with 1-minute cache."""
+    cache_key = "latest_scan_date"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    try:
+        conn = get_db_connection(DUCKDB_PATH)
+        latest_date = conn.execute("""
+            SELECT CAST(MAX(scan_date) AS DATE)
+            FROM scanner_results
+            WHERE scan_date IS NOT NULL
+        """).fetchone()
+        result = str(latest_date[0]) if latest_date and latest_date[0] else ''
+        _query_cache.set(cache_key, result, 60)  # 1 minute cache
+        return result
+    except Exception as e:
+        print(f"Could not get latest scan date: {e}")
+        return ''
+
+
+def get_cached_ticker_list():
+    """Get list of all tickers with 10-minute cache."""
+    cache_key = "ticker_list"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    try:
+        conn = get_db_connection(DUCKDB_PATH)
+        ticker_list = conn.execute("""
+            SELECT DISTINCT symbol 
+            FROM scanner_results
+            ORDER BY symbol
+        """).fetchall()
+        result = [row[0] for row in ticker_list]
+        _query_cache.set(cache_key, result, 600)  # 10 minute cache
+        return result
+    except Exception as e:
+        print(f"Could not fetch ticker list: {e}")
+        return []
+
+
+def get_cached_symbol_metadata():
+    """Get symbol metadata (company, market_cap, sector) with 30-minute cache."""
+    cache_key = "symbol_metadata"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    try:
+        conn = get_db_connection(DUCKDB_PATH)
+        result = conn.execute('''
+            SELECT DISTINCT d.symbol, 
+                   COALESCE(f.name, d.symbol) as company,
+                   f.market_cap,
+                   f.sector,
+                   f.industry
+            FROM scanner_data.daily_cache d
+            LEFT JOIN scanner_data.fundamental_cache f ON d.symbol = f.symbol
+            ORDER BY d.symbol
+        ''').fetchall()
+        
+        metadata = {}
+        for row in result:
+            symbol, company, market_cap, sector, industry = row[:5]
+            metadata[symbol] = {
+                'company': company,
+                'market_cap': market_cap,
+                'sector': sector,
+                'industry': industry
+            }
+        
+        _query_cache.set(cache_key, metadata, 1800)  # 30 minute cache
+        return metadata
+    except Exception as e:
+        print(f"Could not fetch symbol metadata: {e}")
+        return {}
+
+
+def get_cached_scanner_results(pattern: str, scan_date: str = None, ticker: str = None):
+    """Get scanner results with 2-minute cache."""
+    cache_key = f"scanner_results:{pattern}:{scan_date}:{ticker}"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    try:
+        conn = get_db_connection(DUCKDB_PATH)
+        
+        scanner_query = '''
+            SELECT symbol,
+                   signal_type,
+                   COALESCE(signal_strength, 75) as signal_strength,
+                   COALESCE(setup_stage, 'N/A') as quality_placeholder,
+                   entry_price,
+                   picked_by_scanners,
+                   setup_stage,
+                   scan_date,
+                   news_sentiment,
+                   news_sentiment_label,
+                   news_relevance,
+                   news_headline,
+                   news_published,
+                   news_url,
+                   metadata
+            FROM scanner_results
+            WHERE scanner_name = ?
+        '''
+        query_params = [pattern]
+        
+        if ticker:
+            scanner_query += ' AND symbol = ?'
+            query_params.append(ticker)
+        
+        if scan_date:
+            date_obj = datetime.strptime(scan_date, '%Y-%m-%d')
+            next_day = (date_obj + timedelta(days=1)).strftime('%Y-%m-%d')
+            scanner_query += (
+                ' AND scan_date >= CAST(? AS TIMESTAMP) '
+                'AND scan_date < CAST(? AS TIMESTAMP)'
+            )
+            query_params.extend([scan_date, next_day])
+
+        results = conn.execute(scanner_query, query_params).fetchall()
+        _query_cache.set(cache_key, results, 120)  # 2 minute cache
+        return results
+    except Exception as e:
+        print(f"Scanner query failed: {e}")
+        return []
+
+
+def get_cached_available_scanners(scan_date: str = None):
+    """Get list of available scanners with 5-minute cache."""
+    cache_key = f"available_scanners:{scan_date}"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    try:
+        conn = get_db_connection(DUCKDB_PATH)
+        
+        if scan_date:
+            date_obj = datetime.strptime(scan_date, '%Y-%m-%d')
+            next_day = (date_obj + timedelta(days=1)).strftime('%Y-%m-%d')
+            query = """
+                SELECT DISTINCT scanner_name 
+                FROM scanner_results
+                WHERE scan_date >= CAST(? AS TIMESTAMP) 
+                  AND scan_date < CAST(? AS TIMESTAMP)
+                ORDER BY scanner_name
+            """
+            results = conn.execute(query, [scan_date, next_day]).fetchall()
+        else:
+            query = """
+                SELECT DISTINCT scanner_name 
+                FROM scanner_results
+                ORDER BY scanner_name
+            """
+            results = conn.execute(query).fetchall()
+        
+        scanners = [row[0] for row in results]
+        _query_cache.set(cache_key, scanners, 300)  # 5 minute cache
+        return scanners
+    except Exception as e:
+        print(f"Could not fetch scanners: {e}")
+        return []
+
+
+def get_cached_historical_chart_data(num_days: int = 5):
+    """Get historical chart data with 10-minute cache."""
+    cache_key = f"historical_chart:{num_days}"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    try:
+        conn = get_db_connection(DUCKDB_PATH)
+        
+        history_query = f"""
+            SELECT 
+                CAST(scan_date AS DATE) as date,
+                scanner_name,
+                COUNT(*) as count
+            FROM scanner_results
+            WHERE CAST(scan_date AS DATE) >= CURRENT_DATE - INTERVAL '{num_days} days'
+            GROUP BY CAST(scan_date AS DATE), scanner_name
+            ORDER BY date
+        """
+        results = conn.execute(history_query).fetchall()
+        
+        # Process into structured data
+        dates_set = set()
+        scanner_data = {}
+        for row in results:
+            date_str = str(row[0])
+            dates_set.add(date_str)
+            scanner = row[1]
+            if scanner not in scanner_data:
+                scanner_data[scanner] = {}
+            scanner_data[scanner][date_str] = row[2]
+        
+        dates = sorted(list(dates_set))
+        result = {
+            "dates": dates,
+            "scanner_data": scanner_data,
+            "scanners": list(scanner_data.keys())
+        }
+        
+        _query_cache.set(cache_key, result, 600)  # 10 minute cache
+        return result
+    except Exception as e:
+        print(f"Could not fetch historical data: {e}")
+        return {"dates": [], "scanner_data": {}, "scanners": []}
+
+
+# ============================================================
+# END CACHED DATA HELPERS
+# ============================================================
 
 # Login page with charts
 @app.get('/login', response_class=HTMLResponse)
@@ -4531,60 +4811,30 @@ async def index(
     selected_ticker = ticker.strip().upper() if ticker else ''
     stocks = {}
 
-    # Connect to DuckDB using connection pool
-    conn = get_db_connection(DUCKDB_PATH)
-    
     # For ticker-only searches, ignore date filter to show all historical results
     if selected_ticker and not pattern:
         selected_scan_date = ''
         print(f"INFO: Ticker-only search - clearing date filter to show all results")
     else:
-        # Get latest scan date if none provided
+        # Get latest scan date if none provided (CACHED)
         selected_scan_date = scan_date
         if not selected_scan_date:
-            try:
-                latest_date = conn.execute("""
-                    SELECT CAST(MAX(scan_date) AS DATE)
-                    FROM scanner_results
-                    WHERE scan_date IS NOT NULL
-                """).fetchone()
-                if latest_date and latest_date[0]:
-                    selected_scan_date = str(latest_date[0])
-                    print(f"INFO: Auto-selected latest scan date: {selected_scan_date}")
-            except Exception as e:
-                print(f"Could not get latest scan date: {e}")
-                selected_scan_date = ''
+            selected_scan_date = get_cached_latest_scan_date()
+            if selected_scan_date:
+                print(f"INFO: Auto-selected latest scan date: {selected_scan_date}")
     
-    # Get list of all available tickers for autocomplete
-    available_tickers = []
-    try:
-        ticker_list = conn.execute("""
-            SELECT DISTINCT symbol 
-            FROM scanner_results
-            ORDER BY symbol
-        """).fetchall()
-        available_tickers = [row[0] for row in ticker_list]
-    except Exception as e:
-        print(f"Could not fetch ticker list: {e}")
+    # Get list of all available tickers for autocomplete (CACHED - 10 min)
+    available_tickers = get_cached_ticker_list()
     
     # Don't auto-select a scanner - show all by default
     pattern = pattern if pattern and pattern != '' else False
     
-    # Build query with filters
-    symbols_query = '''
-        SELECT DISTINCT d.symbol, 
-               COALESCE(f.name, d.symbol) as company,
-               f.market_cap,
-               f.sector,
-               f.industry
-        FROM scanner_data.daily_cache d
-        LEFT JOIN scanner_data.fundamental_cache f ON d.symbol = f.symbol
-        WHERE 1=1
-    '''
+    # Get symbol metadata (CACHED - 30 min)
+    all_symbol_metadata = get_cached_symbol_metadata()
     
-    params = []
-    
-    # Add market cap filter
+    # Filter metadata based on market cap and sector
+    symbol_metadata = {}
+    min_cap = 0
     if min_market_cap:
         # Parse market cap values like "1B", "100M", "500M", "5B", "10B"
         cap_value = min_market_cap.upper()
@@ -4594,60 +4844,47 @@ async def index(
             min_cap = float(cap_value.replace('M', '')) * 1_000_000
         else:
             min_cap = float(cap_value)
+    
+    # Apply filters to cached metadata
+    cached_metadata = get_cached_symbol_metadata()
+    for symbol, meta in cached_metadata.items():
+        # Apply sector filter
+        if sector_filter and sector_filter != 'All':
+            if meta.get('sector') != sector_filter:
+                continue
         
-        symbols_query += ' AND f.market_cap IS NOT NULL'
-        # Market cap in DuckDB is stored as string like "1.5B", "500M"
+        # Apply market cap filter
+        if min_market_cap and meta.get('market_cap'):
+            try:
+                cap_str = str(meta['market_cap']).upper()
+                if 'T' in cap_str:
+                    cap_num = float(cap_str.replace('T', '')) * 1_000_000_000_000
+                elif 'B' in cap_str:
+                    cap_num = float(cap_str.replace('B', '')) * 1_000_000_000
+                elif 'M' in cap_str:
+                    cap_num = float(cap_str.replace('M', '')) * 1_000_000
+                else:
+                    cap_num = float(cap_str)
+                if cap_num < min_cap:
+                    continue
+            except Exception:
+                continue
+        elif min_market_cap and not meta.get('market_cap'):
+            continue
         
-    # Add sector filter
-    if sector_filter and sector_filter != 'All':
-        symbols_query += ' AND f.sector = ?'
-        params.append(sector_filter)
-    
-    symbols_query += ' ORDER BY d.symbol'
-    
-    # Don't populate stocks yet - wait until we know which symbols have scanner results
-    # This prevents showing extra rows in the table
-    all_symbols_query_result = conn.execute(symbols_query, params).fetchall()
-    
-    # Create a lookup dict for symbol metadata (don't add to stocks yet)
-    symbol_metadata = {}
-    if min_market_cap:
-        for row in all_symbols_query_result:
-            symbol, company, market_cap, sector, earnings_date, industry = row
-            if market_cap:
-                try:
-                    cap_str = market_cap.upper()
-                    if 'T' in cap_str:
-                        cap_num = float(cap_str.replace('T', '')) * 1_000_000_000_000
-                    elif 'B' in cap_str:
-                        cap_num = float(cap_str.replace('B', '')) * 1_000_000_000
-                    elif 'M' in cap_str:
-                        cap_num = float(cap_str.replace('M', '')) * 1_000_000
-                    else:
-                        cap_num = float(cap_str)
-                    
-                    if cap_num >= min_cap:
-                        symbol_metadata[symbol] = {
-                            'company': company,
-                            'market_cap': format_market_cap(market_cap),
-                            'sector': sector,
-                            'industry': industry
-                        }
-                except Exception:
-                    pass
-    else:
-        for row in all_symbols_query_result:
-            symbol, company, market_cap, sector, industry = row[:5]
-            symbol_metadata[symbol] = {
-                'company': company,
-                'market_cap': format_market_cap(market_cap),
-                'sector': sector,
-                'industry': industry
-            }
+        symbol_metadata[symbol] = {
+            'company': meta.get('company', symbol),
+            'market_cap': format_market_cap(meta.get('market_cap')),
+            'sector': meta.get('sector'),
+            'industry': meta.get('industry')
+        }
 
     if pattern:
         # Use pattern name directly as scanner name
         print(f"Loading scanner results for: {pattern}")
+        
+        # Get a connection for this request (fresh for MotherDuck)
+        conn = get_db_connection(DUCKDB_PATH)
         
         # Read pre-calculated scanner results from database
         # Build query with optional date and ticker filters
@@ -5241,6 +5478,10 @@ async def index(
     if selected_ticker and not pattern:
         print(f"DEBUG: Ticker search for {selected_ticker} without scanner selection")
         print(f"DEBUG: selected_ticker={selected_ticker}, pattern={pattern}")
+        
+        # Get a connection for ticker search
+        conn = get_db_connection(DUCKDB_PATH)
+        
         try:
             # Query all scanners that have this ticker
             ticker_query = '''
@@ -5334,31 +5575,26 @@ async def index(
         stocks = filtered_stocks
         print(f'Filtered to {len(stocks)} stocks confirmed by other scanners')
     
-    # Get available sectors for dropdown
-    sectors_query = '''
-        SELECT DISTINCT sector 
-        FROM scanner_data.fundamental_cache 
-        WHERE sector IS NOT NULL 
-        ORDER BY sector
-    '''
-    available_sectors = [row[0] for row in conn.execute(sectors_query).fetchall()]
-    
-    # Get available pre-calculated scanners from database
-    available_scanners = []
+    # Get available sectors for dropdown (cached)
+    available_sectors = []
     try:
-        scanners_query = '''
-            SELECT DISTINCT scanner_name 
-            FROM scanner_results 
-            ORDER BY scanner_name
-        '''
-        available_scanners = [row[0] for row in conn.execute(scanners_query).fetchall()]
+        cached_metadata = get_cached_symbol_metadata()
+        sectors_set = set()
+        for meta in cached_metadata.values():
+            if meta.get('sector'):
+                sectors_set.add(meta['sector'])
+        available_sectors = sorted(list(sectors_set))
     except Exception as e:
-        print(f'Could not get scanner list: {e}')
-        # Fallback: empty list
-        available_scanners = []
+        print(f'Could not get sectors: {e}')
+    
+    # Get available pre-calculated scanners from database (cached)
+    available_scanners = get_cached_available_scanners(selected_scan_date)
     
     # Get scanner names from database for the dropdown with counts
     try:
+        # Get a connection for dropdown data
+        dropdown_conn = get_db_connection(DUCKDB_PATH)
+        
         # Get scanner counts based on selected date
         if selected_scan_date:
             # Use the selected date
@@ -5366,7 +5602,7 @@ async def index(
             print(f"INFO: Using selected date: {date_to_use}")
         else:
             # Get the latest scan date
-            latest_date_result = conn.execute("""
+            latest_date_result = dropdown_conn.execute("""
                 SELECT MAX(CAST(scan_date AS DATE))
                 FROM scanner_results
             """).fetchone()
@@ -5381,7 +5617,7 @@ async def index(
                 GROUP BY scanner_name
                 ORDER BY scanner_name
             """
-            scanner_counts = conn.execute(scanner_counts_query, [date_to_use]).fetchall()
+            scanner_counts = dropdown_conn.execute(scanner_counts_query, [date_to_use]).fetchall()
             print(f"INFO: Found {len(scanner_counts)} scanners for date {date_to_use}")
         else:
             # Fallback if no date available
@@ -5392,7 +5628,7 @@ async def index(
                 GROUP BY scanner_name
                 ORDER BY scanner_name
             """
-            scanner_counts = conn.execute(scanner_counts_query).fetchall()
+            scanner_counts = dropdown_conn.execute(scanner_counts_query).fetchall()
         
         # Create patterns dict with scanner_name and count
         # Filter out deprecated/invalid scanner names
@@ -5425,7 +5661,7 @@ async def index(
     # Get available scan dates with setup counts
     available_scan_dates = []
     try:
-        dates = conn.execute("""
+        dates = dropdown_conn.execute("""
             SELECT CAST(scan_date AS DATE) as date, COUNT(*) as count
             FROM scanner_results
             WHERE scan_date IS NOT NULL
@@ -5439,7 +5675,7 @@ async def index(
     # Get most recent scan timestamp for display
     last_updated = None
     try:
-        latest_timestamp = conn.execute("""
+        latest_timestamp = dropdown_conn.execute("""
             SELECT MAX(scan_date)
             FROM scanner_results
         """).fetchone()
@@ -5469,7 +5705,7 @@ async def index(
             GROUP BY CAST(scan_date AS DATE), scanner_name
             ORDER BY date ASC, scanner_name
         """
-        history_results = conn.execute(history_query).fetchall()
+        history_results = dropdown_conn.execute(history_query).fetchall()
         
         # Organize data by date
         from collections import defaultdict
@@ -5502,8 +5738,6 @@ async def index(
         import traceback
         traceback.print_exc()
         scanner_history = {'dates': [], 'scanners': {}}
-
-    conn.close()
 
     return templates.TemplateResponse('index.html', {
         'request': request,
