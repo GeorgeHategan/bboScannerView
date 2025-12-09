@@ -6176,6 +6176,16 @@ async def index(
         traceback.print_exc()
         scanner_history = {'dates': [], 'scanners': {}}
 
+    # If a ticker is selected, reorder stocks dict to put it first
+    if selected_ticker and selected_ticker in stocks:
+        # Create new ordered dict with selected ticker first
+        ordered_stocks = {selected_ticker: stocks[selected_ticker]}
+        # Add all other stocks
+        for symbol in stocks:
+            if symbol != selected_ticker:
+                ordered_stocks[symbol] = stocks[symbol]
+        stocks = ordered_stocks
+
     return templates.TemplateResponse('index.html', {
         'request': request,
         'candlestick_patterns': all_patterns,
