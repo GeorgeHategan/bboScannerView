@@ -432,9 +432,17 @@ def init_user_db():
             login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             ip_address TEXT,
             user_agent TEXT,
-            success BOOLEAN DEFAULT 1
+            success BOOLEAN DEFAULT 1,
+            failure_reason TEXT
         )
     ''')
+    
+    # Add failure_reason column if it doesn't exist (migration for existing DBs)
+    try:
+        cursor.execute("ALTER TABLE login_logs ADD COLUMN failure_reason TEXT")
+        logger.info("Added failure_reason column to login_logs table")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     
     # Ensure admin is always in the allowed users
     cursor.execute('''
@@ -474,17 +482,17 @@ def get_allowed_emails():
         # Fallback to env var
         return [e.strip() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
 
-def log_login_attempt(email: str, request: Request, success: bool):
-    """Log a login attempt."""
+def log_login_attempt(email: str, request: Request, success: bool, failure_reason: str = None):
+    """Log a login attempt with optional failure reason."""
     try:
         conn = sqlite3.connect(USER_DB_PATH)
         cursor = conn.cursor()
         ip = request.client.host if request.client else 'unknown'
         user_agent = request.headers.get('user-agent', 'unknown')[:500]
         cursor.execute('''
-            INSERT INTO login_logs (email, ip_address, user_agent, success)
-            VALUES (?, ?, ?, ?)
-        ''', (email, ip, user_agent, success))
+            INSERT INTO login_logs (email, ip_address, user_agent, success, failure_reason)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (email, ip, user_agent, success, failure_reason))
         conn.commit()
         conn.close()
     except Exception as e:
@@ -867,7 +875,7 @@ async def google_callback(request: Request):
         logger.info(f"Allowed emails: {allowed}")
         
         if email not in allowed:
-            log_login_attempt(email, request, success=False)
+            log_login_attempt(email, request, success=False, failure_reason="Email not in allowed list")
             return templates.TemplateResponse('login.html', {
                 'request': request,
                 'error': f'Access denied. Email {email} is not authorized to access this application.',
@@ -893,6 +901,8 @@ async def google_callback(request: Request):
         
     except OAuthError as e:
         logger.error(f"OAuth error: {e}")
+        # Log the OAuth error as a failed attempt
+        log_login_attempt("OAuth Error", request, success=False, failure_reason=str(e)[:200])
         return templates.TemplateResponse('login.html', {
             'request': request,
             'error': f'Authentication failed: {str(e)}',
@@ -949,7 +959,7 @@ async def admin_page(request: Request):
     
     # Get recent login logs
     cursor.execute('''
-        SELECT email, login_time, ip_address, success 
+        SELECT email, login_time, ip_address, success, failure_reason 
         FROM login_logs 
         ORDER BY login_time DESC 
         LIMIT 100
@@ -959,7 +969,8 @@ async def admin_page(request: Request):
             'email': row[0],
             'login_time': row[1],
             'ip_address': row[2],
-            'success': row[3]
+            'success': row[3],
+            'failure_reason': row[4]
         }
         for row in cursor.fetchall()
     ]

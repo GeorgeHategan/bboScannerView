@@ -161,7 +161,7 @@
             <div class="card">
                 <h2>📋 Login Activity (Last 100)</h2>
                 <table>
-                    <thead><tr><th>Email</th><th>Time</th><th>IP Address</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Email</th><th>Time</th><th>IP Address</th><th>Status</th><th>Reason</th></tr></thead>
                     <tbody>
                         {% for log in logs %}
                         <tr>
@@ -169,6 +169,7 @@
                             <td>{{ log.login_time }}</td>
                             <td>{{ log.ip_address }}</td>
                             <td>{% if log.success %}<span class="login-success">✓ Success</span>{% else %}<span class="login-failed">✗ Denied</span>{% endif %}</td>
+                            <td>{{ log.failure_reason or '-' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
