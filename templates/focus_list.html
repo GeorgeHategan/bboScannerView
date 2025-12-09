@@ -37,8 +37,8 @@
             overflow: hidden;
         }
         .day-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #ffe4d6 0%, #ffd4b8 100%);
+            color: #8b4513;
             padding: 15px 20px;
             font-weight: bold;
             font-size: 18px;
@@ -431,9 +431,82 @@
                 },
                 margin: {l: 50, r: 50, t: 40, b: 40},
                 height: 400,
-                showlegend: false,
-                hovermode: 'x unified'
+                showlegend: true,
+                legend: {x: 0.02, y: 0.98, bgcolor: 'rgba(255,255,255,0.8)'},
+                hovermode: 'x unified',
+                shapes: []
             };
+            
+            // Add call/put walls if available
+            if (data.walls) {
+                const annotations = [];
+                
+                // Add call walls (green)
+                if (data.walls.call_walls && data.walls.call_walls.length > 0) {
+                    data.walls.call_walls.forEach((wall, idx) => {
+                        layout.shapes.push({
+                            type: 'line',
+                            x0: data.dates[0],
+                            x1: data.dates[data.dates.length - 1],
+                            y0: wall.strike,
+                            y1: wall.strike,
+                            yref: 'y',
+                            line: {
+                                color: 'rgba(34, 197, 94, 0.6)',
+                                width: 2,
+                                dash: 'dot'
+                            }
+                        });
+                        
+                        annotations.push({
+                            x: data.dates[data.dates.length - 1],
+                            y: wall.strike,
+                            xref: 'x',
+                            yref: 'y',
+                            text: `C${idx+1}: $${wall.strike.toFixed(2)} (${(wall.oi/1000).toFixed(1)}k)`,
+                            showarrow: false,
+                            xanchor: 'left',
+                            bgcolor: 'rgba(34, 197, 94, 0.8)',
+                            font: {color: 'white', size: 10},
+                            borderpad: 4
+                        });
+                    });
+                }
+                
+                // Add put walls (red)
+                if (data.walls.put_walls && data.walls.put_walls.length > 0) {
+                    data.walls.put_walls.forEach((wall, idx) => {
+                        layout.shapes.push({
+                            type: 'line',
+                            x0: data.dates[0],
+                            x1: data.dates[data.dates.length - 1],
+                            y0: wall.strike,
+                            y1: wall.strike,
+                            yref: 'y',
+                            line: {
+                                color: 'rgba(239, 68, 68, 0.6)',
+                                width: 2,
+                                dash: 'dot'
+                            }
+                        });
+                        
+                        annotations.push({
+                            x: data.dates[data.dates.length - 1],
+                            y: wall.strike,
+                            xref: 'x',
+                            yref: 'y',
+                            text: `P${idx+1}: $${wall.strike.toFixed(2)} (${(wall.oi/1000).toFixed(1)}k)`,
+                            showarrow: false,
+                            xanchor: 'left',
+                            bgcolor: 'rgba(239, 68, 68, 0.8)',
+                            font: {color: 'white', size: 10},
+                            borderpad: 4
+                        });
+                    });
+                }
+                
+                layout.annotations = annotations;
+            }
             
             const config = {
                 responsive: true,
