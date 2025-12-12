@@ -710,7 +710,10 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="3" style="position: relative; width: 50%; vertical-align: top;">
+                <td colspan="6" style="padding: 0;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="width: 50%; vertical-align: top; padding-right: 10px;">
                     <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
                     
                     {# Timeline showing scanner detection dates and options signals #}
@@ -823,8 +826,8 @@
                         </div>
                     </div>
                     {% endif %}
-                </td>
-                <td colspan="3" style="vertical-align: top; padding-left: 20px; padding-top: 0; width: 50%;">
+                            </td>
+                            <td style="width: 50%; vertical-align: top; padding-left: 20px;">
                     <div style="font-size: 13px; line-height: 1.5;">
                         {% if stocks[stock].get(pattern + '_picked_count') %}
                         <strong>Confluence:</strong> Picked by {{ stocks[stock][pattern + '_picked_count'] }} scanner(s)<br>
@@ -1187,6 +1190,9 @@
                         <span style="font-size: 11px; color: #999;">(Based on {{ stocks[stock][pattern + '_sentiment_articles'] }} recent articles)</span>
                         {% endif %}
                     </div>
+                            </td>
+                        </tr>
+                    </table>
                 </td>
             </tr>
             {% if loop.last %}
