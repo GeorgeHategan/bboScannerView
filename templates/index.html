@@ -692,21 +692,12 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="3" style="font-size: 15px; padding: 4px 0; color: #555;">
+                <td colspan="6" style="font-size: 15px; padding: 4px 0; color: #555;">
                     <strong>Sector:</strong> {% if stocks[stock]['sector'] %}{{ stocks[stock]['sector'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                     &nbsp;|&nbsp;
                     <strong>Industry:</strong> {% if stocks[stock]['industry'] %}{{ stocks[stock]['industry'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                     &nbsp;|&nbsp;
                     <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
-                </td>
-                <td colspan="3" style="font-size: 15px; padding: 4px 0; color: #555; padding-left: 20px;">
-                    <strong>Vol:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}
-                    &nbsp;|&nbsp;
-                    <strong>Avg:</strong> {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}
-                    &nbsp;|&nbsp;
-                    <strong>Ratio:</strong> {{ stocks[stock][pattern + '_volume_ratio'] }}x{% if stocks[stock][pattern + '_volume_ratio'] >= 2.0 %}<span style="color: green; font-weight: bold;"> ✓HIGH</span>{% elif stocks[stock][pattern + '_volume_ratio'] >= 1.5 %}<span style="color: orange; font-weight: bold;"> ↑</span>{% elif stocks[stock][pattern + '_volume_ratio'] < 0.8 %}<span style="color: red;"> ↓</span>{% endif %}
-                    &nbsp;|&nbsp;
-                    <span class="oms-tooltip"><strong>OMS:</strong><span class="oms-tooltip-text"><strong>Options Market Share (OMS)</strong><br><br>Measures options influence vs stock trading.<br><br><strong>Formula:</strong><br>(Max OI at key strikes × 100) ÷ Daily Volume<br><br><strong>Thresholds:</strong><br>• Stock-Dom (&lt;0.3): Shares control price<br>• Mixed (0.3-1.0): Both influence price<br>• Options-Dom (1.0-2.0): Options drive price<br>• Gamma-Dom (≥2.0): Extreme options control</span></span> {% if stocks[stock][pattern + '_oms'] %}{{ stocks[stock][pattern + '_oms'] }}{% if stocks[stock][pattern + '_oms'] >= 2.0 %}<span style="color: #e74c3c; font-weight: bold;"> Gamma-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 1.0 %}<span style="color: #9c27b0; font-weight: bold;"> Options-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 0.3 %}<span style="color: #ff9800; font-weight: bold;"> Mixed</span>{% else %}<span style="color: #27ae60; font-weight: bold;"> Stock-Dom</span>{% endif %}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                 </td>
             </tr>
             <tr>
@@ -829,6 +820,15 @@
                             </td>
                             <td style="width: 50%; vertical-align: top; padding-left: 20px;">
                     <div style="font-size: 13px; line-height: 1.5;">
+                        <div style="font-size: 13px; padding: 4px 0; color: #555; margin-bottom: 8px;">
+                            <strong>Vol:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}
+                            &nbsp;|&nbsp;
+                            <strong>Avg:</strong> {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}
+                            &nbsp;|&nbsp;
+                            <strong>Ratio:</strong> {{ stocks[stock][pattern + '_volume_ratio'] }}x{% if stocks[stock][pattern + '_volume_ratio'] >= 2.0 %}<span style="color: green; font-weight: bold;"> ✓HIGH</span>{% elif stocks[stock][pattern + '_volume_ratio'] >= 1.5 %}<span style="color: orange; font-weight: bold;"> ↑</span>{% elif stocks[stock][pattern + '_volume_ratio'] < 0.8 %}<span style="color: red;"> ↓</span>{% endif %}
+                            &nbsp;|&nbsp;
+                            <span class="oms-tooltip"><strong>OMS:</strong><span class="oms-tooltip-text"><strong>Options Market Share (OMS)</strong><br><br>Measures options influence vs stock trading.<br><br><strong>Formula:</strong><br>(Max OI at key strikes × 100) ÷ Daily Volume<br><br><strong>Thresholds:</strong><br>• Stock-Dom (&lt;0.3): Shares control price<br>• Mixed (0.3-1.0): Both influence price<br>• Options-Dom (1.0-2.0): Options drive price<br>• Gamma-Dom (≥2.0): Extreme options control</span></span> {% if stocks[stock][pattern + '_oms'] %}{{ stocks[stock][pattern + '_oms'] }}{% if stocks[stock][pattern + '_oms'] >= 2.0 %}<span style="color: #e74c3c; font-weight: bold;"> Gamma-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 1.0 %}<span style="color: #9c27b0; font-weight: bold;"> Options-Dom</span>{% elif stocks[stock][pattern + '_oms'] >= 0.3 %}<span style="color: #ff9800; font-weight: bold;"> Mixed</span>{% else %}<span style="color: #27ae60; font-weight: bold;"> Stock-Dom</span>{% endif %}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                        </div>
                         {% if stocks[stock].get(pattern + '_picked_count') %}
                         <strong>Confluence:</strong> Picked by {{ stocks[stock][pattern + '_picked_count'] }} scanner(s)<br>
                         {% endif %}
