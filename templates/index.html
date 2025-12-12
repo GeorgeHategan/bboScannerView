@@ -642,21 +642,13 @@
 
     {% if pattern or (selected_ticker and stocks) %}
     <table style="width: 100%;">
-        <colgroup>
-            <col style="width: 6%;">
-            <col style="width: 12%;">
-            <col style="width: 8%;">
-            <col style="width: 6%;">
-            <col style="width: 5%;">
-            <col style="width: 63%;">
-        </colgroup>
         <tr>
-            <th>symbol</th>
-            <th>company</th>
-            <th>scan date</th>
-            <th>price</th>
-            <th>strength</th>
-            <th>quality</th>
+            <th style="width: 7%;">symbol</th>
+            <th style="width: 15%;">company</th>
+            <th style="width: 10%;">scan date</th>
+            <th style="width: 8%;">price</th>
+            <th style="width: 8%;">strength</th>
+            <th style="width: 52%;">quality</th>
         </tr>
         {% if pattern %}
         {# Pattern-based display: show all stocks with this pattern #}
