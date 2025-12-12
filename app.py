@@ -2989,7 +2989,7 @@ async def options_signals(
         ).fetchall()]
         
         available_dates = [str(row[0]) for row in conn.execute(
-            "SELECT DISTINCT signal_date FROM accumulation_signals ORDER BY signal_date DESC LIMIT 30"
+            "SELECT DISTINCT scan_date FROM accumulation_signals ORDER BY scan_date DESC LIMIT 30"
         ).fetchall()]
         
         # Build the query with filters
@@ -3050,16 +3050,16 @@ async def options_signals(
         
         # Only apply date filter if no symbol is being searched
         if scan_date and not symbol:
-            query += " AND signal_date = ?"
+            query += " AND scan_date = ?"
             params.append(scan_date)
         elif not symbol:
             # Default to latest date only if no specific symbol is requested
             # When viewing a specific symbol, show all dates
             latest_date = conn.execute(
-                "SELECT MAX(signal_date) FROM accumulation_signals"
+                "SELECT MAX(scan_date) FROM accumulation_signals"
             ).fetchone()[0]
             if latest_date:
-                query += " AND signal_date = ?"
+                query += " AND scan_date = ?"
                 params.append(str(latest_date))
                 scan_date = str(latest_date)
         
@@ -3108,7 +3108,7 @@ async def options_signals(
             FROM accumulation_signals
         """
         if scan_date:
-            stats_query += " WHERE signal_date = ?"
+            stats_query += " WHERE scan_date = ?"
             stats_result = conn.execute(stats_query, [scan_date]).fetchone()
         elif symbol:
             stats_query += " WHERE underlying_symbol = ?"
@@ -3131,7 +3131,7 @@ async def options_signals(
             type_distribution = conn.execute("""
                 SELECT signal_type, COUNT(*) as count
                 FROM accumulation_signals
-                WHERE signal_date = ?
+                WHERE scan_date = ?
                 GROUP BY signal_type
                 ORDER BY count DESC
             """, [scan_date]).fetchall()
@@ -3151,7 +3151,7 @@ async def options_signals(
             strength_distribution = conn.execute("""
                 SELECT signal_strength, COUNT(*) as count
                 FROM accumulation_signals
-                WHERE signal_date = ?
+                WHERE scan_date = ?
                 GROUP BY signal_strength
                 ORDER BY count DESC
             """, [scan_date]).fetchall()
@@ -3174,7 +3174,7 @@ async def options_signals(
                        SUM(premium_spent) as total_premium,
                        MAX(confidence_score) as max_confidence
                 FROM accumulation_signals
-                WHERE signal_date = ?
+                WHERE scan_date = ?
                 GROUP BY underlying_symbol
                 ORDER BY total_premium DESC
                 LIMIT 10
@@ -3281,7 +3281,7 @@ async def darkpool_signals(
         ).fetchall()]
         
         available_dates = [str(row[0]) for row in conn.execute(
-            "SELECT DISTINCT signal_date FROM darkpool_signals ORDER BY signal_date DESC LIMIT 30"
+            "SELECT DISTINCT scan_date FROM darkpool_signals ORDER BY scan_date DESC LIMIT 30"
         ).fetchall()]
         
         # Build the query with filters
@@ -3337,15 +3337,15 @@ async def darkpool_signals(
         
         # Only apply date filter if no symbol is being searched
         if scan_date and not symbol:
-            query += " AND signal_date = ?"
+            query += " AND scan_date = ?"
             params.append(scan_date)
         elif not symbol:
             # Auto-select latest date only when not searching for a symbol
             latest_date = conn.execute(
-                "SELECT MAX(signal_date) FROM darkpool_signals"
+                "SELECT MAX(scan_date) FROM darkpool_signals"
             ).fetchone()[0]
             if latest_date:
-                query += " AND signal_date = ?"
+                query += " AND scan_date = ?"
                 params.append(str(latest_date))
                 scan_date = str(latest_date)
         
@@ -3394,7 +3394,7 @@ async def darkpool_signals(
             FROM darkpool_signals
         """
         if scan_date:
-            stats_query += " WHERE signal_date = ?"
+            stats_query += " WHERE scan_date = ?"
             stats_result = conn.execute(stats_query, [scan_date]).fetchone()
         elif symbol:
             stats_query += " WHERE ticker = ?"
@@ -3422,7 +3422,7 @@ async def darkpool_signals(
                        SUM(dp_premium) as total_premium,
                        MAX(confidence_score) as max_confidence
                 FROM darkpool_signals
-                WHERE signal_date = ?
+                WHERE scan_date = ?
                 GROUP BY ticker
                 ORDER BY total_premium DESC
                 LIMIT 10
