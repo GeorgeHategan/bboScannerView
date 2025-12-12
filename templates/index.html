@@ -641,14 +641,14 @@
     {% endif %}
 
     {% if pattern or (selected_ticker and stocks) %}
-    <table style="table-layout: fixed; width: 100%;">
+    <table style="width: 100%;">
         <colgroup>
+            <col style="width: 6%;">
+            <col style="width: 12%;">
             <col style="width: 8%;">
-            <col style="width: 17%;">
-            <col style="width: 10%;">
-            <col style="width: 15%;">
-            <col style="width: 7%;">
-            <col style="width: 43%;">
+            <col style="width: 6%;">
+            <col style="width: 5%;">
+            <col style="width: 63%;">
         </colgroup>
         <tr>
             <th>symbol</th>
@@ -700,14 +700,14 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="4" style="font-size: 15px; padding: 4px 0; color: #555;">
+                <td colspan="3" style="font-size: 15px; padding: 4px 0; color: #555;">
                     <strong>Sector:</strong> {% if stocks[stock]['sector'] %}{{ stocks[stock]['sector'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                     &nbsp;|&nbsp;
                     <strong>Industry:</strong> {% if stocks[stock]['industry'] %}{{ stocks[stock]['industry'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                     &nbsp;|&nbsp;
                     <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
                 </td>
-                <td colspan="2" style="font-size: 15px; padding: 4px 0; color: #555; padding-left: 20px;">
+                <td colspan="3" style="font-size: 15px; padding: 4px 0; color: #555; padding-left: 20px;">
                     <strong>Vol:</strong> {{ "{:,}".format(stocks[stock][pattern + '_volume']) }}
                     &nbsp;|&nbsp;
                     <strong>Avg:</strong> {{ "{:,}".format(stocks[stock][pattern + '_avg_volume']) }}
@@ -718,7 +718,7 @@
                 </td>
             </tr>
             <tr>
-                <td colspan="4" style="position: relative; width: 50%;">
+                <td colspan="3" style="position: relative; width: 50%; vertical-align: top;">
                     <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
                     
                     {# Timeline showing scanner detection dates and options signals #}
@@ -832,7 +832,7 @@
                     </div>
                     {% endif %}
                 </td>
-                <td colspan="2" style="vertical-align: top; padding-left: 20px; padding-top: 0;">
+                <td colspan="3" style="vertical-align: top; padding-left: 20px; padding-top: 0; width: 50%;">
                     <div style="font-size: 13px; line-height: 1.5;">
                         {% if stocks[stock].get(pattern + '_picked_count') %}
                         <strong>Confluence:</strong> Picked by {{ stocks[stock][pattern + '_picked_count'] }} scanner(s)<br>
