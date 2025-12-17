@@ -704,7 +704,7 @@
                             &nbsp;|&nbsp;
                             <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
                         </div>
-                        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                        <div style="flex: 1; display: flex; align-items: center;">
                     <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
                     
                     {# Timeline showing scanner detection dates and options signals #}
