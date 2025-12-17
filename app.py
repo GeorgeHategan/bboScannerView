@@ -1,3 +1,4 @@
+# BBO Scanner View - Updated Dec 13, 2025
 import os
 import sys
 import json
@@ -854,15 +855,15 @@ def get_cached_symbol_metadata():
         return cached
     
     try:
-        conn = get_db_connection(DUCKDB_PATH)
+        conn = get_db_connection(SCANNER_DATA_PATH)
         result = conn.execute('''
             SELECT DISTINCT d.symbol, 
                    COALESCE(f.name, d.symbol) as company,
                    f.market_cap,
                    f.sector,
                    f.industry
-            FROM scanner_data.daily_cache d
-            LEFT JOIN scanner_data.fundamental_cache f ON d.symbol = f.symbol
+            FROM main.daily_cache d
+            LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
             ORDER BY d.symbol
         ''').fetchall()
         
@@ -1458,7 +1459,7 @@ if motherduck_token:
     print(f"INFO: Scanner data DB: md:scanner_data?motherduck_token=***")
 else:
     # Fallback to local DB if no MotherDuck token - this will fail on Render
-    DUCKDB_PATH = '/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.duckdb'
+    DUCKDB_PATH = '/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.main.duckdb'
     SCANNER_DATA_PATH = DUCKDB_PATH
     print("WARNING: No motherduck_token found, using local database")
     print("ERROR: This will fail on Render - ensure MOTHERDUCK_TOKEN env var is set!")
@@ -1866,7 +1867,7 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
                    ema_9, ema_21,
                    atr_10, atr_14,
                    rsi_14
-            FROM scanner_data.daily_cache
+            FROM scanner_data.main.daily_cache
             WHERE symbol = ?
             ORDER BY date DESC
             LIMIT 20
@@ -2704,7 +2705,7 @@ async def api_get_chart_data(symbol: str, days: int = 30):
         conn = get_db_connection(DUCKDB_PATH)
         results = conn.execute("""
             SELECT date, open, high, low, close, volume
-            FROM scanner_data.daily_cache
+            FROM scanner_data.main.daily_cache
             WHERE symbol = ?
             ORDER BY date DESC
             LIMIT ?
@@ -2819,7 +2820,7 @@ async def focus_list_page(request: Request):
             placeholders = ','.join(['?' for _ in symbols])
             metadata_query = f'''
                 SELECT symbol, name, market_cap, sector, industry
-                FROM scanner_data.fundamental_cache
+                FROM scanner_data.main.fundamental_cache
                 WHERE symbol IN ({placeholders})
             '''
             metadata_results = conn.execute(metadata_query, symbols).fetchall()
@@ -2835,10 +2836,10 @@ async def focus_list_page(request: Request):
             # Get volume data
             vol_query = f'''
                 SELECT dc.symbol, dc.volume, dc.avg_volume_20
-                FROM scanner_data.daily_cache dc
+                FROM scanner_data.main.daily_cache dc
                 INNER JOIN (
                     SELECT symbol, MAX(date) as max_date
-                    FROM scanner_data.daily_cache
+                    FROM scanner_data.main.daily_cache
                     WHERE symbol IN ({placeholders})
                     GROUP BY symbol
                 ) latest ON dc.symbol = latest.symbol AND dc.date = latest.max_date
@@ -3517,9 +3518,9 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 COALESCE(f.name, r.symbol) as company_name,
                 f.market_cap,
                 f.industry
-            FROM scanner_data.ranked_analysis r
-            LEFT JOIN scanner_data.fundamental_cache f ON r.symbol = f.symbol
-            LEFT JOIN scanner_data.ai_analysis_individual ai ON r.symbol = ai.symbol AND r.analysis_date = ai.analysis_date
+            FROM scanner_data.main.main.ranked_analysis r
+            LEFT JOIN scanner_data.main.main.fundamental_cache f ON r.symbol = f.symbol
+            LEFT JOIN scanner_data.main.main.ai_analysis_individual ai ON r.symbol = ai.symbol AND r.analysis_date = ai.analysis_date
             WHERE r.analysis_date = ?
             ORDER BY r.rank ASC
         """
@@ -3699,7 +3700,7 @@ async def scanner_performance(request: Request):
                 # Get entry price (closing price on pick date)
                 entry_query = """
                     SELECT close
-                    FROM scanner_data.daily_cache
+                    FROM scanner_data.main.daily_cache
                     WHERE symbol = ?
                     AND date = ?
                 """
@@ -3713,7 +3714,7 @@ async def scanner_performance(request: Request):
                 # Get price history after pick date
                 price_query = """
                     SELECT date, close, high, low
-                    FROM scanner_data.daily_cache
+                    FROM scanner_data.main.daily_cache
                     WHERE symbol = ?
                     AND date > ?
                     ORDER BY date
@@ -3971,7 +3972,7 @@ async def ticker_search(request: Request, ticker: Optional[str] = Query(None)):
         try:
             current_data = conn.execute("""
                 SELECT close, date
-                FROM scanner_data.daily_cache
+                FROM scanner_data.main.main.main.daily_cache
                 WHERE symbol = ?
                 ORDER BY date DESC
                 LIMIT 1
@@ -5400,10 +5401,10 @@ async def index(
                 placeholders = ','.join(['?' for _ in symbols_list])
                 bulk_vol_query = f'''
                     SELECT dc.symbol, dc.volume, dc.avg_volume_20
-                    FROM scanner_data.daily_cache dc
+                    FROM scanner_data.main.daily_cache dc
                     INNER JOIN (
                         SELECT symbol, MAX(date) as max_date
-                        FROM scanner_data.daily_cache
+                        FROM scanner_data.main.daily_cache
                         WHERE symbol IN ({placeholders})
                         GROUP BY symbol
                     ) latest ON dc.symbol = latest.symbol AND dc.date = latest.max_date
