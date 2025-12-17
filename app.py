@@ -858,7 +858,7 @@ def get_cached_symbol_metadata():
         conn = get_db_connection(SCANNER_DATA_PATH)
         result = conn.execute('''
             SELECT DISTINCT d.symbol, 
-                   COALESCE(f.name, d.symbol) as company,
+                   COALESCE(f.company_name, d.symbol) as company,
                    f.market_cap,
                    f.sector,
                    f.industry
