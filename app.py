@@ -722,7 +722,7 @@ def get_login_page_charts():
         return cached
     
     scanner_distribution = []
-    scanner_history = {"dates": [], "scanners": {}}
+    scanner_history = {"dates": [], "scanners": {}, "unique_symbols": []}
     today_total = 0
     active_scanners = 0
     month_avg = 0
@@ -757,6 +757,19 @@ def get_login_page_charts():
         """
         history_result = conn.execute(history_query).fetchall()
         
+        # Get unique symbols per day
+        unique_symbols_query = """
+            SELECT 
+                CAST(scan_date AS DATE) as date,
+                COUNT(DISTINCT symbol) as unique_symbols
+            FROM scanner_results
+            WHERE CAST(scan_date AS DATE) >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY CAST(scan_date AS DATE)
+            ORDER BY date
+        """
+        unique_symbols_result = conn.execute(unique_symbols_query).fetchall()
+        unique_symbols_by_date = {row[0].strftime('%m/%d'): row[1] for row in unique_symbols_result}
+        
         # Process history data
         dates_set = set()
         scanner_data = {}
@@ -770,6 +783,7 @@ def get_login_page_charts():
         
         dates = sorted(list(dates_set))
         scanner_history["dates"] = dates
+        scanner_history["unique_symbols"] = [unique_symbols_by_date.get(d, 0) for d in dates]
         
         for scanner, data in scanner_data.items():
             scanner_key = scanner.lower().replace(' ', '_')
@@ -1065,7 +1079,7 @@ async def google_callback(request: Request):
                 'request': request, 
                 'error': 'Failed to get user information from Google',
                 'scanner_distribution': [],
-                'scanner_history': {"dates": [], "scanners": {}},
+                'scanner_history': {"dates": [], "scanners": {}, "unique_symbols": []},
                 'today_total': 0,
                 'active_scanners': 0,
                 'month_avg': 0
@@ -1083,7 +1097,7 @@ async def google_callback(request: Request):
                 'request': request,
                 'error': f'Access denied. Email {email} is not authorized to access this application.',
                 'scanner_distribution': [],
-                'scanner_history': {"dates": [], "scanners": {}},
+                'scanner_history': {"dates": [], "scanners": {}, "unique_symbols": []},
                 'today_total': 0,
                 'active_scanners': 0,
                 'month_avg': 0
@@ -1110,7 +1124,7 @@ async def google_callback(request: Request):
             'request': request,
             'error': f'Authentication failed: {str(e)}',
             'scanner_distribution': [],
-            'scanner_history': {"dates": [], "scanners": {}},
+            'scanner_history': {"dates": [], "scanners": {}, "unique_symbols": []},
             'today_total': 0,
             'active_scanners': 0,
             'month_avg': 0
@@ -6145,6 +6159,20 @@ async def index(
         """
         history_results = dropdown_conn.execute(history_query).fetchall()
         
+        # Get unique symbols per day
+        unique_symbols_query = """
+            SELECT 
+                CAST(scan_date AS DATE) as date,
+                COUNT(DISTINCT symbol) as unique_symbols
+            FROM scanner_results
+            WHERE scan_date >= CURRENT_DATE - INTERVAL '30 days'
+                AND scanner_name NOT IN ('bullish', 'Candlestick Bullish', 'Fundamental Swing')
+            GROUP BY CAST(scan_date AS DATE)
+            ORDER BY date ASC
+        """
+        unique_symbols_results = dropdown_conn.execute(unique_symbols_query).fetchall()
+        unique_symbols_by_date = {str(row[0]): row[1] for row in unique_symbols_results}
+        
         # Organize data by date
         from collections import defaultdict
         dates_dict = defaultdict(dict)
@@ -6161,7 +6189,8 @@ async def index(
         dates = sorted(dates_dict.keys())
         scanner_history = {
             'dates': dates,
-            'scanners': {}
+            'scanners': {},
+            'unique_symbols': [unique_symbols_by_date.get(date, 0) for date in dates]
         }
         
         for scanner_name in sorted(all_scanner_names):
@@ -6175,7 +6204,7 @@ async def index(
         print(f"ERROR: Could not load scanner history: {e}")
         import traceback
         traceback.print_exc()
-        scanner_history = {'dates': [], 'scanners': {}}
+        scanner_history = {'dates': [], 'scanners': {}, 'unique_symbols': []}
 
     # If a ticker is selected, reorder stocks dict to put it first
     if selected_ticker and selected_ticker in stocks:
