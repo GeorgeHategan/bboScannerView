@@ -1,0 +1,416 @@
+<html>
+<head>
+    <title>🔭 Discovery - Assets Outside Your Universe</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: arial; margin: 0; padding: 0; padding-top: 200px; background: #f5f5f5; }
+        .sticky-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            z-index: 1000;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .sticky-header-content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .nav-links {
+            display: flex;
+            gap: 10px;
+        }
+        .nav-links a {
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: normal;
+            border: 1px solid #ddd;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #16a085 0%, #1abc9c 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card.universe { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); }
+        .stat-card.options { background: linear-gradient(135deg, #e65100 0%, #f57c00 100%); }
+        .stat-card.darkpool { background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%); }
+        .stat-card.etf { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
+        .stat-card.stock { background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); }
+        .stat-value { font-size: 1.8em; font-weight: bold; }
+        .stat-label { font-size: 0.85em; opacity: 0.9; margin-top: 5px; }
+        
+        .discovery-table {
+            width: calc(100% - 40px);
+            border-collapse: collapse;
+            background: white;
+            margin: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .discovery-table th {
+            background: #16a085;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 12px;
+            position: sticky;
+            top: 200px;
+        }
+        .discovery-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        .discovery-table tr:hover { background: #f0fdf4; }
+        
+        .symbol-link {
+            color: #16a085;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .symbol-link:hover { text-decoration: underline; }
+        
+        .strength-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .strength-EXTREME { background: #8e44ad; color: white; }
+        .strength-VERY_HIGH { background: #9b59b6; color: white; }
+        .strength-HIGH { background: #a569bd; color: white; }
+        .strength-MODERATE { background: #95a5a6; color: white; }
+        
+        .asset-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .asset-ETF { background: #3498db; color: white; }
+        .asset-Stock { background: #27ae60; color: white; }
+        .asset-Unknown { background: #95a5a6; color: white; }
+        
+        .premium-cell { font-family: monospace; }
+        .premium-high { color: #8e44ad; font-weight: bold; }
+        .premium-medium { color: #e65100; }
+        .premium-low { color: #666; }
+        
+        .signals-cell {
+            text-align: center;
+            font-weight: bold;
+        }
+        .signals-options { color: #e65100; }
+        .signals-darkpool { color: #8e44ad; }
+        
+        .direction-badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+        .direction-BUY, .direction-BULLISH { background: #d4edda; color: #155724; }
+        .direction-SELL, .direction-BEARISH { background: #f8d7da; color: #721c24; }
+        .direction-NEUTRAL { background: #fff3cd; color: #856404; }
+        
+        .filters-form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .filters-form select, .filters-form input {
+            padding: 8px 12px;
+            font-size: 13px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: white;
+        }
+        .filters-form select:focus, .filters-form input:focus {
+            border-color: #16a085;
+            outline: none;
+        }
+        
+        .error-banner {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px 20px;
+            margin: 20px;
+            border-radius: 5px;
+        }
+        
+        .confidence-bar {
+            width: 60px;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .confidence-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        .confidence-high { background: #27ae60; }
+        .confidence-medium { background: #f39c12; }
+        .confidence-low { background: #e74c3c; }
+        
+        .info-box {
+            background: #e8f6f3;
+            border: 1px solid #16a085;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin: 20px;
+            font-size: 13px;
+            color: #0e6655;
+        }
+        .info-box strong { color: #16a085; }
+        
+        .volume-cell {
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sticky-header">
+        <div class="sticky-header-content">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="margin: 0 0 5px 0;">🔭 Discovery - Assets Outside Your Universe</h1>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                        Find symbols with high options flow or dark pool activity that are NOT in your scanner results
+                    </p>
+                </div>
+                <div class="nav-links">
+                    <a href="/focus-list" style="background: #ffebee; color: #c62828; border-color: #ef9a9a;">🎯 Focus List</a>
+                    <a href="/" style="background: #e8f4f8; color: #2c5f7a; border-color: #d0e5ed;">🔍 Scanners</a>
+                    <a href="/options-signals" style="background: #fff3e0; color: #e65100; border-color: #ffcc80;">📈 Options Flows</a>
+                    <a href="/darkpool-signals" style="background: #f3e5f5; color: #6a1b9a; border-color: #e1bee7;">🌑 Dark Pool</a>
+                    <a href="/ranked" style="background: #f0f0f0; color: #666;">🏆 Top Ranked</a>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <form method="GET" action="/discovery" class="filters-form">
+                <select name="scan_date" onchange="this.form.submit()">
+                    <option value="">-- Select Date --</option>
+                    {% for date in available_dates %}
+                    <option value="{{ date }}" {% if selected_scan_date == date %}selected{% endif %}>{{ date }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="asset_filter" onchange="this.form.submit()">
+                    <option value="">All Assets</option>
+                    <option value="Stock" {% if selected_asset_filter == 'Stock' %}selected{% endif %}>📈 Stocks Only</option>
+                    <option value="ETF" {% if selected_asset_filter == 'ETF' %}selected{% endif %}>📊 ETFs Only</option>
+                </select>
+                
+                <select name="signal_source" onchange="this.form.submit()">
+                    <option value="">All Signals</option>
+                    <option value="options" {% if selected_signal_source == 'options' %}selected{% endif %}>📈 Options Flow Only</option>
+                    <option value="darkpool" {% if selected_signal_source == 'darkpool' %}selected{% endif %}>🌑 Dark Pool Only</option>
+                </select>
+                
+                <select name="min_signals" onchange="this.form.submit()">
+                    <option value="1" {% if selected_min_signals == 1 %}selected{% endif %}>1+ Signals</option>
+                    <option value="2" {% if selected_min_signals == 2 %}selected{% endif %}>2+ Signals</option>
+                    <option value="3" {% if selected_min_signals == 3 %}selected{% endif %}>3+ Signals</option>
+                    <option value="5" {% if selected_min_signals == 5 %}selected{% endif %}>5+ Signals</option>
+                    <option value="10" {% if selected_min_signals == 10 %}selected{% endif %}>10+ Signals</option>
+                </select>
+                
+                <select name="min_volume" onchange="this.form.submit()">
+                    <option value="">Any Volume</option>
+                    <option value="1000" {% if selected_min_volume == 1000 %}selected{% endif %}>1K+ Vol</option>
+                    <option value="5000" {% if selected_min_volume == 5000 %}selected{% endif %}>5K+ Vol</option>
+                    <option value="10000" {% if selected_min_volume == 10000 %}selected{% endif %}>10K+ Vol</option>
+                    <option value="50000" {% if selected_min_volume == 50000 %}selected{% endif %}>50K+ Vol</option>
+                    <option value="100000" {% if selected_min_volume == 100000 %}selected{% endif %}>100K+ Vol</option>
+                </select>
+                
+                <a href="/discovery" style="padding: 8px 15px; background: #e74c3c; color: white; border-radius: 5px; text-decoration: none; font-size: 13px;">Clear</a>
+            </form>
+        </div>
+    </div>
+    
+    {% if error %}
+    <div class="error-banner">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% else %}
+    
+    <!-- Info Box -->
+    <div class="info-box">
+        <strong>💡 What is this?</strong> This page shows symbols with significant institutional activity (options flow or dark pool trades) 
+        that are <strong>NOT currently appearing in your scanner universe</strong> (last 7 days). 
+        These could be opportunities to add to your watchlist or scanner filters.
+    </div>
+    
+    <!-- Stats Cards -->
+    <div style="padding: 0 20px;">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_discovered or 0 }}</div>
+                <div class="stat-label">🔭 Discovered</div>
+            </div>
+            <div class="stat-card universe">
+                <div class="stat-value">{{ stats.scanner_universe_size or 0 }}</div>
+                <div class="stat-label">📋 Your Universe</div>
+            </div>
+            <div class="stat-card options">
+                <div class="stat-value">{{ stats.total_options_signals or 0 }}</div>
+                <div class="stat-label">📈 Options Signals</div>
+            </div>
+            <div class="stat-card darkpool">
+                <div class="stat-value">{{ stats.total_darkpool_signals or 0 }}</div>
+                <div class="stat-label">🌑 Dark Pool Signals</div>
+            </div>
+            <div class="stat-card stock">
+                <div class="stat-value">{{ stats.stock_count or 0 }}</div>
+                <div class="stat-label">📈 Stocks</div>
+            </div>
+            <div class="stat-card etf">
+                <div class="stat-value">{{ stats.etf_count or 0 }}</div>
+                <div class="stat-label">📊 ETFs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${{ "{:,.0f}".format((stats.total_premium or 0) / 1000000) }}M</div>
+                <div class="stat-label">💰 Total Premium</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Discovery Table -->
+    <table class="discovery-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Symbol</th>
+                <th>Type</th>
+                <th>Sector</th>
+                <th style="text-align: center;">📈 Options</th>
+                <th>Options Premium</th>
+                <th>Options Types</th>
+                <th style="text-align: center;">🌑 Dark Pool</th>
+                <th>DP Premium</th>
+                <th>DP Direction</th>
+                <th>Max Confidence</th>
+                <th>Strength</th>
+                <th>Volume</th>
+                <th>Total Premium</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for symbol in symbols %}
+            <tr>
+                <td style="color: #999; font-size: 11px;">{{ loop.index }}</td>
+                <td>
+                    <a href="/?pattern=all&ticker={{ symbol.symbol }}" class="symbol-link" target="_blank">{{ symbol.symbol }}</a>
+                </td>
+                <td>
+                    {% if symbol.sector == 'ETF' or 'ETF' in symbol.asset_type.upper() %}
+                    <span class="asset-badge asset-ETF">ETF</span>
+                    {% else %}
+                    <span class="asset-badge asset-Stock">Stock</span>
+                    {% endif %}
+                </td>
+                <td style="font-size: 11px; color: #666;">{{ symbol.sector if symbol.sector != 'ETF' else '-' }}</td>
+                <td class="signals-cell signals-options">
+                    {% if symbol.options_signals > 0 %}
+                    {{ symbol.options_signals }}
+                    {% else %}
+                    <span style="color: #ccc;">-</span>
+                    {% endif %}
+                </td>
+                <td class="premium-cell {% if symbol.options_premium > 1000000 %}premium-high{% elif symbol.options_premium > 100000 %}premium-medium{% else %}premium-low{% endif %}">
+                    {% if symbol.options_premium > 0 %}
+                    ${{ "{:,.0f}".format(symbol.options_premium) }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td style="font-size: 10px; color: #666; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ symbol.options_types }}">
+                    {{ symbol.options_types or '-' }}
+                </td>
+                <td class="signals-cell signals-darkpool">
+                    {% if symbol.darkpool_signals > 0 %}
+                    {{ symbol.darkpool_signals }}
+                    {% else %}
+                    <span style="color: #ccc;">-</span>
+                    {% endif %}
+                </td>
+                <td class="premium-cell {% if symbol.darkpool_premium > 10000000 %}premium-high{% elif symbol.darkpool_premium > 1000000 %}premium-medium{% else %}premium-low{% endif %}">
+                    {% if symbol.darkpool_premium > 0 %}
+                    ${{ "{:,.0f}".format(symbol.darkpool_premium) }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if symbol.darkpool_direction %}
+                        {% for dir in symbol.darkpool_direction.split(', ') %}
+                        <span class="direction-badge direction-{{ dir }}">{{ dir }}</span>
+                        {% endfor %}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill {% if symbol.max_confidence >= 80 %}confidence-high{% elif symbol.max_confidence >= 60 %}confidence-medium{% else %}confidence-low{% endif %}" 
+                             style="width: {{ symbol.max_confidence }}%;"></div>
+                    </div>
+                    <span style="font-size: 11px; margin-left: 5px;">{{ symbol.max_confidence|int }}%</span>
+                </td>
+                <td>
+                    {% set strength = symbol.options_strength or symbol.darkpool_strength %}
+                    {% if strength %}
+                    <span class="strength-badge strength-{{ strength }}">{{ strength.replace('_', ' ') }}</span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="volume-cell">
+                    {% if symbol.max_volume > 0 %}
+                    {{ "{:,.0f}".format(symbol.max_volume) }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="premium-cell" style="font-weight: bold; {% if symbol.total_premium > 5000000 %}color: #8e44ad;{% elif symbol.total_premium > 1000000 %}color: #e65100;{% endif %}">
+                    ${{ "{:,.0f}".format(symbol.total_premium) }}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="14" style="text-align: center; padding: 40px; color: #666;">
+                    No symbols found outside your universe with the selected filters.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% endif %}
+    
+    <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+        Showing up to 200 symbols sorted by activity score (signals × 10 + premium/100K + confidence)
+    </div>
+</body>
+</html>

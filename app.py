@@ -3494,6 +3494,225 @@ async def darkpool_signals(
         })
 
 
+@app.get("/discovery", response_class=HTMLResponse)
+async def discovery_page(
+    request: Request,
+    asset_filter: Optional[str] = Query(None),  # 'ETF', 'Stock', or None for all
+    min_volume: Optional[str] = Query(None),
+    min_signals: Optional[str] = Query(None),
+    signal_source: Optional[str] = Query(None),  # 'options', 'darkpool', or None for both
+    scan_date: Optional[str] = Query(None)
+):
+    """Discover symbols with high options/darkpool activity NOT in scanner universe."""
+    
+    min_volume_val = int(min_volume) if min_volume else None
+    min_signals_val = int(min_signals) if min_signals else 1
+    
+    if not OPTIONS_DUCKDB_PATH:
+        return templates.TemplateResponse('discovery.html', {
+            'request': request,
+            'error': 'Options database not configured.',
+            'symbols': [],
+            'stats': {},
+            'available_dates': []
+        })
+    
+    try:
+        options_conn = get_options_db_connection()
+        scanner_conn = get_db_connection(DUCKDB_PATH)
+        
+        if not options_conn:
+            raise Exception("Could not connect to options database")
+        
+        # Get available dates from both tables
+        available_dates = []
+        try:
+            opt_dates = [str(row[0]) for row in options_conn.execute(
+                "SELECT DISTINCT scan_date FROM accumulation_signals ORDER BY scan_date DESC LIMIT 30"
+            ).fetchall()]
+            dp_dates = [str(row[0]) for row in options_conn.execute(
+                "SELECT DISTINCT scan_date FROM darkpool_signals ORDER BY scan_date DESC LIMIT 30"
+            ).fetchall()]
+            available_dates = sorted(set(opt_dates + dp_dates), reverse=True)[:30]
+        except:
+            pass
+        
+        # Get latest date if not specified
+        if not scan_date and available_dates:
+            scan_date = available_dates[0]
+        
+        # Get all symbols in scanner universe (last 7 days)
+        scanner_symbols = set()
+        try:
+            scanner_result = scanner_conn.execute("""
+                SELECT DISTINCT symbol 
+                FROM scanner_results 
+                WHERE scan_date >= CURRENT_DATE - INTERVAL '7 days'
+            """).fetchall()
+            scanner_symbols = {row[0].upper() for row in scanner_result}
+        except Exception as e:
+            print(f"Error getting scanner symbols: {e}")
+        
+        # Build discovery query - get symbols with options/darkpool activity NOT in scanner universe
+        discovery_data = {}
+        
+        # Get options flow signals
+        if signal_source in [None, 'options']:
+            opt_query = """
+                SELECT 
+                    underlying_symbol as symbol,
+                    sector,
+                    asset_type,
+                    COUNT(*) as signal_count,
+                    SUM(premium_spent) as total_premium,
+                    MAX(confidence_score) as max_confidence,
+                    MAX(signal_strength) as max_strength,
+                    STRING_AGG(DISTINCT signal_type, ', ') as signal_types,
+                    MAX(volume) as max_volume
+                FROM accumulation_signals
+                WHERE scan_date = ?
+                GROUP BY underlying_symbol, sector, asset_type
+            """
+            opt_results = options_conn.execute(opt_query, [scan_date]).fetchall()
+            
+            for row in opt_results:
+                symbol = row[0].upper() if row[0] else ''
+                if symbol and symbol not in scanner_symbols:
+                    if symbol not in discovery_data:
+                        discovery_data[symbol] = {
+                            'symbol': symbol,
+                            'sector': row[1] or 'ETF',
+                            'asset_type': row[2] or 'Unknown',
+                            'options_signals': 0,
+                            'options_premium': 0,
+                            'options_confidence': 0,
+                            'options_strength': '',
+                            'options_types': '',
+                            'darkpool_signals': 0,
+                            'darkpool_premium': 0,
+                            'darkpool_confidence': 0,
+                            'darkpool_strength': '',
+                            'darkpool_direction': '',
+                            'max_volume': 0
+                        }
+                    discovery_data[symbol]['options_signals'] = row[3] or 0
+                    discovery_data[symbol]['options_premium'] = row[4] or 0
+                    discovery_data[symbol]['options_confidence'] = row[5] or 0
+                    discovery_data[symbol]['options_strength'] = row[6] or ''
+                    discovery_data[symbol]['options_types'] = row[7] or ''
+                    discovery_data[symbol]['max_volume'] = max(discovery_data[symbol]['max_volume'], row[8] or 0)
+        
+        # Get dark pool signals
+        if signal_source in [None, 'darkpool']:
+            dp_query = """
+                SELECT 
+                    ticker as symbol,
+                    COUNT(*) as signal_count,
+                    SUM(dp_premium) as total_premium,
+                    MAX(confidence_score) as max_confidence,
+                    MAX(signal_strength) as max_strength,
+                    STRING_AGG(DISTINCT direction, ', ') as directions,
+                    MAX(dp_volume) as max_volume
+                FROM darkpool_signals
+                WHERE scan_date = ?
+                GROUP BY ticker
+            """
+            dp_results = options_conn.execute(dp_query, [scan_date]).fetchall()
+            
+            for row in dp_results:
+                symbol = row[0].upper() if row[0] else ''
+                if symbol and symbol not in scanner_symbols:
+                    if symbol not in discovery_data:
+                        discovery_data[symbol] = {
+                            'symbol': symbol,
+                            'sector': 'Unknown',
+                            'asset_type': 'Unknown',
+                            'options_signals': 0,
+                            'options_premium': 0,
+                            'options_confidence': 0,
+                            'options_strength': '',
+                            'options_types': '',
+                            'darkpool_signals': 0,
+                            'darkpool_premium': 0,
+                            'darkpool_confidence': 0,
+                            'darkpool_strength': '',
+                            'darkpool_direction': '',
+                            'max_volume': 0
+                        }
+                    discovery_data[symbol]['darkpool_signals'] = row[1] or 0
+                    discovery_data[symbol]['darkpool_premium'] = row[2] or 0
+                    discovery_data[symbol]['darkpool_confidence'] = row[3] or 0
+                    discovery_data[symbol]['darkpool_strength'] = row[4] or ''
+                    discovery_data[symbol]['darkpool_direction'] = row[5] or ''
+                    discovery_data[symbol]['max_volume'] = max(discovery_data[symbol]['max_volume'], row[6] or 0)
+        
+        # Convert to list and apply filters
+        symbols = list(discovery_data.values())
+        
+        # Filter by asset type
+        if asset_filter == 'ETF':
+            symbols = [s for s in symbols if s['sector'] == 'ETF' or 'ETF' in s['asset_type'].upper()]
+        elif asset_filter == 'Stock':
+            symbols = [s for s in symbols if s['sector'] != 'ETF' and 'ETF' not in s['asset_type'].upper()]
+        
+        # Filter by minimum volume
+        if min_volume_val:
+            symbols = [s for s in symbols if s['max_volume'] >= min_volume_val]
+        
+        # Filter by minimum signals
+        if min_signals_val:
+            symbols = [s for s in symbols if (s['options_signals'] + s['darkpool_signals']) >= min_signals_val]
+        
+        # Calculate total signals and score for sorting
+        for s in symbols:
+            s['total_signals'] = s['options_signals'] + s['darkpool_signals']
+            s['total_premium'] = s['options_premium'] + s['darkpool_premium']
+            s['max_confidence'] = max(s['options_confidence'], s['darkpool_confidence'])
+            # Score based on signals, premium and confidence
+            s['score'] = (s['total_signals'] * 10) + (s['total_premium'] / 100000) + s['max_confidence']
+        
+        # Sort by score descending
+        symbols = sorted(symbols, key=lambda x: x['score'], reverse=True)
+        
+        # Calculate stats
+        stats = {
+            'total_discovered': len(symbols),
+            'scanner_universe_size': len(scanner_symbols),
+            'total_options_signals': sum(s['options_signals'] for s in symbols),
+            'total_darkpool_signals': sum(s['darkpool_signals'] for s in symbols),
+            'total_premium': sum(s['total_premium'] for s in symbols),
+            'etf_count': len([s for s in symbols if s['sector'] == 'ETF' or 'ETF' in s['asset_type'].upper()]),
+            'stock_count': len([s for s in symbols if s['sector'] != 'ETF' and 'ETF' not in s['asset_type'].upper()])
+        }
+        
+        options_conn.close()
+        scanner_conn.close()
+        
+        return templates.TemplateResponse('discovery.html', {
+            'request': request,
+            'symbols': symbols[:200],  # Limit to 200 results
+            'stats': stats,
+            'available_dates': available_dates,
+            'selected_scan_date': scan_date,
+            'selected_asset_filter': asset_filter,
+            'selected_min_volume': min_volume_val,
+            'selected_min_signals': min_signals_val,
+            'selected_signal_source': signal_source,
+            'error': None
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse('discovery.html', {
+            'request': request,
+            'error': f'Error loading discovery data: {str(e)}',
+            'symbols': [],
+            'stats': {},
+            'available_dates': []
+        })
+
+
 @app.get("/ranked", response_class=HTMLResponse)
 async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     """Display AI-ranked stock analysis results."""
