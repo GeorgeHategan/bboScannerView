@@ -3541,16 +3541,16 @@ async def discovery_page(
         if not scan_date and available_dates:
             scan_date = available_dates[0]
         
-        # Get ALL symbols in complete scanner universe (no date filter - entire history)
+        # Get ALL symbols from the complete scanner_data cache (the full ticker universe)
         scanner_symbols = set()
         try:
             scanner_result = scanner_conn.execute("""
                 SELECT DISTINCT symbol 
-                FROM scanner_results
+                FROM scanner_data.main.daily_cache
             """).fetchall()
             scanner_symbols = {row[0].upper() for row in scanner_result}
         except Exception as e:
-            print(f"Error getting scanner symbols: {e}")
+            print(f"Error getting scanner symbols from daily_cache: {e}")
         
         # Build discovery query - get symbols with options/darkpool activity NOT in scanner universe
         discovery_data = {}
