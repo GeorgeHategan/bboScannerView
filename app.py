@@ -3541,13 +3541,12 @@ async def discovery_page(
         if not scan_date and available_dates:
             scan_date = available_dates[0]
         
-        # Get all symbols in scanner universe (last 7 days)
+        # Get ALL symbols in complete scanner universe (no date filter - entire history)
         scanner_symbols = set()
         try:
             scanner_result = scanner_conn.execute("""
                 SELECT DISTINCT symbol 
-                FROM scanner_results 
-                WHERE scan_date >= CURRENT_DATE - INTERVAL '7 days'
+                FROM scanner_results
             """).fetchall()
             scanner_symbols = {row[0].upper() for row in scanner_result}
         except Exception as e:
