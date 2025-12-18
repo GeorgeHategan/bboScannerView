@@ -324,13 +324,13 @@
                     <a href="/?pattern=all&ticker={{ symbol.symbol }}" class="symbol-link" target="_blank">{{ symbol.symbol }}</a>
                 </td>
                 <td>
-                    {% if symbol.sector == 'ETF' or 'ETF' in symbol.asset_type.upper() %}
+                    {% if symbol.is_etf %}
                     <span class="asset-badge asset-ETF">ETF</span>
                     {% else %}
                     <span class="asset-badge asset-Stock">Stock</span>
                     {% endif %}
                 </td>
-                <td style="font-size: 11px; color: #666;">{{ symbol.sector if symbol.sector != 'ETF' else '-' }}</td>
+                <td style="font-size: 11px; color: #666;">{{ symbol.sector if symbol.sector not in ['ETF', 'Unknown'] else '-' }}</td>
                 <td class="signals-cell signals-options">
                     {% if symbol.options_signals > 0 %}
                     {{ symbol.options_signals }}

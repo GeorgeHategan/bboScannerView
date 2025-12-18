@@ -3555,6 +3555,38 @@ async def discovery_page(
         # Build discovery query - get symbols with options/darkpool activity NOT in scanner universe
         discovery_data = {}
         
+        # First, get all known ETF symbols from accumulation_signals for reference
+        known_etfs = set()
+        try:
+            etf_result = options_conn.execute("""
+                SELECT DISTINCT underlying_symbol 
+                FROM accumulation_signals 
+                WHERE sector = 'ETF' OR asset_type LIKE '%ETF%'
+            """).fetchall()
+            known_etfs = {row[0].upper() for row in etf_result if row[0]}
+        except:
+            pass
+        
+        # Also add common ETF tickers that might not be in options data
+        common_etfs = {
+            'SPY', 'QQQ', 'IWM', 'DIA', 'VOO', 'VTI', 'IVV', 'VEA', 'VWO', 'EFA', 'EEM',
+            'AGG', 'BND', 'LQD', 'HYG', 'TLT', 'IEF', 'SHY', 'TIP', 'MUB', 'JNK',
+            'GLD', 'SLV', 'IAU', 'GDX', 'GDXJ', 'USO', 'UNG', 'DBA', 'DBC',
+            'XLF', 'XLE', 'XLK', 'XLV', 'XLI', 'XLY', 'XLP', 'XLU', 'XLB', 'XLRE',
+            'VGT', 'VHT', 'VFH', 'VNQ', 'VIG', 'VYM', 'SCHD', 'DVY',
+            'ARKK', 'ARKG', 'ARKW', 'ARKF', 'ARKQ',
+            'TQQQ', 'SQQQ', 'SPXL', 'SPXS', 'TNA', 'TZA', 'UVXY', 'SVXY', 'VXX',
+            'SMH', 'SOXX', 'XBI', 'IBB', 'XOP', 'OIH', 'KRE', 'KBE', 'ITB', 'XHB',
+            'RSP', 'SPLG', 'SPYG', 'SPYV', 'IWF', 'IWD', 'IWB', 'IWN', 'IWO', 'IWP',
+            'VB', 'VV', 'VO', 'VBK', 'VBR', 'VUG', 'VTV',
+            'IEMG', 'IXUS', 'IEFA', 'ACWI', 'VXUS',
+            'SGOV', 'BIL', 'SHV', 'MINT', 'NEAR',
+            'SPYM', 'SPHD', 'NOBL', 'SDY',
+            'GEV', 'JEPI', 'JEPQ', 'DIVO', 'NUSI',
+            'XRT', 'XME', 'JETS', 'KWEB', 'MCHI', 'FXI', 'EWZ', 'EWJ', 'EWT', 'EWY'
+        }
+        known_etfs.update(common_etfs)
+        
         # Get options flow signals
         if signal_source in [None, 'options']:
             opt_query = """
@@ -3577,11 +3609,13 @@ async def discovery_page(
             for row in opt_results:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol and symbol not in scanner_symbols:
+                    is_etf = symbol in known_etfs or row[1] == 'ETF' or (row[2] and 'ETF' in row[2].upper())
                     if symbol not in discovery_data:
                         discovery_data[symbol] = {
                             'symbol': symbol,
-                            'sector': row[1] or 'ETF',
-                            'asset_type': row[2] or 'Unknown',
+                            'sector': 'ETF' if is_etf else (row[1] or 'Unknown'),
+                            'asset_type': row[2] or ('ETF' if is_etf else 'Stock'),
+                            'is_etf': is_etf,
                             'options_signals': 0,
                             'options_premium': 0,
                             'options_confidence': 0,
@@ -3621,11 +3655,13 @@ async def discovery_page(
             for row in dp_results:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol and symbol not in scanner_symbols:
+                    is_etf = symbol in known_etfs
                     if symbol not in discovery_data:
                         discovery_data[symbol] = {
                             'symbol': symbol,
-                            'sector': 'Unknown',
-                            'asset_type': 'Unknown',
+                            'sector': 'ETF' if is_etf else 'Unknown',
+                            'asset_type': 'ETF' if is_etf else 'Stock',
+                            'is_etf': is_etf,
                             'options_signals': 0,
                             'options_premium': 0,
                             'options_confidence': 0,
@@ -3648,11 +3684,11 @@ async def discovery_page(
         # Convert to list and apply filters
         symbols = list(discovery_data.values())
         
-        # Filter by asset type
+        # Filter by asset type using is_etf flag
         if asset_filter == 'ETF':
-            symbols = [s for s in symbols if s['sector'] == 'ETF' or 'ETF' in s['asset_type'].upper()]
+            symbols = [s for s in symbols if s.get('is_etf', False)]
         elif asset_filter == 'Stock':
-            symbols = [s for s in symbols if s['sector'] != 'ETF' and 'ETF' not in s['asset_type'].upper()]
+            symbols = [s for s in symbols if not s.get('is_etf', False)]
         
         # Filter by minimum volume
         if min_volume_val:
@@ -3680,8 +3716,8 @@ async def discovery_page(
             'total_options_signals': sum(s['options_signals'] for s in symbols),
             'total_darkpool_signals': sum(s['darkpool_signals'] for s in symbols),
             'total_premium': sum(s['total_premium'] for s in symbols),
-            'etf_count': len([s for s in symbols if s['sector'] == 'ETF' or 'ETF' in s['asset_type'].upper()]),
-            'stock_count': len([s for s in symbols if s['sector'] != 'ETF' and 'ETF' not in s['asset_type'].upper()])
+            'etf_count': len([s for s in symbols if s.get('is_etf', False)]),
+            'stock_count': len([s for s in symbols if not s.get('is_etf', False)])
         }
         
         options_conn.close()
