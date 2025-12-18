@@ -706,6 +706,7 @@
                         </div>
                         <div style="flex: 1; display: flex; align-items: center;">
                     <img src="https://finviz.com/chart.ashx?t={{ stock }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
+                        </div>
                     
                     {# Timeline showing scanner detection dates and options signals #}
                     {% set has_confirmations = stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
@@ -817,7 +818,6 @@
                         </div>
                     </div>
                     {% endif %}
-                        </div>
                     </div>
                             </td>
                             <td style="width: 37%; vertical-align: top; padding-left: 20px;">
