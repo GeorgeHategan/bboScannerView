@@ -297,9 +297,17 @@
     </div>
     
     <!-- Discovery Table -->
+    <div style="padding: 0 20px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
+        <button onclick="selectAll()" style="padding: 8px 15px; background: #16a085; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">☑️ Select All</button>
+        <button onclick="selectNone()" style="padding: 8px 15px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">☐ Select None</button>
+        <button onclick="downloadSelected()" style="padding: 8px 15px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">📥 Download Selected</button>
+        <span id="selected-count" style="color: #666; font-size: 13px;">(0 selected)</span>
+    </div>
+    
     <table class="discovery-table">
         <thead>
             <tr>
+                <th style="width: 30px;"><input type="checkbox" id="select-all-checkbox" onchange="toggleAll(this)"></th>
                 <th>#</th>
                 <th>Symbol</th>
                 <th>Type</th>
@@ -319,9 +327,10 @@
         <tbody>
             {% for symbol in symbols %}
             <tr>
+                <td><input type="checkbox" class="symbol-checkbox" data-symbol="{{ symbol.symbol }}" onchange="updateSelectedCount()"></td>
                 <td style="color: #999; font-size: 11px;">{{ loop.index }}</td>
                 <td>
-                    <a href="/?pattern=all&ticker={{ symbol.symbol }}" class="symbol-link" target="_blank">{{ symbol.symbol }}</a>
+                    <a href="https://www.tradingview.com/chart/?symbol={{ symbol.symbol }}" class="symbol-link" target="_blank">{{ symbol.symbol }}</a>
                 </td>
                 <td>
                     {% if symbol.is_etf %}
@@ -399,7 +408,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="14" style="text-align: center; padding: 40px; color: #666;">
+                <td colspan="15" style="text-align: center; padding: 40px; color: #666;">
                     No symbols found outside your universe with the selected filters.
                 </td>
             </tr>
@@ -412,5 +421,53 @@
     <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
         Showing up to 200 symbols sorted by activity score (signals × 10 + premium/100K + confidence)
     </div>
+    
+    <script>
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.symbol-checkbox:checked');
+            document.getElementById('selected-count').textContent = `(${checkboxes.length} selected)`;
+        }
+        
+        function toggleAll(masterCheckbox) {
+            const checkboxes = document.querySelectorAll('.symbol-checkbox');
+            checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+            updateSelectedCount();
+        }
+        
+        function selectAll() {
+            const checkboxes = document.querySelectorAll('.symbol-checkbox');
+            checkboxes.forEach(cb => cb.checked = true);
+            document.getElementById('select-all-checkbox').checked = true;
+            updateSelectedCount();
+        }
+        
+        function selectNone() {
+            const checkboxes = document.querySelectorAll('.symbol-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            document.getElementById('select-all-checkbox').checked = false;
+            updateSelectedCount();
+        }
+        
+        function downloadSelected() {
+            const checkboxes = document.querySelectorAll('.symbol-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one symbol');
+                return;
+            }
+            
+            const symbols = Array.from(checkboxes).map(cb => cb.dataset.symbol);
+            const content = symbols.join('\n');
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'discovery_symbols_{{ selected_scan_date or "list" }}.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 </html>
