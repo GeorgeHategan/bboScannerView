@@ -4005,9 +4005,9 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 COALESCE(f.name, r.symbol) as company_name,
                 f.market_cap,
                 f.industry
-            FROM scanner_data.main.main.ranked_analysis r
-            LEFT JOIN scanner_data.main.main.fundamental_cache f ON r.symbol = f.symbol
-            LEFT JOIN scanner_data.main.main.ai_analysis_individual ai ON r.symbol = ai.symbol AND r.analysis_date = ai.analysis_date
+            FROM scanner_data.main.ranked_analysis r
+            LEFT JOIN scanner_data.main.fundamental_cache f ON r.symbol = f.symbol
+            LEFT JOIN scanner_data.main.ai_analysis_individual ai ON r.symbol = ai.symbol AND r.analysis_date = ai.analysis_date
             WHERE r.analysis_date = ?
             ORDER BY r.rank ASC
         """
@@ -4459,7 +4459,7 @@ async def ticker_search(request: Request, ticker: Optional[str] = Query(None)):
         try:
             current_data = conn.execute("""
                 SELECT close, date
-                FROM scanner_data.main.main.main.daily_cache
+                FROM scanner_data.main.daily_cache
                 WHERE symbol = ?
                 ORDER BY date DESC
                 LIMIT 1
