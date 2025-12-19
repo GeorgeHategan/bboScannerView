@@ -3296,7 +3296,16 @@ async def options_chart_data(symbol: str):
                 COUNT(*) as signal_count,
                 MAX(confidence_score) as max_confidence,
                 STRING_AGG(DISTINCT signal_strength, ',') as strengths,
-                STRING_AGG(DISTINCT signal_type, ',') as signal_types
+                STRING_AGG(DISTINCT signal_type, ',') as signal_types,
+                STRING_AGG(DISTINCT direction, ',') as directions,
+                AVG(CASE WHEN oi_change_pct IS NOT NULL THEN oi_change_pct ELSE 0 END) as avg_oi_change_pct,
+                SUM(curr_oi) as total_oi,
+                COUNT(CASE WHEN direction = 'BULLISH' THEN 1 END) as bullish_count,
+                COUNT(CASE WHEN direction = 'BEARISH' THEN 1 END) as bearish_count,
+                SUM(CASE WHEN direction = 'BULLISH' THEN premium_spent ELSE 0 END) as bullish_premium,
+                SUM(CASE WHEN direction = 'BEARISH' THEN premium_spent ELSE 0 END) as bearish_premium,
+                COUNT(CASE WHEN signal_type LIKE '%CALL%' OR option_symbol LIKE '%C%' THEN 1 END) as call_count,
+                COUNT(CASE WHEN signal_type LIKE '%PUT%' OR option_symbol LIKE '%P%' THEN 1 END) as put_count
             FROM accumulation_signals
             WHERE underlying_symbol = ?
                 AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
@@ -3317,7 +3326,16 @@ async def options_chart_data(symbol: str):
                 'signal_count': int(row[3]) if row[3] else 0,
                 'confidence': float(row[4]) if row[4] else 0,
                 'strengths': str(row[5]) if row[5] else '',
-                'signal_types': str(row[6]) if row[6] else ''
+                'signal_types': str(row[6]) if row[6] else '',
+                'directions': str(row[7]) if row[7] else '',
+                'avg_oi_change_pct': float(row[8]) if row[8] else 0,
+                'total_oi': int(row[9]) if row[9] else 0,
+                'bullish_count': int(row[10]) if row[10] else 0,
+                'bearish_count': int(row[11]) if row[11] else 0,
+                'bullish_premium': float(row[12]) if row[12] else 0,
+                'bearish_premium': float(row[13]) if row[13] else 0,
+                'call_count': int(row[14]) if row[14] else 0,
+                'put_count': int(row[15]) if row[15] else 0
             }
         
         # Align data for all dates
@@ -3329,7 +3347,16 @@ async def options_chart_data(symbol: str):
             'confidences': [],
             'strengths': [],
             'signal_types': [],
-            'prices': []
+            'prices': [],
+            'directions': [],
+            'avg_oi_change_pcts': [],
+            'total_ois': [],
+            'bullish_counts': [],
+            'bearish_counts': [],
+            'bullish_premiums': [],
+            'bearish_premiums': [],
+            'call_counts': [],
+            'put_counts': []
         }
         
         for date in all_dates:
@@ -3345,6 +3372,15 @@ async def options_chart_data(symbol: str):
                 chart_data['confidences'].append(opt['confidence'])
                 chart_data['strengths'].append(opt['strengths'])
                 chart_data['signal_types'].append(opt['signal_types'])
+                chart_data['directions'].append(opt['directions'])
+                chart_data['avg_oi_change_pcts'].append(opt['avg_oi_change_pct'])
+                chart_data['total_ois'].append(opt['total_oi'])
+                chart_data['bullish_counts'].append(opt['bullish_count'])
+                chart_data['bearish_counts'].append(opt['bearish_count'])
+                chart_data['bullish_premiums'].append(opt['bullish_premium'])
+                chart_data['bearish_premiums'].append(opt['bearish_premium'])
+                chart_data['call_counts'].append(opt['call_count'])
+                chart_data['put_counts'].append(opt['put_count'])
             else:
                 chart_data['premiums'].append(0)
                 chart_data['volumes'].append(0)
@@ -3352,6 +3388,15 @@ async def options_chart_data(symbol: str):
                 chart_data['confidences'].append(0)
                 chart_data['strengths'].append('')
                 chart_data['signal_types'].append('')
+                chart_data['directions'].append('')
+                chart_data['avg_oi_change_pcts'].append(0)
+                chart_data['total_ois'].append(0)
+                chart_data['bullish_counts'].append(0)
+                chart_data['bearish_counts'].append(0)
+                chart_data['bullish_premiums'].append(0)
+                chart_data['bearish_premiums'].append(0)
+                chart_data['call_counts'].append(0)
+                chart_data['put_counts'].append(0)
         
         return chart_data
         

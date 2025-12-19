@@ -342,7 +342,12 @@
     {% if selected_symbol %}
     <div style="padding: 0 20px; margin: 20px 0;">
         <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h3 style="margin: 0 0 15px 0; color: #333;">📊 {{ selected_symbol.upper() }} - Options Flow Activity (Last 60 Days)</h3>
+            <h3 style="margin: 0 0 15px 0; color: #333;">
+                📊 {{ selected_symbol.upper() }} - Options Flow Activity (Last 60 Days)
+                <span style="font-size: 12px; color: #666; font-weight: normal; margin-left: 15px;">
+                    Stacked: 🟢 Bullish / 🔴 Bearish Premium
+                </span>
+            </h3>
             <canvas id="optionsChart" style="max-height: 400px;"></canvas>
         </div>
     </div>
@@ -575,32 +580,39 @@
                     return;
                 }
                 
-                // Create color array based on signal strengths
-                const colors = data.strengths.map(str => {
-                    if (str.includes('EXTREME')) return '#e74c3c';
-                    if (str.includes('VERY_HIGH')) return '#e67e22';
-                    if (str.includes('HIGH')) return '#f39c12';
-                    return '#3498db';
-                });
-                
                 const ctx = document.getElementById('optionsChart');
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: data.dates,
                         datasets: [
-                            // Options premium bars with transparency
+                            // Bullish premium bars (green)
                             {
-                                label: 'Options Premium ($)',
-                                data: data.premiums,
+                                label: '🟢 Bullish Premium ($)',
+                                data: data.bullish_premiums,
                                 type: 'bar',
-                                backgroundColor: colors.map(c => c + '99'),
-                                borderColor: colors,
+                                backgroundColor: 'rgba(39, 174, 96, 0.7)',
+                                borderColor: '#27ae60',
                                 borderWidth: 2,
                                 barThickness: 'flex',
                                 maxBarThickness: 40,
                                 yAxisID: 'y',
-                                order: 2
+                                order: 3,
+                                stack: 'premium'
+                            },
+                            // Bearish premium bars (red)
+                            {
+                                label: '🔴 Bearish Premium ($)',
+                                data: data.bearish_premiums,
+                                type: 'bar',
+                                backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                                borderColor: '#e74c3c',
+                                borderWidth: 2,
+                                barThickness: 'flex',
+                                maxBarThickness: 40,
+                                yAxisID: 'y',
+                                order: 2,
+                                stack: 'premium'
                             },
                             // Stock price line (foreground)
                             {
@@ -618,6 +630,10 @@
                                 pointBorderWidth: 2,
                                 pointHoverRadius: 6,
                                 tension: 0.4,
+                                order: 1
+                            }
+                        ]
+                    },
                                 order: 1
                             }
                         ]
@@ -714,13 +730,39 @@
                                             const price = data.prices[idx];
                                             return 'Price: ' + (price ? '$' + price.toFixed(2) : 'N/A');
                                         } else {
-                                            const lines = [
-                                                'Premium: $' + (data.premiums[idx] / 1000).toFixed(2) + 'K',
-                                                'Volume: ' + data.volumes[idx].toLocaleString(),
-                                                'Signals: ' + data.signal_counts[idx],
-                                                'Confidence: ' + data.confidences[idx].toFixed(0),
-                                                'Strength: ' + (data.strengths[idx] || 'N/A')
-                                            ];
+                                            const bullishPremium = data.bullish_premiums[idx];
+                                            const bearishPremium = data.bearish_premiums[idx];
+                                            const bullishCount = data.bullish_counts[idx];
+                                            const bearishCount = data.bearish_counts[idx];
+                                            const callCount = data.call_counts[idx];
+                                            const putCount = data.put_counts[idx];
+                                            const oiChangePct = data.avg_oi_change_pcts[idx];
+                                            const totalOI = data.total_ois[idx];
+                                            
+                                            // Calculate ratios
+                                            const totalPremium = bullishPremium + bearishPremium;
+                                            const bullishPct = totalPremium > 0 ? (bullishPremium / totalPremium * 100).toFixed(0) : 0;
+                                            const bearishPct = totalPremium > 0 ? (bearishPremium / totalPremium * 100).toFixed(0) : 0;
+                                            const callPutRatio = putCount > 0 ? (callCount / putCount).toFixed(2) : callCount > 0 ? '∞' : '0';
+                                            
+                                            const lines = [];
+                                            
+                                            // Dataset-specific first line
+                                            if (context.dataset.label.includes('Bullish')) {
+                                                lines.push('🟢 Bullish: $' + (bullishPremium / 1000).toFixed(2) + 'K (' + bullishPct + '%)');
+                                            } else if (context.dataset.label.includes('Bearish')) {
+                                                lines.push('🔴 Bearish: $' + (bearishPremium / 1000).toFixed(2) + 'K (' + bearishPct + '%)');
+                                            }
+                                            
+                                            // Common info
+                                            lines.push('Total Premium: $' + (totalPremium / 1000).toFixed(2) + 'K');
+                                            lines.push('📊 Call/Put Ratio: ' + callPutRatio + ' (' + callCount + 'C / ' + putCount + 'P)');
+                                            lines.push('Signals: ' + bullishCount + '🟢 / ' + bearishCount + '🔴');
+                                            lines.push('OI Change: ' + (oiChangePct * 100).toFixed(1) + '%');
+                                            lines.push('Total OI: ' + totalOI.toLocaleString());
+                                            lines.push('Volume: ' + data.volumes[idx].toLocaleString());
+                                            lines.push('Confidence: ' + data.confidences[idx].toFixed(0));
+                                            
                                             return lines;
                                         }
                                     }
