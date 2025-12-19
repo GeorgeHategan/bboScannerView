@@ -493,22 +493,50 @@
                     type: 'bar',
                     data: {
                         labels: data.dates,
-                        datasets: [{
-                            label: 'Dark Pool Premium ($)',
-                            data: data.premiums,
-                            backgroundColor: colors,
-                            borderColor: colors.map(c => c),
-                            borderWidth: 1,
-                            barThickness: 'flex',
-                            maxBarThickness: 40
-                        }]
+                        datasets: [
+                            // Stock price line (background)
+                            {
+                                label: 'Stock Price ($)',
+                                data: data.prices,
+                                type: 'line',
+                                borderColor: '#3498db',
+                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                yAxisID: 'y1',
+                                pointRadius: 3,
+                                pointHoverRadius: 5,
+                                tension: 0.3,
+                                order: 2
+                            },
+                            // Dark pool premium bars (foreground)
+                            {
+                                label: 'Dark Pool Premium ($)',
+                                data: data.premiums,
+                                type: 'bar',
+                                backgroundColor: colors,
+                                borderColor: colors.map(c => c),
+                                borderWidth: 1,
+                                barThickness: 'flex',
+                                maxBarThickness: 40,
+                                yAxisID: 'y',
+                                order: 1
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: true,
                         aspectRatio: 2.5,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
                         scales: {
                             y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
                                 beginAtZero: true,
                                 title: {
                                     display: true,
@@ -516,12 +544,40 @@
                                     font: {
                                         size: 12,
                                         weight: 'bold'
-                                    }
+                                    },
+                                    color: '#8e44ad'
                                 },
                                 ticks: {
                                     callback: function(value) {
                                         return '$' + (value / 1000000).toFixed(1) + 'M';
-                                    }
+                                    },
+                                    color: '#8e44ad'
+                                },
+                                grid: {
+                                    color: 'rgba(142, 68, 173, 0.1)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Stock Price ($)',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    },
+                                    color: '#3498db'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(2);
+                                    },
+                                    color: '#3498db'
+                                },
+                                grid: {
+                                    drawOnChartArea: false
                                 }
                             },
                             x: {
@@ -541,20 +597,30 @@
                         },
                         plugins: {
                             legend: {
-                                display: false
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 15
+                                }
                             },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
                                         const idx = context.dataIndex;
-                                        const lines = [
-                                            'Premium: $' + (data.premiums[idx] / 1000000).toFixed(2) + 'M',
-                                            'Volume: ' + data.volumes[idx].toLocaleString(),
-                                            'Trades: ' + data.trade_counts[idx],
-                                            'Confidence: ' + data.confidences[idx].toFixed(0),
-                                            'Direction: ' + (data.directions[idx] || 'N/A')
-                                        ];
-                                        return lines;
+                                        if (context.dataset.label === 'Stock Price ($)') {
+                                            const price = data.prices[idx];
+                                            return 'Price: ' + (price ? '$' + price.toFixed(2) : 'N/A');
+                                        } else {
+                                            const lines = [
+                                                'Premium: $' + (data.premiums[idx] / 1000000).toFixed(2) + 'M',
+                                                'Volume: ' + data.volumes[idx].toLocaleString(),
+                                                'Trades: ' + data.trade_counts[idx],
+                                                'Confidence: ' + data.confidences[idx].toFixed(0),
+                                                'Direction: ' + (data.directions[idx] || 'N/A')
+                                            ];
+                                            return lines;
+                                        }
                                     }
                                 }
                             }

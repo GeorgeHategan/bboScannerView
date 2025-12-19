@@ -3257,6 +3257,7 @@ async def darkpool_chart_data(symbol: str):
         return {"error": "Options database not configured"}
     
     try:
+        # Get darkpool data
         conn = get_options_db_connection()
         if not conn:
             return {"error": "Could not connect to options database"}
@@ -3285,7 +3286,8 @@ async def darkpool_chart_data(symbol: str):
             'premiums': [],
             'trade_counts': [],
             'confidences': [],
-            'directions': []
+            'directions': [],
+            'prices': []  # Add stock prices
         }
         
         for row in results:
@@ -3297,6 +3299,32 @@ async def darkpool_chart_data(symbol: str):
             chart_data['directions'].append(str(row[5]) if row[5] else '')
         
         conn.close()
+        
+        # Get stock price data from scanner_data database
+        try:
+            scanner_conn = get_db_connection(SCANNER_DATA_PATH)
+            if scanner_conn:
+                price_query = """
+                    SELECT date, close
+                    FROM main.daily_cache
+                    WHERE symbol = ?
+                        AND date >= CURRENT_DATE - INTERVAL '30 days'
+                    ORDER BY date
+                """
+                price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
+                
+                # Create a price map by date
+                price_map = {str(row[0]): float(row[1]) for row in price_results if row[1]}
+                
+                # Match prices to darkpool dates, fill in missing dates
+                for date in chart_data['dates']:
+                    chart_data['prices'].append(price_map.get(date, None))
+                
+                scanner_conn.close()
+        except Exception as e:
+            print(f"Error fetching price data: {e}")
+            # Fill with None if price data unavailable
+            chart_data['prices'] = [None] * len(chart_data['dates'])
         
         return chart_data
         
