@@ -298,7 +298,7 @@
             </div>
             <div class="stat-card">
                 <div class="stat-value">${{ "{:,.0f}".format((stats.total_premium or 0) / 1000000) }}M</div>
-                <div class="stat-label">Total Premium</div>
+                <div class="stat-label">Total Notional</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value">{{ stats.avg_confidence or 0 }}</div>
@@ -344,7 +344,7 @@
             {% endfor %}
         </div>
         {% else %}
-        <h3 style="margin: 20px 0 10px 0; color: #333;">🏆 Top Symbols by Dark Pool Premium</h3>
+        <h3 style="margin: 20px 0 10px 0; color: #333;">🏆 Top Symbols by Dark Pool Notional</h3>
         <div class="top-symbols">
             {% for sym in top_symbols %}
             <div class="top-symbol-card">
@@ -382,7 +382,7 @@
                     <th>Strength</th>
                     <th>Confidence</th>
                     <th>DP Volume</th>
-                    <th>DP Premium</th>
+                    <th>DP Notional</th>
                     <th>Avg Price</th>
                     <th>Buy Vol</th>
                     <th>Sell Vol</th>
@@ -499,9 +499,9 @@
                     data: {
                         labels: data.dates,
                         datasets: [
-                            // Dark pool premium bars with transparency
+                            // Dark pool notional bars with transparency
                             {
-                                label: 'Dark Pool Premium ($)',
+                                label: 'Dark Pool Notional ($)',
                                 data: data.premiums,
                                 type: 'bar',
                                 backgroundColor: colors.map(c => c + '99'), // Add transparency
@@ -548,7 +548,7 @@
                                 beginAtZero: true,
                                 title: {
                                     display: true,
-                                    text: 'Dark Pool Premium ($)',
+                                    text: 'Dark Pool Notional ($)',
                                     font: {
                                         size: 12,
                                         weight: 'bold'
@@ -625,7 +625,7 @@
                                             return 'Price: ' + (price ? '$' + price.toFixed(2) : 'N/A');
                                         } else {
                                             const lines = [
-                                                'Premium: $' + (data.premiums[idx] / 1000000).toFixed(2) + 'M',
+                                                'Notional: $' + (data.premiums[idx] / 1000000).toFixed(2) + 'M',
                                                 'Volume: ' + data.volumes[idx].toLocaleString(),
                                                 'Trades: ' + data.trade_counts[idx],
                                                 'Confidence: ' + data.confidences[idx].toFixed(0),
