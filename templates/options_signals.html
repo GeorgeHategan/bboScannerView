@@ -344,9 +344,6 @@
         <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <h3 style="margin: 0 0 15px 0; color: #333;">
                 📊 {{ selected_symbol.upper() }} - Options Flow Activity (Last 60 Days)
-                <span style="font-size: 12px; color: #666; font-weight: normal; margin-left: 15px;">
-                    Stacked: 🟢 Bullish / 🔴 Bearish Premium
-                </span>
             </h3>
             <canvas id="optionsChart" style="max-height: 400px;"></canvas>
         </div>
@@ -716,7 +713,10 @@
                                 position: 'top',
                                 labels: {
                                     usePointStyle: true,
-                                    padding: 15
+                                    pointStyle: 'circle',
+                                    padding: 15,
+                                    boxWidth: 8,
+                                    boxHeight: 8
                                 }
                             },
                             tooltip: {
