@@ -3257,12 +3257,37 @@ async def darkpool_chart_data(symbol: str):
         return {"error": "Options database not configured"}
     
     try:
-        # Get darkpool data
+        # First, get all price data for the last 30 days (this gives us the date range)
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
+        if not scanner_conn:
+            return {"error": "Could not connect to scanner database"}
+        
+        price_query = """
+            SELECT date, close
+            FROM main.daily_cache
+            WHERE symbol = ?
+                AND date >= CURRENT_DATE - INTERVAL '30 days'
+            ORDER BY date
+        """
+        price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
+        scanner_conn.close()
+        
+        if not price_results:
+            return {"error": f"No price data found for {symbol}"}
+        
+        # Create price map and date list from price data
+        price_map = {}
+        all_dates = []
+        for row in price_results:
+            date_str = str(row[0])
+            all_dates.append(date_str)
+            price_map[date_str] = float(row[1]) if row[1] else None
+        
+        # Now get darkpool data
         conn = get_options_db_connection()
         if not conn:
             return {"error": "Could not connect to options database"}
         
-        # Get data for last 30 days
         query = """
             SELECT 
                 signal_date,
@@ -3279,7 +3304,21 @@ async def darkpool_chart_data(symbol: str):
         """
         
         results = conn.execute(query, [symbol.upper()]).fetchall()
+        conn.close()
         
+        # Create darkpool map
+        darkpool_map = {}
+        for row in results:
+            date_str = str(row[0])
+            darkpool_map[date_str] = {
+                'volume': int(row[1]) if row[1] else 0,
+                'premium': float(row[2]) if row[2] else 0,
+                'trade_count': int(row[3]) if row[3] else 0,
+                'confidence': float(row[4]) if row[4] else 0,
+                'direction': str(row[5]) if row[5] else ''
+            }
+        
+        # Align data for all dates
         chart_data = {
             'dates': [],
             'volumes': [],
@@ -3287,48 +3326,33 @@ async def darkpool_chart_data(symbol: str):
             'trade_counts': [],
             'confidences': [],
             'directions': [],
-            'prices': []  # Add stock prices
+            'prices': []
         }
         
-        for row in results:
-            chart_data['dates'].append(str(row[0]))
-            chart_data['volumes'].append(int(row[1]) if row[1] else 0)
-            chart_data['premiums'].append(float(row[2]) if row[2] else 0)
-            chart_data['trade_counts'].append(int(row[3]) if row[3] else 0)
-            chart_data['confidences'].append(float(row[4]) if row[4] else 0)
-            chart_data['directions'].append(str(row[5]) if row[5] else '')
-        
-        conn.close()
-        
-        # Get stock price data from scanner_data database
-        try:
-            scanner_conn = get_db_connection(SCANNER_DATA_PATH)
-            if scanner_conn:
-                price_query = """
-                    SELECT date, close
-                    FROM main.daily_cache
-                    WHERE symbol = ?
-                        AND date >= CURRENT_DATE - INTERVAL '30 days'
-                    ORDER BY date
-                """
-                price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
-                
-                # Create a price map by date
-                price_map = {str(row[0]): float(row[1]) for row in price_results if row[1]}
-                
-                # Match prices to darkpool dates, fill in missing dates
-                for date in chart_data['dates']:
-                    chart_data['prices'].append(price_map.get(date, None))
-                
-                scanner_conn.close()
-        except Exception as e:
-            print(f"Error fetching price data: {e}")
-            # Fill with None if price data unavailable
-            chart_data['prices'] = [None] * len(chart_data['dates'])
+        for date in all_dates:
+            chart_data['dates'].append(date)
+            chart_data['prices'].append(price_map.get(date))
+            
+            # Add darkpool data if exists, otherwise 0/empty
+            if date in darkpool_map:
+                dp = darkpool_map[date]
+                chart_data['volumes'].append(dp['volume'])
+                chart_data['premiums'].append(dp['premium'])
+                chart_data['trade_counts'].append(dp['trade_count'])
+                chart_data['confidences'].append(dp['confidence'])
+                chart_data['directions'].append(dp['direction'])
+            else:
+                chart_data['volumes'].append(0)
+                chart_data['premiums'].append(0)
+                chart_data['trade_counts'].append(0)
+                chart_data['confidences'].append(0)
+                chart_data['directions'].append('')
         
         return chart_data
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"error": str(e)}
 
 
