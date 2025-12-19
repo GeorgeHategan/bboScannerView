@@ -3266,7 +3266,7 @@ async def darkpool_chart_data(symbol: str):
             SELECT date, close
             FROM main.daily_cache
             WHERE symbol = ?
-                AND date >= CURRENT_DATE - INTERVAL '60 days'
+                AND CAST(date AS DATE) >= CURRENT_DATE - INTERVAL '60 days'
             ORDER BY date
         """
         price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
