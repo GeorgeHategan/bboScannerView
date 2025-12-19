@@ -319,6 +319,16 @@
         </div>
     </div>
     
+    <!-- Chart for individual symbol -->
+    {% if selected_symbol %}
+    <div style="padding: 0 20px; margin: 20px 0;">
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #333;">📊 {{ selected_symbol.upper() }} - Dark Pool Activity (Last 30 Days)</h3>
+            <canvas id="darkpoolChart" style="max-height: 400px;"></canvas>
+        </div>
+    </div>
+    {% endif %}
+    
     <!-- Top Symbols by Premium OR Activity by Date when viewing single symbol -->
     {% if top_symbols %}
     <div style="padding: 0 20px;">
@@ -457,5 +467,110 @@
         {% endif %}
     </div>
     {% endif %}
+    
+    <script>
+        // Load chart data if viewing a specific symbol
+        {% if selected_symbol %}
+        async function loadDarkpoolChart() {
+            try {
+                const response = await fetch('/api/darkpool-chart-data?symbol={{ selected_symbol }}');
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Error loading chart:', data.error);
+                    return;
+                }
+                
+                // Create color array based on directions
+                const colors = data.directions.map(dir => {
+                    if (dir.includes('BUY') || dir.includes('BULLISH')) return '#27ae60';
+                    if (dir.includes('SELL') || dir.includes('BEARISH')) return '#e74c3c';
+                    return '#9b59b6';
+                });
+                
+                const ctx = document.getElementById('darkpoolChart');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.dates,
+                        datasets: [{
+                            label: 'Dark Pool Premium ($)',
+                            data: data.premiums,
+                            backgroundColor: colors,
+                            borderColor: colors.map(c => c),
+                            borderWidth: 1,
+                            barThickness: 'flex',
+                            maxBarThickness: 40
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2.5,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Dark Pool Premium ($)',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    }
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    }
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    }
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const idx = context.dataIndex;
+                                        const lines = [
+                                            'Premium: $' + (data.premiums[idx] / 1000000).toFixed(2) + 'M',
+                                            'Volume: ' + data.volumes[idx].toLocaleString(),
+                                            'Trades: ' + data.trade_counts[idx],
+                                            'Confidence: ' + data.confidences[idx].toFixed(0),
+                                            'Direction: ' + (data.directions[idx] || 'N/A')
+                                        ];
+                                        return lines;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load chart:', error);
+            }
+        }
+        
+        // Load chart on page load
+        if (document.getElementById('darkpoolChart')) {
+            loadDarkpoolChart();
+        }
+        {% endif %}
+    </script>
 </body>
 </html>

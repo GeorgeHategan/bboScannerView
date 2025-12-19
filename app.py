@@ -3249,6 +3249,61 @@ async def options_signals(
         })
 
 
+@app.get("/api/darkpool-chart-data")
+async def darkpool_chart_data(symbol: str):
+    """API endpoint to get darkpool trade data for a symbol over the last 30 days."""
+    
+    if not OPTIONS_DUCKDB_PATH:
+        return {"error": "Options database not configured"}
+    
+    try:
+        conn = get_options_db_connection()
+        if not conn:
+            return {"error": "Could not connect to options database"}
+        
+        # Get data for last 30 days
+        query = """
+            SELECT 
+                signal_date,
+                SUM(dp_volume) as total_volume,
+                SUM(dp_premium) as total_premium,
+                COUNT(*) as trade_count,
+                MAX(confidence_score) as max_confidence,
+                STRING_AGG(DISTINCT direction, ',') as directions
+            FROM darkpool_signals
+            WHERE ticker = ?
+                AND signal_date >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY signal_date
+            ORDER BY signal_date
+        """
+        
+        results = conn.execute(query, [symbol.upper()]).fetchall()
+        
+        chart_data = {
+            'dates': [],
+            'volumes': [],
+            'premiums': [],
+            'trade_counts': [],
+            'confidences': [],
+            'directions': []
+        }
+        
+        for row in results:
+            chart_data['dates'].append(str(row[0]))
+            chart_data['volumes'].append(int(row[1]) if row[1] else 0)
+            chart_data['premiums'].append(float(row[2]) if row[2] else 0)
+            chart_data['trade_counts'].append(int(row[3]) if row[3] else 0)
+            chart_data['confidences'].append(float(row[4]) if row[4] else 0)
+            chart_data['directions'].append(str(row[5]) if row[5] else '')
+        
+        conn.close()
+        
+        return chart_data
+        
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/darkpool-signals", response_class=HTMLResponse)
 async def darkpool_signals(
     request: Request,
