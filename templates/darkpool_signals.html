@@ -488,38 +488,46 @@
                     return '#9b59b6';
                 });
                 
+                // Make bars semi-transparent so price line is visible
+                const transparentColors = colors.map(color => {
+                    return color.replace(')', ', 0.6)').replace('rgb', 'rgba').replace('#', 'rgba(');
+                });
+                
                 const ctx = document.getElementById('darkpoolChart');
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: data.dates,
                         datasets: [
-                            // Stock price line (background)
-                            {
-                                label: 'Stock Price ($)',
-                                data: data.prices,
-                                type: 'line',
-                                borderColor: '#3498db',
-                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                                borderWidth: 2,
-                                fill: false,
-                                yAxisID: 'y1',
-                                pointRadius: 3,
-                                pointHoverRadius: 5,
-                                tension: 0.3,
-                                order: 2
-                            },
-                            // Dark pool premium bars (foreground)
+                            // Dark pool premium bars with transparency
                             {
                                 label: 'Dark Pool Premium ($)',
                                 data: data.premiums,
                                 type: 'bar',
-                                backgroundColor: colors,
-                                borderColor: colors.map(c => c),
-                                borderWidth: 1,
+                                backgroundColor: colors.map(c => c + '99'), // Add transparency
+                                borderColor: colors,
+                                borderWidth: 2,
                                 barThickness: 'flex',
                                 maxBarThickness: 40,
                                 yAxisID: 'y',
+                                order: 2
+                            },
+                            // Stock price line (foreground)
+                            {
+                                label: 'Stock Price ($)',
+                                data: data.prices,
+                                type: 'line',
+                                borderColor: '#2c3e50',
+                                backgroundColor: 'rgba(52, 152, 219, 0.15)',
+                                borderWidth: 3,
+                                fill: true,
+                                yAxisID: 'y1',
+                                pointRadius: 4,
+                                pointBackgroundColor: '#3498db',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverRadius: 6,
+                                tension: 0.4,
                                 order: 1
                             }
                         ]
@@ -549,12 +557,15 @@
                                 },
                                 ticks: {
                                     callback: function(value) {
-                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                        if (value >= 1000000) {
+                                            return '$' + (value / 1000000).toFixed(1) + 'M';
+                                        }
+                                        return '$' + (value / 1000).toFixed(0) + 'K';
                                     },
                                     color: '#8e44ad'
                                 },
                                 grid: {
-                                    color: 'rgba(142, 68, 173, 0.1)'
+                                    color: 'rgba(142, 68, 173, 0.15)'
                                 }
                             },
                             y1: {
@@ -568,13 +579,13 @@
                                         size: 12,
                                         weight: 'bold'
                                     },
-                                    color: '#3498db'
+                                    color: '#2c3e50'
                                 },
                                 ticks: {
                                     callback: function(value) {
                                         return '$' + value.toFixed(2);
                                     },
-                                    color: '#3498db'
+                                    color: '#2c3e50'
                                 },
                                 grid: {
                                     drawOnChartArea: false
