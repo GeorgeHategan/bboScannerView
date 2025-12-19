@@ -3204,7 +3204,7 @@ async def options_signals(
                 FROM accumulation_signals
                 WHERE underlying_symbol = ?
                 GROUP BY signal_date
-                ORDER BY signal_date DESC
+                ORDER BY signal_date ASC
                 LIMIT 10
             """, [symbol.upper()]).fetchall()
         else:
@@ -3558,7 +3558,7 @@ async def darkpool_signals(
                 FROM darkpool_signals
                 WHERE ticker = ?
                 GROUP BY signal_date
-                ORDER BY signal_date DESC
+                ORDER BY signal_date ASC
                 LIMIT 10
             """, [symbol.upper()]).fetchall()
         else:
