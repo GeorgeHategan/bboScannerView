@@ -3251,7 +3251,7 @@ async def options_signals(
 
 @app.get("/api/darkpool-chart-data")
 async def darkpool_chart_data(symbol: str):
-    """API endpoint to get darkpool trade data for a symbol over the last 30 days."""
+    """API endpoint to get darkpool trade data for a symbol over the last 60 days."""
     
     if not OPTIONS_DUCKDB_PATH:
         return {"error": "Options database not configured"}
@@ -3266,7 +3266,7 @@ async def darkpool_chart_data(symbol: str):
             SELECT date, close
             FROM main.daily_cache
             WHERE symbol = ?
-                AND date >= CURRENT_DATE - INTERVAL '30 days'
+                AND date >= CURRENT_DATE - INTERVAL '60 days'
             ORDER BY date
         """
         price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
@@ -3298,7 +3298,7 @@ async def darkpool_chart_data(symbol: str):
                 STRING_AGG(DISTINCT direction, ',') as directions
             FROM darkpool_signals
             WHERE ticker = ?
-                AND signal_date >= CURRENT_DATE - INTERVAL '30 days'
+                AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
             GROUP BY signal_date
             ORDER BY signal_date
         """
