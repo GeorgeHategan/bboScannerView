@@ -3258,7 +3258,7 @@ async def darkpool_chart_data(symbol: str):
     
     try:
         # First, get all price data for the last 30 days (this gives us the date range)
-        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
+        scanner_conn = duckdb.connect(SCANNER_DATA_PATH, read_only=True)
         if not scanner_conn:
             return {"error": "Could not connect to scanner database"}
         
