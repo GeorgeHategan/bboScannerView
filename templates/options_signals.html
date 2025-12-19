@@ -338,6 +338,16 @@
         </div>
     </div>
     
+    <!-- Chart for individual symbol -->
+    {% if selected_symbol %}
+    <div style="padding: 0 20px; margin: 20px 0;">
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #333;">📊 {{ selected_symbol.upper() }} - Options Flow Activity (Last 60 Days)</h3>
+            <canvas id="optionsChart" style="max-height: 400px;"></canvas>
+        </div>
+    </div>
+    {% endif %}
+    
     <!-- Top Symbols by Premium -->
     {% if top_symbols %}
     <div style="padding: 0 20px;">
@@ -404,10 +414,14 @@
                 {% for signal in signals %}
                 <tr>
                     <td>
-                        <a href="https://www.tradingview.com/chart/?symbol={{ signal.underlying_symbol }}" 
-                           target="_blank" class="symbol-link">
+                        <a href="/options-signals?symbol={{ signal.underlying_symbol }}" 
+                           style="color: #667eea; text-decoration: none; font-weight: bold;">
                             {{ signal.underlying_symbol }}
                         </a>
+                        <a href="https://www.tradingview.com/chart/?symbol={{ signal.underlying_symbol }}" 
+                           target="_blank" 
+                           style="margin-left: 5px; color: #95a5a6; font-size: 11px;" 
+                           title="View on TradingView">📈</a>
                         <span style="font-size: 10px; color: #999;">{{ signal.asset_type }}</span>
                     </td>
                     <td style="white-space: nowrap;">{{ signal.signal_date }}</td>
@@ -544,5 +558,187 @@
         }
     </script>
     {% endif %}
+    
+    <script>
+        // Load chart data if viewing a specific symbol
+        {% if selected_symbol %}
+        console.log('Options chart: selected_symbol = {{ selected_symbol }}');
+        async function loadOptionsChart() {
+            try {
+                console.log('Fetching chart data for {{ selected_symbol }}...');
+                const response = await fetch('/api/options-chart-data?symbol={{ selected_symbol }}');
+                const data = await response.json();
+                console.log('Chart data received:', data);
+                
+                if (data.error) {
+                    console.error('Error loading chart:', data.error);
+                    return;
+                }
+                
+                // Create color array based on signal strengths
+                const colors = data.strengths.map(str => {
+                    if (str.includes('EXTREME')) return '#e74c3c';
+                    if (str.includes('VERY_HIGH')) return '#e67e22';
+                    if (str.includes('HIGH')) return '#f39c12';
+                    return '#3498db';
+                });
+                
+                const ctx = document.getElementById('optionsChart');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.dates,
+                        datasets: [
+                            // Options premium bars with transparency
+                            {
+                                label: 'Options Premium ($)',
+                                data: data.premiums,
+                                type: 'bar',
+                                backgroundColor: colors.map(c => c + '99'),
+                                borderColor: colors,
+                                borderWidth: 2,
+                                barThickness: 'flex',
+                                maxBarThickness: 40,
+                                yAxisID: 'y',
+                                order: 2
+                            },
+                            // Stock price line (foreground)
+                            {
+                                label: 'Stock Price ($)',
+                                data: data.prices,
+                                type: 'line',
+                                borderColor: '#2c3e50',
+                                backgroundColor: 'rgba(52, 152, 219, 0.15)',
+                                borderWidth: 3,
+                                fill: true,
+                                yAxisID: 'y1',
+                                pointRadius: 4,
+                                pointBackgroundColor: '#3498db',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverRadius: 6,
+                                tension: 0.4,
+                                order: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2.5,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Options Premium ($)',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    },
+                                    color: '#e67e22'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        if (value >= 1000000) {
+                                            return '$' + (value / 1000000).toFixed(1) + 'M';
+                                        }
+                                        return '$' + (value / 1000).toFixed(0) + 'K';
+                                    },
+                                    color: '#e67e22'
+                                },
+                                grid: {
+                                    color: 'rgba(230, 126, 34, 0.15)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: 'Stock Price ($)',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    },
+                                    color: '#2c3e50'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(2);
+                                    },
+                                    color: '#2c3e50'
+                                },
+                                grid: {
+                                    drawOnChartArea: false
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    }
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 15
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const idx = context.dataIndex;
+                                        if (context.dataset.label === 'Stock Price ($)') {
+                                            const price = data.prices[idx];
+                                            return 'Price: ' + (price ? '$' + price.toFixed(2) : 'N/A');
+                                        } else {
+                                            const lines = [
+                                                'Premium: $' + (data.premiums[idx] / 1000).toFixed(2) + 'K',
+                                                'Volume: ' + data.volumes[idx].toLocaleString(),
+                                                'Signals: ' + data.signal_counts[idx],
+                                                'Confidence: ' + data.confidences[idx].toFixed(0),
+                                                'Strength: ' + (data.strengths[idx] || 'N/A')
+                                            ];
+                                            return lines;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load chart:', error);
+            }
+        }
+        
+        // Load chart on page load
+        if (document.getElementById('optionsChart')) {
+            loadOptionsChart();
+        }
+        {% endif %}
+    </script>
 </body>
 </html>
