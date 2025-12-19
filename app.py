@@ -3249,6 +3249,118 @@ async def options_signals(
         })
 
 
+@app.get("/api/options-chart-data")
+async def options_chart_data(symbol: str):
+    """API endpoint to get options flow data for a symbol over the last 60 days."""
+    
+    if not OPTIONS_DUCKDB_PATH:
+        return {"error": "Options database not configured"}
+    
+    try:
+        # First, get all price data for the last 60 days (this gives us the date range)
+        scanner_conn = duckdb.connect(SCANNER_DATA_PATH, read_only=True)
+        if not scanner_conn:
+            return {"error": "Could not connect to scanner database"}
+        
+        price_query = """
+            SELECT date, close
+            FROM main.daily_cache
+            WHERE symbol = ?
+                AND CAST(date AS DATE) >= CURRENT_DATE - INTERVAL '60 days'
+            ORDER BY date
+        """
+        price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
+        scanner_conn.close()
+        
+        if not price_results:
+            return {"error": f"No price data found for {symbol}"}
+        
+        # Create price map and date list from price data
+        price_map = {}
+        all_dates = []
+        for row in price_results:
+            date_str = str(row[0])
+            all_dates.append(date_str)
+            price_map[date_str] = float(row[1]) if row[1] else None
+        
+        # Now get options flow data
+        conn = get_options_db_connection()
+        if not conn:
+            return {"error": "Could not connect to options database"}
+        
+        query = """
+            SELECT 
+                signal_date,
+                SUM(premium_spent) as total_premium,
+                SUM(volume) as total_volume,
+                COUNT(*) as signal_count,
+                MAX(confidence_score) as max_confidence,
+                STRING_AGG(DISTINCT signal_strength, ',') as strengths,
+                STRING_AGG(DISTINCT signal_type, ',') as signal_types
+            FROM accumulation_signals
+            WHERE underlying_symbol = ?
+                AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
+            GROUP BY signal_date
+            ORDER BY signal_date
+        """
+        
+        results = conn.execute(query, [symbol.upper()]).fetchall()
+        conn.close()
+        
+        # Create options map
+        options_map = {}
+        for row in results:
+            date_str = str(row[0])
+            options_map[date_str] = {
+                'premium': float(row[1]) if row[1] else 0,
+                'volume': int(row[2]) if row[2] else 0,
+                'signal_count': int(row[3]) if row[3] else 0,
+                'confidence': float(row[4]) if row[4] else 0,
+                'strengths': str(row[5]) if row[5] else '',
+                'signal_types': str(row[6]) if row[6] else ''
+            }
+        
+        # Align data for all dates
+        chart_data = {
+            'dates': [],
+            'premiums': [],
+            'volumes': [],
+            'signal_counts': [],
+            'confidences': [],
+            'strengths': [],
+            'signal_types': [],
+            'prices': []
+        }
+        
+        for date in all_dates:
+            chart_data['dates'].append(date)
+            chart_data['prices'].append(price_map.get(date))
+            
+            # Add options data if exists, otherwise 0/empty
+            if date in options_map:
+                opt = options_map[date]
+                chart_data['premiums'].append(opt['premium'])
+                chart_data['volumes'].append(opt['volume'])
+                chart_data['signal_counts'].append(opt['signal_count'])
+                chart_data['confidences'].append(opt['confidence'])
+                chart_data['strengths'].append(opt['strengths'])
+                chart_data['signal_types'].append(opt['signal_types'])
+            else:
+                chart_data['premiums'].append(0)
+                chart_data['volumes'].append(0)
+                chart_data['signal_counts'].append(0)
+                chart_data['confidences'].append(0)
+                chart_data['strengths'].append('')
+                chart_data['signal_types'].append('')
+        
+        return chart_data
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
 @app.get("/api/darkpool-chart-data")
 async def darkpool_chart_data(symbol: str):
     """API endpoint to get darkpool trade data for a symbol over the last 60 days."""
