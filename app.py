@@ -4247,75 +4247,22 @@ async def universe_page(
     try:
         conn = get_db_connection(SCANNER_DATA_PATH)
         
-        # Get most recent data for each symbol
+        # Simple query - just get latest date for each symbol
         query = """
-            WITH latest_prices AS (
-                SELECT 
-                    symbol,
-                    close as price,
-                    volume,
-                    date as last_date,
-                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) as rn
-                FROM main.daily_cache
-            )
-            SELECT 
-                lp.symbol,
-                lp.price,
-                lp.volume,
-                lp.last_date,
-                f.company_name,
-                f.sector,
-                f.industry,
-                f.market_cap,
-                f.pe_ratio,
-                f.dividend_yield,
-                f.beta,
-                f.fifty_two_week_high,
-                f.fifty_two_week_low
-            FROM latest_prices lp
-            LEFT JOIN main.fundamental_cache f ON lp.symbol = f.symbol
-            WHERE lp.rn = 1
+            SELECT DISTINCT
+                symbol,
+                MAX(close) as price,
+                MAX(volume) as volume,
+                MAX(date) as last_date
+            FROM main.daily_cache
+            GROUP BY symbol
+            ORDER BY symbol
+            LIMIT 1000
         """
         
-        params = []
-        where_clauses = []
-        
-        # Add filters
-        if search:
-            where_clauses.append("(lp.symbol LIKE ? OR f.company_name LIKE ?)")
-            search_pattern = f"%{search.upper()}%"
-            params.extend([search_pattern, search_pattern])
-        
-        if sector:
-            where_clauses.append("f.sector = ?")
-            params.append(sector)
-        
-        if where_clauses:
-            query += " AND " + " AND ".join(where_clauses)
-        
-        query += " ORDER BY lp.symbol LIMIT 1000"
-        
-        print(f"DEBUG: Executing universe query with {len(params)} params")
-        results = conn.execute(query, params).fetchall()
-        print(f"DEBUG: Got {len(results)} results")
-        
-        # Format market cap
-        def format_market_cap(market_cap_str):
-            if not market_cap_str:
-                return '-'
-            try:
-                # Remove currency symbols and convert to float
-                value = float(str(market_cap_str).replace('$', '').replace(',', ''))
-                if value >= 1e12:
-                    return f"${value/1e12:.2f}T"
-                elif value >= 1e9:
-                    return f"${value/1e9:.2f}B"
-                elif value >= 1e6:
-                    return f"${value/1e6:.2f}M"
-                else:
-                    return f"${value:.0f}"
-            except:
-                return market_cap_str
+        print(f"DEBUG: Executing simple universe query")
+        results = conn.execute(query).fetchall()
+        print(f"DEBUG: Got {len(results)} results from daily_cache")
         
         symbols = []
         for row in results:
@@ -4324,19 +4271,18 @@ async def universe_page(
                 'price': row[1],
                 'volume': row[2],
                 'last_date': str(row[3]) if row[3] else '-',
-                'company_name': row[4],
-                'sector': row[5],
-                'industry': row[6],
-                'market_cap_formatted': format_market_cap(row[7]),
-                'pe_ratio': row[8],
-                'dividend_yield': row[9],
-                'beta': row[10],
-                'fifty_two_week_high': row[11],
-                'fifty_two_week_low': row[12]
+                'company_name': row[0],  # Use symbol as company name for now
+                'sector': '-',
+                'industry': '-',
+                'market_cap_formatted': '-',
+                'pe_ratio': None,
+                'dividend_yield': None,
+                'beta': None,
+                'fifty_two_week_high': None,
+                'fifty_two_week_low': None
             })
         
-        # Get available sectors for filter
-        available_sectors = sorted(set([s['sector'] for s in symbols if s['sector']]))
+        print(f"DEBUG: Created {len(symbols)} symbol records")
         
         # Get latest date
         latest_date = conn.execute("SELECT MAX(date) FROM main.daily_cache").fetchone()[0]
@@ -4346,7 +4292,7 @@ async def universe_page(
             'total_symbols': len(symbols),
             'stocks': len(symbols),
             'etfs': 0,
-            'sectors': len(available_sectors)
+            'sectors': 0
         }
         
         conn.close()
@@ -4357,7 +4303,7 @@ async def universe_page(
             'total_symbols': len(symbols),
             'latest_date': str(latest_date) if latest_date else 'Unknown',
             'stats': stats,
-            'available_sectors': available_sectors,
+            'available_sectors': [],
             'search': search,
             'sector': sector,
             'asset_type': asset_type
