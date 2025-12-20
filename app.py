@@ -1492,40 +1492,20 @@ else:
 print(f"INFO: Database path configured: {DUCKDB_PATH if not motherduck_token else 'md:scanner_data?motherduck_token=***'}")
 
 
-def get_options_db_connection(max_retries=3):
-    """Get a connection to the options signals database with retry logic.
-    Note: Using write-enabled connection for all operations to avoid MotherDuck
-    connection conflicts between read-only and write connections.
+def get_options_db_connection():
+    """Get a connection to the options signals database.
+    Uses the connection pool to avoid configuration conflicts.
     """
-    import time
     if OPTIONS_DUCKDB_PATH:
-        for attempt in range(max_retries):
-            try:
-                # Use write connection for all operations to avoid conflicts
-                return duckdb.connect(OPTIONS_DUCKDB_PATH)
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    print(f"DB connection error (attempt {attempt + 1}/{max_retries}): {e}")
-                    time.sleep(1 * (attempt + 1))  # Exponential backoff
-                    continue
-                raise
+        return get_db_connection(OPTIONS_DUCKDB_PATH)
     return None
 
 
-def get_options_db_connection_write(max_retries=3):
-    """Get a write-enabled connection to the options database with retry logic."""
-    import time
-    if OPTIONS_DUCKDB_PATH:
-        for attempt in range(max_retries):
-            try:
-                return duckdb.connect(OPTIONS_DUCKDB_PATH)
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    print(f"DB write connection error (attempt {attempt + 1}/{max_retries}): {e}")
-                    time.sleep(1 * (attempt + 1))  # Exponential backoff
-                    continue
-                raise
-    return None
+def get_options_db_connection_write():
+    """Get a write-enabled connection to the options database.
+    Alias for get_options_db_connection() - all connections support writes.
+    """
+    return get_options_db_connection()
 
 
 # ============================================
@@ -3258,7 +3238,7 @@ async def options_chart_data(symbol: str):
     
     try:
         # First, get all price data for the last 60 days (this gives us the date range)
-        scanner_conn = duckdb.connect(SCANNER_DATA_PATH, read_only=True)
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
         if not scanner_conn:
             return {"error": "Could not connect to scanner database"}
         
@@ -3270,7 +3250,6 @@ async def options_chart_data(symbol: str):
             ORDER BY date
         """
         price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
-        scanner_conn.close()
         
         if not price_results:
             return {"error": f"No price data found for {symbol}"}
@@ -3415,7 +3394,7 @@ async def darkpool_chart_data(symbol: str):
     
     try:
         # First, get all price data for the last 30 days (this gives us the date range)
-        scanner_conn = duckdb.connect(SCANNER_DATA_PATH, read_only=True)
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
         if not scanner_conn:
             return {"error": "Could not connect to scanner database"}
         
@@ -3427,7 +3406,6 @@ async def darkpool_chart_data(symbol: str):
             ORDER BY date
         """
         price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
-        scanner_conn.close()
         
         if not price_results:
             return {"error": f"No price data found for {symbol}"}
