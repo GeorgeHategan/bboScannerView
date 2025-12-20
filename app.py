@@ -3887,6 +3887,25 @@ async def discovery_page(
         except Exception as e:
             print(f"Error getting scanner symbols from daily_cache: {e}")
         
+        # Get asset type classifications from asset_types table
+        asset_type_map = {}
+        try:
+            asset_types_result = scanner_conn.execute("""
+                SELECT symbol, asset_type, sector, industry
+                FROM main.asset_types
+            """).fetchall()
+            for row in asset_types_result:
+                symbol = row[0].upper() if row[0] else ''
+                if symbol:
+                    asset_type_map[symbol] = {
+                        'asset_type': row[1],
+                        'sector': row[2],
+                        'industry': row[3],
+                        'is_etf': row[1] == 'ETF'
+                    }
+        except Exception as e:
+            print(f"Error getting asset types: {e}")
+        
         # Build discovery query - get symbols with options/darkpool activity NOT in scanner universe
         discovery_data = {}
         
@@ -3912,16 +3931,17 @@ async def discovery_page(
             for row in opt_results:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol and symbol not in scanner_symbols:
-                    # Get asset type from Alpha Vantage
-                    av_data = get_alpha_vantage_asset_type(symbol)
-                    is_etf = av_data.get('is_etf', False) if av_data else False
-                    sector = av_data.get('sector', row[1] or 'Unknown') if av_data else (row[1] or 'Unknown')
+                    # Get asset type from asset_types table
+                    asset_info = asset_type_map.get(symbol, {})
+                    is_etf = asset_info.get('is_etf', False)
+                    sector = asset_info.get('sector', row[1] or 'Unknown')
+                    asset_type = asset_info.get('asset_type', row[2] or 'Stock')
                     
                     if symbol not in discovery_data:
                         discovery_data[symbol] = {
                             'symbol': symbol,
                             'sector': sector,
-                            'asset_type': av_data.get('asset_type', row[2]) if av_data else row[2],
+                            'asset_type': asset_type,
                             'is_etf': is_etf,
                             'options_signals': 0,
                             'options_premium': 0,
@@ -3962,12 +3982,12 @@ async def discovery_page(
             for row in dp_results:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol and symbol not in scanner_symbols:
-                    # Get asset type from Alpha Vantage if not already in discovery_data
+                    # Get asset type from asset_types table if not already in discovery_data
                     if symbol not in discovery_data:
-                        av_data = get_alpha_vantage_asset_type(symbol)
-                        is_etf = av_data.get('is_etf', False) if av_data else False
-                        sector = av_data.get('sector', 'Unknown') if av_data else 'Unknown'
-                        asset_type = av_data.get('asset_type', 'Stock') if av_data else 'Stock'
+                        asset_info = asset_type_map.get(symbol, {})
+                        is_etf = asset_info.get('is_etf', False)
+                        sector = asset_info.get('sector', 'Unknown')
+                        asset_type = asset_info.get('asset_type', 'Stock')
                         
                         discovery_data[symbol] = {
                             'symbol': symbol,
