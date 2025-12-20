@@ -4300,8 +4300,7 @@ async def universe_page(
                 'dividend_yield': row[9],
                 'beta': row[10],
                 'fifty_two_week_high': row[11],
-                'fifty_two_week_low': row[12],
-                'asset_type': 'Stock'  # All symbols from daily_cache
+                'fifty_two_week_low': row[12]
             })
         
         # Get available sectors for filter
@@ -4313,7 +4312,7 @@ async def universe_page(
         # Calculate stats
         stats = {
             'total_symbols': len(symbols),
-            'stocks': len(symbols),  # All from daily_cache are stocks
+            'stocks': len(symbols),
             'etfs': 0,
             'sectors': len(available_sectors)
         }
@@ -4328,7 +4327,8 @@ async def universe_page(
             'stats': stats,
             'available_sectors': available_sectors,
             'search': search,
-            'sector': sector
+            'sector': sector,
+            'asset_type': asset_type
         })
         
     except Exception as e:
@@ -4344,6 +4344,7 @@ async def universe_page(
             'available_sectors': [],
             'search': search,
             'sector': sector,
+            'asset_type': asset_type,
             'error': str(e)
         })
 

@@ -135,12 +135,12 @@
                     <div class="stat-label">Total Symbols</div>
                 </div>
                 <div class="stat-card blue">
-                    <div class="stat-value">{{ stats.sectors }}</div>
-                    <div class="stat-label">Sectors</div>
+                    <div class="stat-value">{{ stats.stocks }}</div>
+                    <div class="stat-label">📊 Stocks</div>
                 </div>
                 <div class="stat-card orange">
-                    <div class="stat-value">{{ latest_date }}</div>
-                    <div class="stat-label">Latest Data</div>
+                    <div class="stat-value">{{ stats.etfs }}</div>
+                    <div class="stat-label">📈 ETFs</div>
                 </div>
             </div>
             
@@ -155,6 +155,11 @@
     <!-- Filters -->
     <form method="GET" action="/universe" class="filters">
         <input type="text" name="search" placeholder="Search symbol or company..." value="{{ search or '' }}" style="width: 250px;">
+        <select name="asset_type">
+            <option value="">All Assets</option>
+            <option value="Stock" {% if asset_type == 'Stock' %}selected{% endif %}>📊 Stocks</option>
+            <option value="ETF" {% if asset_type == 'ETF' %}selected{% endif %}>📈 ETFs</option>
+        </select>
         <select name="sector">
             <option value="">All Sectors</option>
             {% for s in available_sectors %}
