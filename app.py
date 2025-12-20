@@ -4208,7 +4208,7 @@ async def universe_page(
         if where_clauses:
             query += " WHERE " + " AND ".join(where_clauses)
         
-        query += " ORDER BY d.symbol"
+        query += " ORDER BY d.symbol LIMIT 1000"
         
         print(f"DEBUG: Executing universe query with {len(params)} params")
         results = conn.execute(query, params).fetchall()
@@ -4275,13 +4275,13 @@ async def universe_page(
             'stats': stats,
             'available_sectors': available_sectors,
             'search': search,
-            'asset_type': asset_type,
             'sector': sector
         })
         
     except Exception as e:
         import traceback
         traceback.print_exc()
+        print(f"ERROR in universe page: {e}")
         return templates.TemplateResponse('universe.html', {
             'request': request,
             'symbols': [],
@@ -4289,6 +4289,8 @@ async def universe_page(
             'latest_date': 'Unknown',
             'stats': {'total_symbols': 0, 'stocks': 0, 'etfs': 0, 'sectors': 0},
             'available_sectors': [],
+            'search': search,
+            'sector': sector,
             'error': str(e)
         })
 
