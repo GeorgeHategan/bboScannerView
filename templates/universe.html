@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Scanner Universe - All Tracked Symbols</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png?v=2">
+    <style>
+        body { font-family: arial; margin: 0; padding: 0; padding-top: 240px; background: #f5f5f5; }
+        .sticky-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            z-index: 1000;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .sticky-header-content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .nav-links { display: flex; gap: 10px; margin-top: 15px; }
+        .nav-links a {
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: normal;
+            border: 1px solid #ddd;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .stat-card.blue { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
+        .stat-card.orange { background: linear-gradient(135deg, #e65100 0%, #f57c00 100%); }
+        .stat-value { font-size: 2em; font-weight: bold; }
+        .stat-label { font-size: 0.85em; opacity: 0.9; margin-top: 5px; }
+        
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filters input, .filters select {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .filters button {
+            padding: 8px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .filters button:hover { background: #5568d3; }
+        
+        .universe-table {
+            width: calc(100% - 40px);
+            border-collapse: collapse;
+            background: white;
+            margin: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 13px;
+        }
+        .universe-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 12px;
+            position: sticky;
+            top: 240px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .universe-table th:hover { background: #5568d3; }
+        .universe-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .universe-table tr:hover { background: #f8f9ff; }
+        
+        .symbol-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .symbol-link:hover { text-decoration: underline; }
+        
+        .asset-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .asset-ETF { background: #3498db; color: white; }
+        .asset-Stock { background: #27ae60; color: white; }
+        
+        .positive { color: #27ae60; font-weight: 600; }
+        .negative { color: #e74c3c; font-weight: 600; }
+        .neutral { color: #95a5a6; }
+        
+        .market-cap { font-weight: 600; color: #34495e; }
+    </style>
+</head>
+<body>
+    <div class="sticky-header">
+        <div class="sticky-header-content">
+            <h1 style="margin: 0 0 10px 0; color: #333;">📊 Scanner Universe</h1>
+            <p style="margin: 0; color: #666;">All {{ total_symbols }} symbols tracked in scanner_data database • Latest data as of {{ latest_date }}</p>
+            
+            <div class="stats-grid">
+                <div class="stat-card green">
+                    <div class="stat-value">{{ stats.total_symbols }}</div>
+                    <div class="stat-label">Total Symbols</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="stat-value">{{ stats.stocks }}</div>
+                    <div class="stat-label">Stocks</div>
+                </div>
+                <div class="stat-card orange">
+                    <div class="stat-value">{{ stats.etfs }}</div>
+                    <div class="stat-label">ETFs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ stats.sectors }}</div>
+                    <div class="stat-label">Sectors</div>
+                </div>
+            </div>
+            
+            <div class="nav-links">
+                <a href="/" style="background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;">🏠 Scanner Home</a>
+                <a href="/discovery" style="background: #e0f2f1; color: #00695c; border: 1px solid #b2dfdb;">🔭 Discovery</a>
+                <a href="/focus-list" style="background: #ffebee; color: #c62828; border: 1px solid #ef9a9a;">🎯 Focus List</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <form method="GET" action="/universe" class="filters">
+        <input type="text" name="search" placeholder="Search symbol or company..." value="{{ search or '' }}" style="width: 250px;">
+        <select name="asset_type">
+            <option value="">All Types</option>
+            <option value="Stock" {% if asset_type == 'Stock' %}selected{% endif %}>Stocks Only</option>
+            <option value="ETF" {% if asset_type == 'ETF' %}selected{% endif %}>ETFs Only</option>
+        </select>
+        <select name="sector">
+            <option value="">All Sectors</option>
+            {% for s in available_sectors %}
+            <option value="{{ s }}" {% if sector == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">🔍 Filter</button>
+        <a href="/universe" style="padding: 8px 20px; background: #95a5a6; color: white; text-decoration: none; border-radius: 5px; font-weight: 600;">Clear</a>
+    </form>
+    
+    <!-- Universe Table -->
+    <table class="universe-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th onclick="sortTable(1)">Symbol ▾</th>
+                <th>Company</th>
+                <th onclick="sortTable(3)">Type ▾</th>
+                <th onclick="sortTable(4)">Sector ▾</th>
+                <th>Industry</th>
+                <th onclick="sortTable(6)">Price ▾</th>
+                <th onclick="sortTable(7)">Volume ▾</th>
+                <th onclick="sortTable(8)">Market Cap ▾</th>
+                <th onclick="sortTable(9)">P/E ▾</th>
+                <th onclick="sortTable(10)">Div Yield ▾</th>
+                <th onclick="sortTable(11)">Beta ▾</th>
+                <th>52W High</th>
+                <th>52W Low</th>
+                <th onclick="sortTable(14)">Last Updated ▾</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in symbols %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><a href="/?ticker={{ item.symbol }}" class="symbol-link">{{ item.symbol }}</a></td>
+                <td>{{ item.company_name or item.symbol }}</td>
+                <td><span class="asset-badge asset-{{ item.asset_type }}">{{ item.asset_type }}</span></td>
+                <td>{{ item.sector or '-' }}</td>
+                <td style="font-size: 11px;">{{ item.industry or '-' }}</td>
+                <td style="font-weight: 600;">${{ "%.2f"|format(item.price) if item.price else '-' }}</td>
+                <td>{{ "{:,}".format(item.volume) if item.volume else '-' }}</td>
+                <td class="market-cap">{{ item.market_cap_formatted }}</td>
+                <td>{{ "%.2f"|format(item.pe_ratio) if item.pe_ratio else '-' }}</td>
+                <td {% if item.dividend_yield %}class="positive"{% endif %}>{{ "%.2f%"|format(item.dividend_yield * 100) if item.dividend_yield else '-' }}</td>
+                <td>{{ "%.2f"|format(item.beta) if item.beta else '-' }}</td>
+                <td>${{ "%.2f"|format(item.fifty_two_week_high) if item.fifty_two_week_high else '-' }}</td>
+                <td>${{ "%.2f"|format(item.fifty_two_week_low) if item.fifty_two_week_low else '-' }}</td>
+                <td>{{ item.last_date }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <script>
+        function sortTable(columnIndex) {
+            const table = document.querySelector('.universe-table');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                const aVal = a.cells[columnIndex].textContent.trim();
+                const bVal = b.cells[columnIndex].textContent.trim();
+                
+                // Try numeric comparison first
+                const aNum = parseFloat(aVal.replace(/[$,%-]/g, ''));
+                const bNum = parseFloat(bVal.replace(/[$,%-]/g, ''));
+                
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return bNum - aNum; // Descending for numbers
+                }
+                
+                // String comparison
+                return aVal.localeCompare(bVal);
+            });
+            
+            rows.forEach(row => tbody.appendChild(row));
+        }
+    </script>
+</body>
+</html>

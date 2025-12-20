@@ -4161,6 +4161,148 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     })
 
 
+@app.get("/universe", response_class=HTMLResponse)
+async def universe_page(
+    request: Request,
+    search: Optional[str] = Query(None),
+    asset_type: Optional[str] = Query(None),
+    sector: Optional[str] = Query(None)
+):
+    """Display all symbols in scanner_data database with latest pricing and fundamental data."""
+    try:
+        conn = get_db_connection(SCANNER_DATA_PATH)
+        
+        # Build query to get all symbols with their latest data
+        query = """
+            WITH latest_prices AS (
+                SELECT 
+                    symbol,
+                    close as price,
+                    volume,
+                    date as last_date,
+                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) as rn
+                FROM main.daily_cache
+            )
+            SELECT 
+                d.symbol,
+                d.price,
+                d.volume,
+                d.last_date,
+                f.company_name,
+                f.sector,
+                f.industry,
+                f.market_cap,
+                f.pe_ratio,
+                f.dividend_yield,
+                f.beta,
+                f.fifty_two_week_high,
+                f.fifty_two_week_low,
+                a.asset_type
+            FROM latest_prices d
+            LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
+            LEFT JOIN main.asset_types a ON d.symbol = a.symbol
+            WHERE d.rn = 1
+        """
+        
+        params = []
+        
+        # Add filters
+        if search:
+            query += " AND (d.symbol LIKE ? OR f.company_name LIKE ?)"
+            search_pattern = f"%{search.upper()}%"
+            params.extend([search_pattern, search_pattern])
+        
+        if asset_type:
+            query += " AND a.asset_type = ?"
+            params.append(asset_type)
+        
+        if sector:
+            query += " AND f.sector = ?"
+            params.append(sector)
+        
+        query += " ORDER BY d.symbol"
+        
+        results = conn.execute(query, params).fetchall()
+        
+        # Format market cap
+        def format_market_cap(market_cap_str):
+            if not market_cap_str:
+                return '-'
+            try:
+                # Remove currency symbols and convert to float
+                value = float(str(market_cap_str).replace('$', '').replace(',', ''))
+                if value >= 1e12:
+                    return f"${value/1e12:.2f}T"
+                elif value >= 1e9:
+                    return f"${value/1e9:.2f}B"
+                elif value >= 1e6:
+                    return f"${value/1e6:.2f}M"
+                else:
+                    return f"${value:.0f}"
+            except:
+                return market_cap_str
+        
+        symbols = []
+        for row in results:
+            symbols.append({
+                'symbol': row[0],
+                'price': row[1],
+                'volume': row[2],
+                'last_date': str(row[3]) if row[3] else '-',
+                'company_name': row[4],
+                'sector': row[5],
+                'industry': row[6],
+                'market_cap_formatted': format_market_cap(row[7]),
+                'pe_ratio': row[8],
+                'dividend_yield': row[9],
+                'beta': row[10],
+                'fifty_two_week_high': row[11],
+                'fifty_two_week_low': row[12],
+                'asset_type': row[13] or 'Stock'
+            })
+        
+        # Get available sectors for filter
+        available_sectors = sorted(set([s['sector'] for s in symbols if s['sector']]))
+        
+        # Get latest date
+        latest_date = conn.execute("SELECT MAX(date) FROM main.daily_cache").fetchone()[0]
+        
+        # Calculate stats
+        stats = {
+            'total_symbols': len(symbols),
+            'stocks': len([s for s in symbols if s['asset_type'] == 'Stock']),
+            'etfs': len([s for s in symbols if s['asset_type'] == 'ETF']),
+            'sectors': len(available_sectors)
+        }
+        
+        conn.close()
+        
+        return templates.TemplateResponse('universe.html', {
+            'request': request,
+            'symbols': symbols,
+            'total_symbols': len(symbols),
+            'latest_date': str(latest_date) if latest_date else 'Unknown',
+            'stats': stats,
+            'available_sectors': available_sectors,
+            'search': search,
+            'asset_type': asset_type,
+            'sector': sector
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse('universe.html', {
+            'request': request,
+            'symbols': [],
+            'total_symbols': 0,
+            'latest_date': 'Unknown',
+            'stats': {'total_symbols': 0, 'stocks': 0, 'etfs': 0, 'sectors': 0},
+            'available_sectors': [],
+            'error': str(e)
+        })
+
+
 @app.get("/stats", response_class=HTMLResponse)
 async def stats(request: Request):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display database statistics landing page."""
