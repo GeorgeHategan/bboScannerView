@@ -3936,17 +3936,15 @@ async def discovery_page(
         asset_type_map = {}
         try:
             asset_types_result = scanner_conn.execute("""
-                SELECT symbol, asset_type, sector, industry
+                SELECT symbol, asset_type
                 FROM main.asset_types
             """).fetchall()
             for row in asset_types_result:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol:
                     asset_type_map[symbol] = {
-                        'asset_type': row[1],
-                        'sector': row[2],
-                        'industry': row[3],
-                        'is_etf': row[1] == 'ETF'
+                        'asset_type': row[1].upper() if row[1] else 'Stock',
+                        'is_etf': row[1].lower() == 'etf' if row[1] else False
                     }
         except Exception as e:
             print(f"Error getting asset types: {e}")
@@ -3978,9 +3976,9 @@ async def discovery_page(
                 if symbol and symbol not in scanner_symbols:
                     # Get asset type from asset_types table (authoritative source)
                     asset_info = asset_type_map.get(symbol, {})
-                    asset_type = asset_info.get('asset_type', row[2] or 'Stock')
-                    is_etf = asset_type == 'ETF'
-                    sector = asset_info.get('sector', row[1] or 'Unknown')
+                    asset_type = asset_info.get('asset_type', (row[2] or 'Stock').upper())
+                    is_etf = asset_info.get('is_etf', asset_type == 'ETF')
+                    sector = row[1] or 'Unknown'
                     
                     if symbol not in discovery_data:
                         discovery_data[symbol] = {
@@ -4031,8 +4029,8 @@ async def discovery_page(
                     if symbol not in discovery_data:
                         asset_info = asset_type_map.get(symbol, {})
                         asset_type = asset_info.get('asset_type', 'Stock')
-                        is_etf = asset_type == 'ETF'
-                        sector = asset_info.get('sector', 'Unknown')
+                        is_etf = asset_info.get('is_etf', asset_type == 'ETF')
+                        sector = 'Unknown'
                         
                         discovery_data[symbol] = {
                             'symbol': symbol,
