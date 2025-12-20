@@ -4257,7 +4257,6 @@ async def universe_page(
             FROM main.daily_cache
             GROUP BY symbol
             ORDER BY symbol
-            LIMIT 1000
         """
         
         print(f"DEBUG: Executing simple universe query")
