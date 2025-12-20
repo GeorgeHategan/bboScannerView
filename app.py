@@ -2691,6 +2691,60 @@ async def api_get_focus_list():
     return JSONResponse({"status": "ok", "items": items, "count": len(items)})
 
 
+@app.post("/api/trigger-workflow")
+async def api_trigger_workflow(request: Request):
+    """Trigger GitHub Actions workflow with selected symbols."""
+    try:
+        import httpx
+        body = await request.json()
+        data = body.get('data', '')
+        
+        if not data:
+            return JSONResponse({"error": "No data provided"}, status_code=400)
+        
+        # Get GitHub token from environment
+        github_token = os.environ.get('GITHUB_TOKEN')
+        if not github_token:
+            return JSONResponse({"error": "GitHub token not configured"}, status_code=500)
+        
+        # GitHub API endpoint for workflow dispatch
+        # Replace with your actual repo owner/name and workflow file name
+        owner = os.environ.get('GITHUB_REPO_OWNER', 'GeorgeHategan')
+        repo = os.environ.get('GITHUB_REPO_NAME', 'bboScannerView')
+        workflow_id = os.environ.get('GITHUB_WORKFLOW_ID', 'workflow.yml')
+        
+        url = f"https://api.github.com/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"
+        
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "Authorization": f"Bearer {github_token}",
+            "X-GitHub-Api-Version": "2022-11-28"
+        }
+        
+        payload = {
+            "ref": "main",
+            "inputs": {
+                "data": data
+            }
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+        
+        if response.status_code == 204:
+            return JSONResponse({"status": "ok", "message": "Workflow triggered successfully"})
+        else:
+            return JSONResponse({
+                "error": f"GitHub API error: {response.status_code}",
+                "details": response.text
+            }, status_code=response.status_code)
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.get("/api/chart-data/{symbol}")
 async def api_get_chart_data(symbol: str, days: int = 30):
     """Get OHLCV data and options walls for charting."""

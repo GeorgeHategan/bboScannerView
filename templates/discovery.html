@@ -301,6 +301,7 @@
         <button onclick="selectAll()" style="padding: 8px 15px; background: #16a085; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">☑️ Select All</button>
         <button onclick="selectNone()" style="padding: 8px 15px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">☐ Select None</button>
         <button onclick="downloadSelected()" style="padding: 8px 15px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">📥 Download Selected</button>
+        <button onclick="triggerWorkflow()" style="padding: 8px 15px; background: #8e44ad; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">🚀 Send to Workflow</button>
         <span id="selected-count" style="color: #666; font-size: 13px;">(0 selected)</span>
     </div>
     
@@ -467,6 +468,35 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+        
+        async function triggerWorkflow() {
+            const checkboxes = document.querySelectorAll('.symbol-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one symbol');
+                return;
+            }
+            
+            const symbols = Array.from(checkboxes).map(cb => cb.dataset.symbol);
+            const data = symbols.join(',');
+            
+            // Call backend endpoint to trigger GitHub Actions workflow
+            try {
+                const response = await fetch('/api/trigger-workflow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: data })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`Workflow triggered successfully!\n${symbols.length} symbols sent.`);
+                } else {
+                    alert(`Error: ${result.error || 'Failed to trigger workflow'}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
         }
     </script>
 </body>

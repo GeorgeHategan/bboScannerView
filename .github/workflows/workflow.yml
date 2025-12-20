@@ -1,0 +1,27 @@
+name: My Workflow
+on:
+  workflow_dispatch:
+    inputs:
+      data:
+        required: true
+        type: string
+        description: 'Comma-separated list of symbols'
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Display received data
+        run: echo "${{ github.event.inputs.data }}"
+      - name: Process symbols
+        run: |
+          echo "Received symbols: ${{ github.event.inputs.data }}"
+          # Add your processing logic here
+          # For example, you could:
+          # - Parse the comma-separated symbols
+          # - Run analysis on each symbol
+          # - Update files and commit back to repo
+          # - Send notifications
+          # etc.
