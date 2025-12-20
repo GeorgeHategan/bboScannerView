@@ -3949,6 +3949,22 @@ async def discovery_page(
         except Exception as e:
             print(f"Error getting asset types: {e}")
         
+        # Hardcoded ETF list for common symbols missing from asset_types
+        known_etfs = {
+            'SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'VOO', 'VEA', 'VWO', 'AGG', 'BND',
+            'IVV', 'EFA', 'VTV', 'VUG', 'IJH', 'IJR', 'VIG', 'VNQ', 'GLD', 'SLV',
+            'XLF', 'XLE', 'XLK', 'XLV', 'XLI', 'XLP', 'XLY', 'XLU', 'XLB', 'XLRE',
+            'VGT', 'VYM', 'VB', 'VO', 'VXF', 'MGC', 'MGK', 'MGV', 'IVE', 'IVW',
+            'IEMG', 'IEFA', 'ITOT', 'IXUS', 'USMV', 'QUAL', 'MTUM', 'SIZE', 'VLUE', 'ESGU',
+            'TLT', 'SHY', 'IEF', 'LQD', 'HYG', 'MUB', 'EMB', 'BNDX', 'VCSH', 'VCIT',
+            'ARKK', 'ARKG', 'ARKW', 'ARKQ', 'ARKF', 'TAN', 'ICLN', 'QCLN', 'PBW', 'FAN',
+            'TQQQ', 'SQQQ', 'UPRO', 'SPXU', 'TNA', 'TZA', 'SPXL', 'SPXS', 'UDOW', 'SDOW',
+            'SOXL', 'SOXS', 'LABU', 'LABD', 'ERX', 'ERY', 'FAS', 'FAZ', 'NUGT', 'DUST',
+            'UVXY', 'SVXY', 'VXX', 'VIXY', 'VIX', 'TVIX', 'SVIX',
+            'SMH', 'XBI', 'IBB', 'KRE', 'XRT', 'ITB', 'GDX', 'GDXJ', 'USO', 'UNG',
+            'EEM', 'EWZ', 'FXI', 'EWJ', 'EWY', 'EWA', 'EWU', 'EWG', 'EWC', 'EWW'
+        }
+        
         # Build discovery query - get symbols with options/darkpool activity NOT in scanner universe
         discovery_data = {}
         
@@ -3976,8 +3992,16 @@ async def discovery_page(
                 if symbol and symbol not in scanner_symbols:
                     # Get asset type from asset_types table (authoritative source)
                     asset_info = asset_type_map.get(symbol, {})
-                    asset_type = asset_info.get('asset_type', (row[2] or 'Stock').upper())
-                    is_etf = asset_info.get('is_etf', asset_type == 'ETF')
+                    # Use asset_types, then hardcoded ETF list, then database value as last resort
+                    if asset_info:
+                        asset_type = asset_info.get('asset_type', 'Stock')
+                        is_etf = asset_info.get('is_etf', False)
+                    elif symbol in known_etfs:
+                        asset_type = 'ETF'
+                        is_etf = True
+                    else:
+                        asset_type = (row[2] or 'Stock').upper()
+                        is_etf = asset_type == 'ETF'
                     sector = row[1] or 'Unknown'
                     
                     if symbol not in discovery_data:
@@ -4028,8 +4052,16 @@ async def discovery_page(
                     # Get asset type from asset_types table if not already in discovery_data (authoritative source)
                     if symbol not in discovery_data:
                         asset_info = asset_type_map.get(symbol, {})
-                        asset_type = asset_info.get('asset_type', 'Stock')
-                        is_etf = asset_info.get('is_etf', asset_type == 'ETF')
+                        # Use asset_types, then hardcoded ETF list, then default to Stock
+                        if asset_info:
+                            asset_type = asset_info.get('asset_type', 'Stock')
+                            is_etf = asset_info.get('is_etf', False)
+                        elif symbol in known_etfs:
+                            asset_type = 'ETF'
+                            is_etf = True
+                        else:
+                            asset_type = 'Stock'
+                            is_etf = False
                         sector = 'Unknown'
                         
                         discovery_data[symbol] = {
