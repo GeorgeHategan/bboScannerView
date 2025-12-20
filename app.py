@@ -4176,7 +4176,7 @@ async def universe_page(
         count_check = conn.execute("SELECT COUNT(*) FROM main.daily_cache").fetchone()[0]
         print(f"DEBUG: daily_cache has {count_check} rows")
         
-        # Build query to get all symbols with their latest data
+        # Build query to get all symbols with their latest data from daily_cache only
         query = """
             WITH latest_prices AS (
                 SELECT 
@@ -4200,11 +4200,9 @@ async def universe_page(
                 f.dividend_yield,
                 f.beta,
                 f.fifty_two_week_high,
-                f.fifty_two_week_low,
-                COALESCE(a.asset_type, 'Stock') as asset_type
+                f.fifty_two_week_low
             FROM latest_prices d
             LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
-            LEFT JOIN main.asset_types a ON d.symbol = a.symbol
             WHERE d.rn = 1
         """
         
@@ -4215,10 +4213,6 @@ async def universe_page(
             query += " AND (d.symbol LIKE ? OR f.company_name LIKE ?)"
             search_pattern = f"%{search.upper()}%"
             params.extend([search_pattern, search_pattern])
-        
-        if asset_type:
-            query += " AND a.asset_type = ?"
-            params.append(asset_type)
         
         if sector:
             query += " AND f.sector = ?"
@@ -4262,7 +4256,7 @@ async def universe_page(
                 'beta': row[10],
                 'fifty_two_week_high': row[11],
                 'fifty_two_week_low': row[12],
-                'asset_type': row[13] or 'Stock'
+                'asset_type': 'Stock'  # All symbols from daily_cache
             })
         
         # Get available sectors for filter
@@ -4274,8 +4268,8 @@ async def universe_page(
         # Calculate stats
         stats = {
             'total_symbols': len(symbols),
-            'stocks': len([s for s in symbols if s['asset_type'] == 'Stock']),
-            'etfs': len([s for s in symbols if s['asset_type'] == 'ETF']),
+            'stocks': len(symbols),  # All from daily_cache are stocks
+            'etfs': 0,
             'sectors': len(available_sectors)
         }
         

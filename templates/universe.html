@@ -135,16 +135,12 @@
                     <div class="stat-label">Total Symbols</div>
                 </div>
                 <div class="stat-card blue">
-                    <div class="stat-value">{{ stats.stocks }}</div>
-                    <div class="stat-label">Stocks</div>
-                </div>
-                <div class="stat-card orange">
-                    <div class="stat-value">{{ stats.etfs }}</div>
-                    <div class="stat-label">ETFs</div>
-                </div>
-                <div class="stat-card">
                     <div class="stat-value">{{ stats.sectors }}</div>
                     <div class="stat-label">Sectors</div>
+                </div>
+                <div class="stat-card orange">
+                    <div class="stat-value">{{ latest_date }}</div>
+                    <div class="stat-label">Latest Data</div>
                 </div>
             </div>
             
@@ -159,11 +155,6 @@
     <!-- Filters -->
     <form method="GET" action="/universe" class="filters">
         <input type="text" name="search" placeholder="Search symbol or company..." value="{{ search or '' }}" style="width: 250px;">
-        <select name="asset_type">
-            <option value="">All Types</option>
-            <option value="Stock" {% if asset_type == 'Stock' %}selected{% endif %}>Stocks Only</option>
-            <option value="ETF" {% if asset_type == 'ETF' %}selected{% endif %}>ETFs Only</option>
-        </select>
         <select name="sector">
             <option value="">All Sectors</option>
             {% for s in available_sectors %}
@@ -181,18 +172,17 @@
                 <th>#</th>
                 <th onclick="sortTable(1)">Symbol ▾</th>
                 <th>Company</th>
-                <th onclick="sortTable(3)">Type ▾</th>
-                <th onclick="sortTable(4)">Sector ▾</th>
+                <th onclick="sortTable(3)">Sector ▾</th>
                 <th>Industry</th>
-                <th onclick="sortTable(6)">Price ▾</th>
-                <th onclick="sortTable(7)">Volume ▾</th>
-                <th onclick="sortTable(8)">Market Cap ▾</th>
-                <th onclick="sortTable(9)">P/E ▾</th>
-                <th onclick="sortTable(10)">Div Yield ▾</th>
-                <th onclick="sortTable(11)">Beta ▾</th>
+                <th onclick="sortTable(5)">Price ▾</th>
+                <th onclick="sortTable(6)">Volume ▾</th>
+                <th onclick="sortTable(7)">Market Cap ▾</th>
+                <th onclick="sortTable(8)">P/E ▾</th>
+                <th onclick="sortTable(9)">Div Yield ▾</th>
+                <th onclick="sortTable(10)">Beta ▾</th>
                 <th>52W High</th>
                 <th>52W Low</th>
-                <th onclick="sortTable(14)">Last Updated ▾</th>
+                <th onclick="sortTable(13)">Last Updated ▾</th>
             </tr>
         </thead>
         <tbody>
@@ -201,7 +191,6 @@
                 <td>{{ loop.index }}</td>
                 <td><a href="/?ticker={{ item.symbol }}" class="symbol-link">{{ item.symbol }}</a></td>
                 <td>{{ item.company_name or item.symbol }}</td>
-                <td><span class="asset-badge asset-{{ item.asset_type }}">{{ item.asset_type }}</span></td>
                 <td>{{ item.sector or '-' }}</td>
                 <td style="font-size: 11px;">{{ item.industry or '-' }}</td>
                 <td style="font-weight: 600;">${{ "%.2f"|format(item.price) if item.price else '-' }}</td>
