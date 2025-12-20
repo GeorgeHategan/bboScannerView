@@ -3063,6 +3063,23 @@ async def options_signals(
         if not conn:
             raise Exception("Could not connect to options database")
         
+        # Get connection to scanner_data for asset_types
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
+        
+        # Load asset types into memory for quick lookup
+        asset_type_map = {}
+        try:
+            asset_types_result = scanner_conn.execute("""
+                SELECT symbol, asset_type
+                FROM main.asset_types
+            """).fetchall()
+            for row in asset_types_result:
+                symbol_key = row[0].upper() if row[0] else ''
+                if symbol_key:
+                    asset_type_map[symbol_key] = row[1]
+        except Exception as e:
+            print(f"Warning: Could not load asset types: {e}")
+        
         # Get available filter options
         signal_types = [row[0] for row in conn.execute(
             "SELECT DISTINCT signal_type FROM accumulation_signals ORDER BY signal_type"
@@ -3162,13 +3179,14 @@ async def options_signals(
         # Convert to list of dicts
         signals = []
         for row in results:
+            underlying = row[3]
             signals.append({
                 'signal_id': row[0],
                 'signal_date': str(row[1]) if row[1] else '',
                 'signal_type': row[2],
-                'underlying_symbol': row[3],
+                'underlying_symbol': underlying,
                 'sector': row[4] or 'ETF',
-                'asset_type': row[5],
+                'asset_type': asset_type_map.get(underlying.upper(), row[5] or 'Stock') if underlying else 'Stock',
                 'option_symbol': row[6],
                 'strike': row[7],
                 'stock_price': row[8],
@@ -3182,6 +3200,10 @@ async def options_signals(
                 'notes': row[16],
                 'direction': row[17] if len(row) > 17 else None
             })
+        
+        # Filter by asset_type if specified (use asset_types table value)
+        if asset_type:
+            signals = [s for s in signals if s['asset_type'] == asset_type]
         
         # Get stats for the dashboard
         stats_query = """
@@ -3617,6 +3639,23 @@ async def darkpool_signals(
         if not conn:
             raise Exception("Could not connect to options database")
         
+        # Get connection to scanner_data for asset_types
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
+        
+        # Load asset types into memory for quick lookup
+        asset_type_map = {}
+        try:
+            asset_types_result = scanner_conn.execute("""
+                SELECT symbol, asset_type
+                FROM main.asset_types
+            """).fetchall()
+            for row in asset_types_result:
+                symbol_key = row[0].upper() if row[0] else ''
+                if symbol_key:
+                    asset_type_map[symbol_key] = row[1]
+        except Exception as e:
+            print(f"Warning: Could not load asset types: {e}")
+        
         # Get available filter options
         signal_types = [row[0] for row in conn.execute(
             "SELECT DISTINCT signal_type FROM darkpool_signals ORDER BY signal_type"
@@ -3709,11 +3748,13 @@ async def darkpool_signals(
         
         signals = []
         for row in results:
+            ticker = row[3]
             signals.append({
                 'signal_id': row[0],
                 'signal_date': str(row[1]) if row[1] else '',
                 'signal_type': row[2],
-                'ticker': row[3],
+                'ticker': ticker,
+                'asset_type': asset_type_map.get(ticker.upper(), 'Stock') if ticker else 'Stock',
                 'direction': row[4],
                 'dp_volume': row[5],
                 'dp_premium': row[6],
@@ -3728,6 +3769,10 @@ async def darkpool_signals(
                 'signal_strength': row[15],
                 'notes': row[16]
             })
+        
+        # Filter by asset_type if specified
+        if asset_type:
+            signals = [s for s in signals if s['asset_type'] == asset_type]
         
         # Get stats
         stats_query = """
@@ -3931,11 +3976,11 @@ async def discovery_page(
             for row in opt_results:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol and symbol not in scanner_symbols:
-                    # Get asset type from asset_types table
+                    # Get asset type from asset_types table (authoritative source)
                     asset_info = asset_type_map.get(symbol, {})
-                    is_etf = asset_info.get('is_etf', False)
-                    sector = asset_info.get('sector', row[1] or 'Unknown')
                     asset_type = asset_info.get('asset_type', row[2] or 'Stock')
+                    is_etf = asset_type == 'ETF'
+                    sector = asset_info.get('sector', row[1] or 'Unknown')
                     
                     if symbol not in discovery_data:
                         discovery_data[symbol] = {
@@ -3982,12 +4027,12 @@ async def discovery_page(
             for row in dp_results:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol and symbol not in scanner_symbols:
-                    # Get asset type from asset_types table if not already in discovery_data
+                    # Get asset type from asset_types table if not already in discovery_data (authoritative source)
                     if symbol not in discovery_data:
                         asset_info = asset_type_map.get(symbol, {})
-                        is_etf = asset_info.get('is_etf', False)
-                        sector = asset_info.get('sector', 'Unknown')
                         asset_type = asset_info.get('asset_type', 'Stock')
+                        is_etf = asset_type == 'ETF'
+                        sector = asset_info.get('sector', 'Unknown')
                         
                         discovery_data[symbol] = {
                             'symbol': symbol,
@@ -4172,13 +4217,22 @@ async def universe_page(
     try:
         conn = get_db_connection(SCANNER_DATA_PATH)
         
-        # Simple query - just get distinct symbols with their most recent data
+        # Get most recent data for each symbol
         query = """
-            SELECT DISTINCT
-                d.symbol,
-                d.close as price,
-                d.volume,
-                d.date as last_date,
+            WITH latest_prices AS (
+                SELECT 
+                    symbol,
+                    close as price,
+                    volume,
+                    date as last_date,
+                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) as rn
+                FROM main.daily_cache
+            )
+            SELECT 
+                lp.symbol,
+                lp.price,
+                lp.volume,
+                lp.last_date,
                 f.company_name,
                 f.sector,
                 f.industry,
@@ -4188,8 +4242,9 @@ async def universe_page(
                 f.beta,
                 f.fifty_two_week_high,
                 f.fifty_two_week_low
-            FROM main.daily_cache d
-            LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
+            FROM latest_prices lp
+            LEFT JOIN main.fundamental_cache f ON lp.symbol = f.symbol
+            WHERE lp.rn = 1
         """
         
         params = []
@@ -4197,7 +4252,7 @@ async def universe_page(
         
         # Add filters
         if search:
-            where_clauses.append("(d.symbol LIKE ? OR f.company_name LIKE ?)")
+            where_clauses.append("(lp.symbol LIKE ? OR f.company_name LIKE ?)")
             search_pattern = f"%{search.upper()}%"
             params.extend([search_pattern, search_pattern])
         
@@ -4206,9 +4261,9 @@ async def universe_page(
             params.append(sector)
         
         if where_clauses:
-            query += " WHERE " + " AND ".join(where_clauses)
+            query += " AND " + " AND ".join(where_clauses)
         
-        query += " ORDER BY d.symbol LIMIT 1000"
+        query += " ORDER BY lp.symbol LIMIT 1000"
         
         print(f"DEBUG: Executing universe query with {len(params)} params")
         results = conn.execute(query, params).fetchall()
