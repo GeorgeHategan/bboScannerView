@@ -4172,6 +4172,10 @@ async def universe_page(
     try:
         conn = get_db_connection(SCANNER_DATA_PATH)
         
+        # First check if we have data
+        count_check = conn.execute("SELECT COUNT(*) FROM main.daily_cache").fetchone()[0]
+        print(f"DEBUG: daily_cache has {count_check} rows")
+        
         # Build query to get all symbols with their latest data
         query = """
             WITH latest_prices AS (
@@ -4180,7 +4184,7 @@ async def universe_page(
                     close as price,
                     volume,
                     date as last_date,
-                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) as rn
+                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY CAST(date AS DATE) DESC) as rn
                 FROM main.daily_cache
             )
             SELECT 
@@ -4197,7 +4201,7 @@ async def universe_page(
                 f.beta,
                 f.fifty_two_week_high,
                 f.fifty_two_week_low,
-                a.asset_type
+                COALESCE(a.asset_type, 'Stock') as asset_type
             FROM latest_prices d
             LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
             LEFT JOIN main.asset_types a ON d.symbol = a.symbol
