@@ -898,6 +898,47 @@ def get_cached_symbol_metadata():
         return {}
 
 
+def get_alpha_vantage_asset_type(symbol: str):
+    """Get asset type (ETF/Stock) from Alpha Vantage API with caching."""
+    cache_key = f"av_asset_type:{symbol}"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    try:
+        import httpx
+        api_key = os.environ.get('ALPHA_VANTAGE_API_KEY')
+        if not api_key:
+            print("ALPHA_VANTAGE_API_KEY not configured")
+            return None
+        
+        url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={symbol}&apikey={api_key}"
+        
+        response = httpx.get(url, timeout=5.0)
+        if response.status_code == 200:
+            data = response.json()
+            asset_type = data.get('AssetType', '')
+            sector = data.get('Sector', '')
+            industry = data.get('Industry', '')
+            
+            result = {
+                'asset_type': asset_type,
+                'sector': sector,
+                'industry': industry,
+                'is_etf': asset_type == 'ETF'
+            }
+            
+            # Cache for 7 days (asset type doesn't change)
+            _query_cache.set(cache_key, result, 604800)
+            return result
+        else:
+            print(f"Alpha Vantage API error for {symbol}: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"Error fetching Alpha Vantage data for {symbol}: {e}")
+        return None
+
+
 def get_cached_scanner_results(pattern: str, scan_date: str = None, ticker: str = None):
     """Get scanner results with 2-minute cache."""
     cache_key = f"scanner_results:{pattern}:{scan_date}:{ticker}"
@@ -3849,38 +3890,6 @@ async def discovery_page(
         # Build discovery query - get symbols with options/darkpool activity NOT in scanner universe
         discovery_data = {}
         
-        # First, get all known ETF symbols from accumulation_signals for reference
-        known_etfs = set()
-        try:
-            etf_result = options_conn.execute("""
-                SELECT DISTINCT underlying_symbol 
-                FROM accumulation_signals 
-                WHERE sector = 'ETF' OR asset_type LIKE '%ETF%'
-            """).fetchall()
-            known_etfs = {row[0].upper() for row in etf_result if row[0]}
-        except:
-            pass
-        
-        # Also add common ETF tickers that might not be in options data
-        common_etfs = {
-            'SPY', 'QQQ', 'IWM', 'DIA', 'VOO', 'VTI', 'IVV', 'VEA', 'VWO', 'EFA', 'EEM',
-            'AGG', 'BND', 'LQD', 'HYG', 'TLT', 'IEF', 'SHY', 'TIP', 'MUB', 'JNK',
-            'GLD', 'SLV', 'IAU', 'GDX', 'GDXJ', 'USO', 'UNG', 'DBA', 'DBC',
-            'XLF', 'XLE', 'XLK', 'XLV', 'XLI', 'XLY', 'XLP', 'XLU', 'XLB', 'XLRE',
-            'VGT', 'VHT', 'VFH', 'VNQ', 'VIG', 'VYM', 'SCHD', 'DVY',
-            'ARKK', 'ARKG', 'ARKW', 'ARKF', 'ARKQ',
-            'TQQQ', 'SQQQ', 'SPXL', 'SPXS', 'TNA', 'TZA', 'UVXY', 'SVXY', 'VXX',
-            'SMH', 'SOXX', 'XBI', 'IBB', 'XOP', 'OIH', 'KRE', 'KBE', 'ITB', 'XHB',
-            'RSP', 'SPLG', 'SPYG', 'SPYV', 'IWF', 'IWD', 'IWB', 'IWN', 'IWO', 'IWP',
-            'VB', 'VV', 'VO', 'VBK', 'VBR', 'VUG', 'VTV',
-            'IEMG', 'IXUS', 'IEFA', 'ACWI', 'VXUS',
-            'SGOV', 'BIL', 'SHV', 'MINT', 'NEAR',
-            'SPYM', 'SPHD', 'NOBL', 'SDY',
-            'GEV', 'JEPI', 'JEPQ', 'DIVO', 'NUSI',
-            'XRT', 'XME', 'JETS', 'KWEB', 'MCHI', 'FXI', 'EWZ', 'EWJ', 'EWT', 'EWY'
-        }
-        known_etfs.update(common_etfs)
-        
         # Get options flow signals
         if signal_source in [None, 'options']:
             opt_query = """
@@ -3903,12 +3912,16 @@ async def discovery_page(
             for row in opt_results:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol and symbol not in scanner_symbols:
-                    is_etf = symbol in known_etfs or row[1] == 'ETF' or (row[2] and 'ETF' in row[2].upper())
+                    # Get asset type from Alpha Vantage
+                    av_data = get_alpha_vantage_asset_type(symbol)
+                    is_etf = av_data.get('is_etf', False) if av_data else False
+                    sector = av_data.get('sector', row[1] or 'Unknown') if av_data else (row[1] or 'Unknown')
+                    
                     if symbol not in discovery_data:
                         discovery_data[symbol] = {
                             'symbol': symbol,
-                            'sector': 'ETF' if is_etf else (row[1] or 'Unknown'),
-                            'asset_type': row[2] or ('ETF' if is_etf else 'Stock'),
+                            'sector': sector,
+                            'asset_type': av_data.get('asset_type', row[2]) if av_data else row[2],
                             'is_etf': is_etf,
                             'options_signals': 0,
                             'options_premium': 0,
@@ -3949,12 +3962,17 @@ async def discovery_page(
             for row in dp_results:
                 symbol = row[0].upper() if row[0] else ''
                 if symbol and symbol not in scanner_symbols:
-                    is_etf = symbol in known_etfs
+                    # Get asset type from Alpha Vantage if not already in discovery_data
                     if symbol not in discovery_data:
+                        av_data = get_alpha_vantage_asset_type(symbol)
+                        is_etf = av_data.get('is_etf', False) if av_data else False
+                        sector = av_data.get('sector', 'Unknown') if av_data else 'Unknown'
+                        asset_type = av_data.get('asset_type', 'Stock') if av_data else 'Stock'
+                        
                         discovery_data[symbol] = {
                             'symbol': symbol,
-                            'sector': 'ETF' if is_etf else 'Unknown',
-                            'asset_type': 'ETF' if is_etf else 'Stock',
+                            'sector': sector,
+                            'asset_type': asset_type,
                             'is_etf': is_etf,
                             'options_signals': 0,
                             'options_premium': 0,
