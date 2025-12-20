@@ -2708,23 +2708,21 @@ async def api_trigger_workflow(request: Request):
             return JSONResponse({"error": "GitHub token not configured"}, status_code=500)
         
         # GitHub API endpoint for workflow dispatch
-        # Replace with your actual repo owner/name and workflow file name
         owner = os.environ.get('GITHUB_REPO_OWNER', 'GeorgeHategan')
-        repo = os.environ.get('GITHUB_REPO_NAME', 'bboScannerView')
-        workflow_id = os.environ.get('GITHUB_WORKFLOW_ID', 'workflow.yml')
+        repo = os.environ.get('GITHUB_REPO_NAME', 'scanner_data')
+        workflow_id = os.environ.get('GITHUB_WORKFLOW_ID', '217568428')
         
         url = f"https://api.github.com/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches"
         
         headers = {
             "Accept": "application/vnd.github.v3+json",
-            "Authorization": f"Bearer {github_token}",
-            "X-GitHub-Api-Version": "2022-11-28"
+            "Authorization": f"token {github_token}",
         }
         
         payload = {
             "ref": "main",
             "inputs": {
-                "data": data
+                "symbols": data
             }
         }
         
