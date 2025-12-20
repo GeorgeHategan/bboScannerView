@@ -3813,7 +3813,7 @@ async def discovery_page(
     
     try:
         options_conn = get_options_db_connection()
-        scanner_conn = get_db_connection(DUCKDB_PATH)
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
         
         if not options_conn:
             raise Exception("Could not connect to options database")
@@ -3840,7 +3840,7 @@ async def discovery_page(
         try:
             scanner_result = scanner_conn.execute("""
                 SELECT DISTINCT symbol 
-                FROM scanner_data.main.daily_cache
+                FROM main.daily_cache
             """).fetchall()
             scanner_symbols = {row[0].upper() for row in scanner_result}
         except Exception as e:
