@@ -4172,26 +4172,13 @@ async def universe_page(
     try:
         conn = get_db_connection(SCANNER_DATA_PATH)
         
-        # First check if we have data
-        count_check = conn.execute("SELECT COUNT(*) FROM main.daily_cache").fetchone()[0]
-        print(f"DEBUG: daily_cache has {count_check} rows")
-        
-        # Build query to get all symbols with their latest data from daily_cache only
+        # Simple query - just get distinct symbols with their most recent data
         query = """
-            WITH latest_prices AS (
-                SELECT 
-                    symbol,
-                    close as price,
-                    volume,
-                    date as last_date,
-                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY CAST(date AS DATE) DESC) as rn
-                FROM main.daily_cache
-            )
-            SELECT 
+            SELECT DISTINCT
                 d.symbol,
-                d.price,
+                d.close as price,
                 d.volume,
-                d.last_date,
+                d.date as last_date,
                 f.company_name,
                 f.sector,
                 f.industry,
@@ -4201,26 +4188,31 @@ async def universe_page(
                 f.beta,
                 f.fifty_two_week_high,
                 f.fifty_two_week_low
-            FROM latest_prices d
+            FROM main.daily_cache d
             LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
-            WHERE d.rn = 1
         """
         
         params = []
+        where_clauses = []
         
         # Add filters
         if search:
-            query += " AND (d.symbol LIKE ? OR f.company_name LIKE ?)"
+            where_clauses.append("(d.symbol LIKE ? OR f.company_name LIKE ?)")
             search_pattern = f"%{search.upper()}%"
             params.extend([search_pattern, search_pattern])
         
         if sector:
-            query += " AND f.sector = ?"
+            where_clauses.append("f.sector = ?")
             params.append(sector)
+        
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
         
         query += " ORDER BY d.symbol"
         
+        print(f"DEBUG: Executing universe query with {len(params)} params")
         results = conn.execute(query, params).fetchall()
+        print(f"DEBUG: Got {len(results)} results")
         
         # Format market cap
         def format_market_cap(market_cap_str):
