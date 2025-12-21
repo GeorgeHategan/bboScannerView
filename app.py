@@ -3638,8 +3638,25 @@ async def darkpool_chart_data_bulk(symbols: str):
         if not symbol_list:
             return {"error": "No symbols provided"}
         
-        # Generate complete 60-day range
-        end_date = datetime.now().date()
+        conn = get_options_db_connection()
+        if not conn:
+            return {"error": "Could not connect to options database"}
+        
+        # Find the most recent date with data across all symbols
+        placeholders = ','.join(['?' for _ in symbol_list])
+        max_date_query = f"""
+            SELECT MAX(signal_date) 
+            FROM darkpool_signals 
+            WHERE ticker IN ({placeholders})
+        """
+        max_date_result = conn.execute(max_date_query, symbol_list).fetchone()
+        
+        if max_date_result and max_date_result[0]:
+            end_date = datetime.strptime(str(max_date_result[0]), '%Y-%m-%d').date()
+        else:
+            end_date = datetime.now().date()
+        
+        # Generate complete 60-day range ending at most recent data date
         start_date = end_date - timedelta(days=59)
         
         all_dates = []
@@ -3647,10 +3664,6 @@ async def darkpool_chart_data_bulk(symbols: str):
         while current <= end_date:
             all_dates.append(current.strftime('%Y-%m-%d'))
             current += timedelta(days=1)
-        
-        conn = get_options_db_connection()
-        if not conn:
-            return {"error": "Could not connect to options database"}
         
         # Get darkpool data for all symbols in one query
         placeholders = ','.join(['?' for _ in symbol_list])
@@ -3739,8 +3752,25 @@ async def options_chart_data_bulk(symbols: str):
         if not symbol_list:
             return {"error": "No symbols provided"}
         
-        # Generate complete 60-day range
-        end_date = datetime.now().date()
+        conn = get_options_db_connection()
+        if not conn:
+            return {"error": "Could not connect to options database"}
+        
+        # Find the most recent date with data across all symbols
+        placeholders = ','.join(['?' for _ in symbol_list])
+        max_date_query = f"""
+            SELECT MAX(signal_date) 
+            FROM accumulation_signals 
+            WHERE underlying_symbol IN ({placeholders})
+        """
+        max_date_result = conn.execute(max_date_query, symbol_list).fetchone()
+        
+        if max_date_result and max_date_result[0]:
+            end_date = datetime.strptime(str(max_date_result[0]), '%Y-%m-%d').date()
+        else:
+            end_date = datetime.now().date()
+        
+        # Generate complete 60-day range ending at most recent data date
         start_date = end_date - timedelta(days=59)
         
         all_dates = []
@@ -3748,10 +3778,6 @@ async def options_chart_data_bulk(symbols: str):
         while current <= end_date:
             all_dates.append(current.strftime('%Y-%m-%d'))
             current += timedelta(days=1)
-        
-        conn = get_options_db_connection()
-        if not conn:
-            return {"error": "Could not connect to options database"}
         
         # Get options flow data for all symbols in one query
         placeholders = ','.join(['?' for _ in symbol_list])
