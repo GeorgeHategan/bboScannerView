@@ -131,9 +131,10 @@ def get_db_connection(db_path: str = None):
 
 class TTLCache:
     """Simple thread-safe TTL cache for query results."""
-    def __init__(self):
+    def __init__(self, maxsize: int = 100):
         self._cache = {}
         self._lock = threading.Lock()
+        self._maxsize = maxsize
     
     def get(self, key: str):
         """Get value from cache if not expired."""
@@ -146,9 +147,22 @@ class TTLCache:
                     del self._cache[key]
         return None
     
-    def set(self, key: str, value, ttl_seconds: int = 300):
-        """Set value in cache with TTL (default 5 minutes)."""
+    def set(self, key: str, value, ttl_seconds: int = 120):
+        """Set value in cache with TTL (default 2 minutes - reduced for memory)."""
         with self._lock:
+            # If cache is full, remove oldest entries
+            if len(self._cache) >= self._maxsize:
+                # Remove expired entries first
+                now = datetime.now()
+                expired_keys = [k for k, (_, exp) in self._cache.items() if now >= exp]
+                for k in expired_keys:
+                    del self._cache[k]
+                
+                # If still over limit, remove oldest entry
+                if len(self._cache) >= self._maxsize:
+                    oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][1])
+                    del self._cache[oldest_key]
+            
             expiry = datetime.now() + timedelta(seconds=ttl_seconds)
             self._cache[key] = (value, expiry)
     
@@ -170,7 +184,7 @@ class TTLCache:
 # Global cache instance
 _query_cache = TTLCache()
 
-def cached(ttl_seconds: int = 300, key_prefix: str = ""):
+def cached(ttl_seconds: int = 120, key_prefix: str = ""):
     """Decorator to cache function results."""
     def decorator(func):
         @wraps(func)
@@ -6379,8 +6393,9 @@ async def index(
             )
             query_params.extend([selected_scan_date, next_day])
         
-        # Order by signal strength (strongest first) and limit results to prevent timeout
-        scanner_query += ' ORDER BY signal_strength DESC LIMIT 50'
+        # Order by signal strength (strongest first) and limit results to prevent timeout and memory issues
+        # Reduced to 25 to stay within 512MB memory limit on Render free tier
+        scanner_query += ' ORDER BY signal_strength DESC LIMIT 25'
 
         scanner_dict = {}
         # Get top 50 results ordered by strength to prevent timeout
@@ -6404,7 +6419,7 @@ async def index(
                     'metadata': row[14] if len(row) > 14 else None
                 } for row in scanner_results
             }
-            print(f'Found {len(scanner_dict)} results for {pattern} (top 50 by strength)')
+            print(f'Found {len(scanner_dict)} results for {pattern} (top 25 by strength)')
         except Exception as e:
             print(f'Scanner query failed: {e}')
             scanner_dict = {}
