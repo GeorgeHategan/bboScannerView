@@ -982,26 +982,62 @@
                             <span style="color: {{ verdict_color }}; font-weight: bold;">{{ verdict_icon }} {{ verdict }}</span>
                             <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish, last 5 days)</span>
                         </strong><br>
-                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #8e44ad; padding: 8px; border-radius: 4px; background: #f5eef8;">
-                        {% for dp in dp_signals %}
-                            {# Color based on direction #}
-                            {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}
-                                {% set dp_color = '#27ae60' %}{# Green #}
-                            {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}
-                                {% set dp_color = '#e74c3c' %}{# Red #}
-                            {% else %}
-                                {% set dp_color = '#f39c12' %}{# Orange/Neutral #}
-                            {% endif %}
-                            <span style="color: {{ dp_color }}; font-weight: bold;">★</span>
-                            <span style="color: {{ dp_color }}; font-weight: bold;">{{ dp.signal_type.replace('_', ' ').title() }}</span>
-                            <span style="color: #666;">({{ dp.date }}, {{ dp.direction }}, 
-                            {% if dp.dp_premium and dp.dp_premium >= 1000000 %}<span style="color: #8e44ad; font-weight: bold;">${{ "{:,.0f}".format(dp.dp_premium / 1000) }}K</span>{% elif dp.dp_premium %}<span>${{ "{:,.0f}".format(dp.dp_premium) }}</span>{% else %}N/A{% endif %} premium,
-                            {{ "{:,}".format(dp.block_count) if dp.block_count else 0 }} blocks)</span>
-                            <span class="strength-badge-sm" style="background: {% if dp.strength == 'EXTREME' %}#8e44ad{% elif dp.strength == 'VERY_HIGH' %}#9b59b6{% else %}#a569bd{% endif %}; color: white; padding: 1px 6px; border-radius: 8px; font-size: 10px; margin-left: 4px;">{{ dp.strength }}</span>
-                            <br>
-                        {% endfor %}
+                        <div style="margin-left: 10px; margin-top: 10px; border: 1px solid #8e44ad; padding: 12px; border-radius: 4px; background: white;">
+                            <canvas id="dpChart_{{ stock }}_{{ pattern }}" style="max-height: 120px;"></canvas>
                         </div>
-                        <a href="/darkpool-signals?symbol={{ stock }}" style="font-size: 11px; color: #8e44ad; text-decoration: none;">→ View all dark pool signals for {{ stock }}</a>
+                        <a href="/darkpool-signals?symbol={{ stock }}" style="font-size: 11px; color: #8e44ad; text-decoration: none; margin-left: 10px;">→ View all dark pool signals for {{ stock }}</a>
+                        <script>
+                        (function() {
+                            const ctx = document.getElementById('dpChart_{{ stock }}_{{ pattern }}');
+                            if (ctx) {
+                                fetch('/api/darkpool-chart-data?symbol={{ stock }}&days=60')
+                                    .then(r => r.json())
+                                    .then(data => {
+                                        new Chart(ctx, {
+                                            type: 'bar',
+                                            data: {
+                                                labels: data.labels,
+                                                datasets: [{
+                                                    label: 'DP Notional',
+                                                    data: data.premium_data,
+                                                    backgroundColor: data.colors,
+                                                    borderWidth: 0
+                                                }]
+                                            },
+                                            options: {
+                                                responsive: true,
+                                                maintainAspectRatio: true,
+                                                plugins: {
+                                                    legend: { display: false },
+                                                    tooltip: {
+                                                        callbacks: {
+                                                            label: function(context) {
+                                                                return '$' + (context.parsed.y / 1000000).toFixed(1) + 'M';
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                scales: {
+                                                    y: {
+                                                        beginAtZero: true,
+                                                        ticks: {
+                                                            callback: function(value) {
+                                                                return '$' + (value / 1000000).toFixed(0) + 'M';
+                                                            },
+                                                            font: { size: 9 }
+                                                        }
+                                                    },
+                                                    x: {
+                                                        ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    })
+                                    .catch(e => console.error('DP chart error:', e));
+                            }
+                        })();
+                        </script>
                         {% endif %}
                         
                         {# Options Flow Signals Section - SECOND (just above Walls) #}
