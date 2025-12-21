@@ -3368,20 +3368,12 @@ async def options_chart_data(symbol: str):
         """
         price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
         
-        # Generate complete 60-day range (trading days only from price data, filled with all calendar days)
-        end_date = datetime.now().date()
-        start_date = end_date - timedelta(days=59)
-        
+        # Use only trading days from price data (no weekends/holidays)
         all_dates = []
-        current = start_date
-        while current <= end_date:
-            all_dates.append(current.strftime('%Y-%m-%d'))
-            current += timedelta(days=1)
-        
-        # Create price map from available data
         price_map = {}
         for row in price_results:
             date_str = str(row[0])
+            all_dates.append(date_str)
             price_map[date_str] = float(row[1]) if row[1] else None
         
         # Now get options flow data
@@ -3529,20 +3521,12 @@ async def darkpool_chart_data(symbol: str):
         """
         price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
         
-        # Generate complete 60-day range (trading days only from price data, filled with all calendar days)
-        end_date = datetime.now().date()
-        start_date = end_date - timedelta(days=59)
-        
+        # Use only trading days from price data (no weekends/holidays)
         all_dates = []
-        current = start_date
-        while current <= end_date:
-            all_dates.append(current.strftime('%Y-%m-%d'))
-            current += timedelta(days=1)
-        
-        # Create price map from available data
         price_map = {}
         for row in price_results:
             date_str = str(row[0])
+            all_dates.append(date_str)
             price_map[date_str] = float(row[1]) if row[1] else None
         
         # Now get darkpool data
