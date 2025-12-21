@@ -3571,36 +3571,48 @@ async def darkpool_chart_data(symbol: str):
             }
         
         # Align data for all dates
-        chart_data = {
-            'dates': [],
-            'volumes': [],
-            'premiums': [],
-            'trade_counts': [],
-            'confidences': [],
-            'directions': [],
-            'prices': []
-        }
+        labels = []
+        premium_data = []
+        volume_data = []
+        price_data = []
+        colors = []
         
         for date in all_dates:
-            chart_data['dates'].append(date)
-            chart_data['prices'].append(price_map.get(date))
+            # Format date as MM-DD
+            date_parts = date.split('-')
+            if len(date_parts) == 3:
+                label = f"{date_parts[1]}/{date_parts[2]}"
+            else:
+                label = date
+            labels.append(label)
+            price_data.append(price_map.get(date))
             
             # Add darkpool data if exists, otherwise 0/empty
             if date in darkpool_map:
                 dp = darkpool_map[date]
-                chart_data['volumes'].append(dp['volume'])
-                chart_data['premiums'].append(dp['premium'])
-                chart_data['trade_counts'].append(dp['trade_count'])
-                chart_data['confidences'].append(dp['confidence'])
-                chart_data['directions'].append(dp['direction'])
+                premium_data.append(dp['premium'])
+                volume_data.append(dp['volume'])
+                
+                # Color based on direction
+                direction = dp['direction'].upper()
+                if 'BUY' in direction or 'BULLISH' in direction:
+                    colors.append('rgba(39, 174, 96, 0.7)')  # Green
+                elif 'SELL' in direction or 'BEARISH' in direction:
+                    colors.append('rgba(231, 76, 60, 0.7)')  # Red
+                else:
+                    colors.append('rgba(243, 156, 18, 0.7)')  # Orange/neutral
             else:
-                chart_data['volumes'].append(0)
-                chart_data['premiums'].append(0)
-                chart_data['trade_counts'].append(0)
-                chart_data['confidences'].append(0)
-                chart_data['directions'].append('')
+                premium_data.append(0)
+                volume_data.append(0)
+                colors.append('rgba(189, 195, 199, 0.3)')  # Gray for no data
         
-        return chart_data
+        return {
+            'labels': labels,
+            'premium_data': premium_data,
+            'volume_data': volume_data,
+            'price_data': price_data,
+            'colors': colors
+        }
         
     except Exception as e:
         import traceback
