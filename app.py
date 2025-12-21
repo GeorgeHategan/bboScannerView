@@ -3640,14 +3640,27 @@ async def darkpool_chart_data_bulk(symbols: str):
         else:
             end_date = datetime.now().date()
         
-        # Generate complete 60-day range ending at most recent data date
-        start_date = end_date - timedelta(days=59)
-        
-        all_dates = []
-        current = start_date
-        while current <= end_date:
-            all_dates.append(current.strftime('%Y-%m-%d'))
-            current += timedelta(days=1)
+        # Get trading days from price data (no weekends/holidays)
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
+        if scanner_conn:
+            # Get any symbol's price data to determine trading days
+            trading_days_query = """
+                SELECT DISTINCT date
+                FROM main.daily_cache
+                WHERE CAST(date AS DATE) >= CURRENT_DATE - INTERVAL '60 days'
+                    AND CAST(date AS DATE) <= ?
+                ORDER BY date
+            """
+            trading_days_results = scanner_conn.execute(trading_days_query, [end_date.strftime('%Y-%m-%d')]).fetchall()
+            all_dates = [str(row[0]) for row in trading_days_results]
+        else:
+            # Fallback to calendar days if price data unavailable
+            start_date = end_date - timedelta(days=59)
+            all_dates = []
+            current = start_date
+            while current <= end_date:
+                all_dates.append(current.strftime('%Y-%m-%d'))
+                current += timedelta(days=1)
         
         # Get darkpool data for all symbols in one query
         placeholders = ','.join(['?' for _ in symbol_list])
@@ -3754,14 +3767,27 @@ async def options_chart_data_bulk(symbols: str):
         else:
             end_date = datetime.now().date()
         
-        # Generate complete 60-day range ending at most recent data date
-        start_date = end_date - timedelta(days=59)
-        
-        all_dates = []
-        current = start_date
-        while current <= end_date:
-            all_dates.append(current.strftime('%Y-%m-%d'))
-            current += timedelta(days=1)
+        # Get trading days from price data (no weekends/holidays)
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
+        if scanner_conn:
+            # Get any symbol's price data to determine trading days
+            trading_days_query = """
+                SELECT DISTINCT date
+                FROM main.daily_cache
+                WHERE CAST(date AS DATE) >= CURRENT_DATE - INTERVAL '60 days'
+                    AND CAST(date AS DATE) <= ?
+                ORDER BY date
+            """
+            trading_days_results = scanner_conn.execute(trading_days_query, [end_date.strftime('%Y-%m-%d')]).fetchall()
+            all_dates = [str(row[0]) for row in trading_days_results]
+        else:
+            # Fallback to calendar days if price data unavailable
+            start_date = end_date - timedelta(days=59)
+            all_dates = []
+            current = start_date
+            while current <= end_date:
+                all_dates.append(current.strftime('%Y-%m-%d'))
+                current += timedelta(days=1)
         
         # Get options flow data for all symbols in one query
         placeholders = ','.join(['?' for _ in symbol_list])
