@@ -1046,25 +1046,10 @@
                             <span style="color: {{ opt_verdict_color }}; font-weight: bold;">{{ opt_verdict_icon }} {{ opt_verdict }}</span>
                             <span style="font-size: 11px; color: #666; font-weight: normal;">({{ opt_bull_pct }}% bullish, last 5 days)</span>
                         </strong><br>
-                        <div style="font-size: 12px; margin-left: 10px; line-height: 1.6; max-height: 180px; overflow-y: auto; border: 1px solid #f39c12; padding: 8px; border-radius: 4px; background: #fffbf0;">
-                        {% for opt in opt_signals %}
-                            {# Color based on direction #}
-                            {% if opt.direction == 'BULLISH' or opt.direction == 'BUY' %}
-                                {% set opt_color = '#27ae60' %}{# Green #}
-                            {% elif opt.direction == 'BEARISH' or opt.direction == 'SELL' %}
-                                {% set opt_color = '#e74c3c' %}{# Red #}
-                            {% else %}
-                                {% set opt_color = '#f39c12' %}{# Orange/Neutral #}
-                            {% endif %}
-                            <span style="color: {{ opt_color }}; font-weight: bold;">▲</span>
-                            <span style="color: {{ opt_color }}; font-weight: bold;">{{ opt.signal_type.replace('_', ' ').title() }}</span>
-                            <span style="color: #666;">({{ opt.date }}, {{ opt.direction or 'N/A' }}, ${{ "%.0f"|format(opt.strike) }} strike, {{ opt.dte }}d, 
-                            {% if opt.premium >= 10000 %}<span style="color: #27ae60; font-weight: bold;">${{ "{:,.0f}".format(opt.premium) }}</span>{% else %}${{ "{:,.0f}".format(opt.premium) }}{% endif %})</span>
-                            <span class="strength-badge-sm" style="background: {% if opt.strength == 'EXTREME' %}#e74c3c{% elif opt.strength == 'VERY_HIGH' %}#f39c12{% else %}#27ae60{% endif %}; color: white; padding: 1px 6px; border-radius: 8px; font-size: 10px; margin-left: 4px;">{{ opt.strength }}</span>
-                            <br>
-                        {% endfor %}
+                        <div style="margin-left: 10px; margin-top: 10px; border: 1px solid #f39c12; padding: 12px; border-radius: 4px; background: white;">
+                            <canvas class="opt-chart" data-symbol="{{ stock }}" id="optChart_{{ stock }}_{{ pattern }}" style="max-height: 120px;"></canvas>
                         </div>
-                        <a href="/options-signals?symbol={{ stock }}" style="font-size: 11px; color: #f39c12; text-decoration: none;">→ View all options signals for {{ stock }}</a>
+                        <a href="/options-signals?symbol={{ stock }}" style="font-size: 11px; color: #f39c12; text-decoration: none; margin-left: 10px;">→ View all options signals for {{ stock }}</a>
                         {% endif %}
                         
                         {# Options Walls Section #}
@@ -1518,6 +1503,83 @@
                 });
             })
             .catch(e => console.error('Bulk DP chart error:', e));
+    });
+    </script>
+    
+    <!-- Bulk load options charts -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const charts = document.querySelectorAll('.opt-chart');
+        if (charts.length === 0) return;
+        
+        // Collect all symbols
+        const symbols = Array.from(charts).map(c => c.getAttribute('data-symbol')).filter(s => s);
+        if (symbols.length === 0) return;
+        
+        // Fetch all data in one call
+        fetch('/api/options-chart-data-bulk?symbols=' + symbols.join(','))
+            .then(r => r.json())
+            .then(allData => {
+                charts.forEach(canvas => {
+                    const symbol = canvas.getAttribute('data-symbol');
+                    const data = allData[symbol];
+                    if (!data || data.length === 0) return;
+                    
+                    new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(d => d.label),
+                            datasets: [
+                                {
+                                    label: 'Bullish',
+                                    data: data.map(d => d.bullish_premium),
+                                    backgroundColor: 'rgba(39, 174, 96, 0.7)',
+                                    borderWidth: 0,
+                                    stack: 'premium'
+                                },
+                                {
+                                    label: 'Bearish',
+                                    data: data.map(d => d.bearish_premium),
+                                    backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                                    borderWidth: 0,
+                                    stack: 'premium'
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.dataset.label + ': $' + (context.parsed.y / 1000).toFixed(0) + 'K';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    stacked: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + (value / 1000).toFixed(0) + 'K';
+                                        },
+                                        font: { size: 9 }
+                                    }
+                                },
+                                x: {
+                                    stacked: true,
+                                    ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
+                                }
+                            }
+                        }
+                    });
+                });
+            })
+            .catch(e => console.error('Bulk OPT chart error:', e));
     });
     </script>
 </body>

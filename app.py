@@ -3698,6 +3698,69 @@ async def darkpool_chart_data_bulk(symbols: str):
         return {"error": str(e)}
 
 
+@app.get("/api/options-chart-data-bulk")
+async def options_chart_data_bulk(symbols: str):
+    """Bulk API endpoint to get options flow data for multiple symbols at once."""
+    
+    if not OPTIONS_DUCKDB_PATH:
+        return {"error": "Options database not configured"}
+    
+    try:
+        symbol_list = [s.strip().upper() for s in symbols.split(',') if s.strip()]
+        if not symbol_list:
+            return {"error": "No symbols provided"}
+        
+        conn = get_options_db_connection()
+        if not conn:
+            return {"error": "Could not connect to options database"}
+        
+        # Get options flow data for all symbols in one query
+        placeholders = ','.join(['?' for _ in symbol_list])
+        query = f"""
+            SELECT 
+                underlying_symbol,
+                signal_date,
+                SUM(CASE WHEN direction = 'BULLISH' THEN premium_spent ELSE 0 END) as bullish_premium,
+                SUM(CASE WHEN direction = 'BEARISH' THEN premium_spent ELSE 0 END) as bearish_premium
+            FROM accumulation_signals
+            WHERE underlying_symbol IN ({placeholders})
+                AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
+            GROUP BY underlying_symbol, signal_date
+            ORDER BY underlying_symbol, signal_date
+        """
+        
+        results = conn.execute(query, symbol_list).fetchall()
+        conn.close()
+        
+        # Organize data by symbol
+        symbol_data = {}
+        for row in results:
+            ticker = row[0]
+            date_str = str(row[1])
+            bullish_premium = float(row[2]) if row[2] else 0
+            bearish_premium = float(row[3]) if row[3] else 0
+            
+            if ticker not in symbol_data:
+                symbol_data[ticker] = []
+            
+            # Format date as MM/DD
+            date_parts = date_str.split('-')
+            label = f"{date_parts[1]}/{date_parts[2]}" if len(date_parts) == 3 else date_str
+            
+            symbol_data[ticker].append({
+                'label': label,
+                'bullish_premium': bullish_premium,
+                'bearish_premium': bearish_premium
+            })
+        
+        return symbol_data
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
 @app.get("/darkpool-signals", response_class=HTMLResponse)
 async def darkpool_signals(
     request: Request,
