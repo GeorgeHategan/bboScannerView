@@ -329,35 +329,6 @@
     </div>
     {% endif %}
     
-    <!-- Top Symbols by Premium OR Activity by Date when viewing single symbol -->
-    {% if top_symbols %}
-    <div style="padding: 0 20px;">
-        {% if selected_symbol %}
-        <h3 style="margin: 20px 0 10px 0; color: #333;">📅 {{ selected_symbol.upper() }} Activity by Date</h3>
-        <div class="top-symbols">
-            {% for sym in top_symbols %}
-            <div class="top-symbol-card">
-                <span class="symbol">{{ sym.symbol }}</span>
-                <div class="premium">${{ "{:,.0f}".format(sym.premium or 0) }}</div>
-                <div class="count">{{ sym.count }} signals | Conf: {{ "%.0f"|format(sym.confidence or 0) }}</div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <h3 style="margin: 20px 0 10px 0; color: #333;">🏆 Top Symbols by Dark Pool Notional</h3>
-        <div class="top-symbols">
-            {% for sym in top_symbols %}
-            <div class="top-symbol-card">
-                <a href="/darkpool-signals?symbol={{ sym.symbol }}" class="symbol">{{ sym.symbol }}</a>
-                <div class="premium">${{ "{:,.0f}".format(sym.premium or 0) }}</div>
-                <div class="count">{{ sym.count }} signals | Conf: {{ "%.0f"|format(sym.confidence or 0) }}</div>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
-    
     <!-- Signals Table -->
     <div style="padding: 0 20px; overflow-x: auto;">
         <h3 style="margin: 20px 0 10px 0; color: #333;">
