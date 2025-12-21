@@ -852,6 +852,7 @@ def get_cached_ticker_list():
             SELECT DISTINCT symbol 
             FROM scanner_results
             ORDER BY symbol
+            LIMIT 10000
         """).fetchall()
         result = [row[0] for row in ticker_list]
         _query_cache.set(cache_key, result, 600)  # 10 minute cache
@@ -879,6 +880,7 @@ def get_cached_symbol_metadata():
             FROM main.daily_cache d
             LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
             ORDER BY d.symbol
+            LIMIT 10000
         ''').fetchall()
         
         metadata = {}
