@@ -3354,7 +3354,7 @@ async def options_chart_data(symbol: str):
         return {"error": "Options database not configured"}
     
     try:
-        # First, get all price data for the last 60 days (this gives us the date range)
+        # Get price data for the last 60 days to establish date range
         scanner_conn = get_db_connection(SCANNER_DATA_PATH)
         if not scanner_conn:
             return {"error": "Could not connect to scanner database"}
@@ -3368,15 +3368,20 @@ async def options_chart_data(symbol: str):
         """
         price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
         
-        if not price_results:
-            return {"error": f"No price data found for {symbol}"}
+        # Generate complete 60-day range (trading days only from price data, filled with all calendar days)
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=59)
         
-        # Create price map and date list from price data
-        price_map = {}
         all_dates = []
+        current = start_date
+        while current <= end_date:
+            all_dates.append(current.strftime('%Y-%m-%d'))
+            current += timedelta(days=1)
+        
+        # Create price map from available data
+        price_map = {}
         for row in price_results:
             date_str = str(row[0])
-            all_dates.append(date_str)
             price_map[date_str] = float(row[1]) if row[1] else None
         
         # Now get options flow data
