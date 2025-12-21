@@ -3684,8 +3684,8 @@ async def darkpool_signals(
                 dp_volume,
                 dp_premium,
                 avg_price,
-                buy_volume,
                 sell_volume,
+                buy_volume,
                 buy_sell_ratio,
                 block_count,
                 avg_block_size,
@@ -6311,7 +6311,7 @@ async def index(
                         SELECT ticker, signal_date, signal_type, 
                                signal_strength, confidence_score, direction,
                                dp_volume, dp_premium, avg_price,
-                               buy_volume, sell_volume, buy_sell_ratio,
+                               sell_volume, buy_volume, buy_sell_ratio,
                                block_count, avg_block_size, consecutive_days, notes
                         FROM darkpool_signals
                         WHERE ticker IN ({placeholders})
