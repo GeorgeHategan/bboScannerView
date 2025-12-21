@@ -983,61 +983,9 @@
                             <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish, last 5 days)</span>
                         </strong><br>
                         <div style="margin-left: 10px; margin-top: 10px; border: 1px solid #8e44ad; padding: 12px; border-radius: 4px; background: white;">
-                            <canvas id="dpChart_{{ stock }}_{{ pattern }}" style="max-height: 120px;"></canvas>
+                            <canvas class="dp-chart" data-symbol="{{ stock }}" id="dpChart_{{ stock }}_{{ pattern }}" style="max-height: 120px;"></canvas>
                         </div>
                         <a href="/darkpool-signals?symbol={{ stock }}" style="font-size: 11px; color: #8e44ad; text-decoration: none; margin-left: 10px;">→ View all dark pool signals for {{ stock }}</a>
-                        <script>
-                        (function() {
-                            const ctx = document.getElementById('dpChart_{{ stock }}_{{ pattern }}');
-                            if (ctx) {
-                                fetch('/api/darkpool-chart-data?symbol={{ stock }}&days=60')
-                                    .then(r => r.json())
-                                    .then(data => {
-                                        new Chart(ctx, {
-                                            type: 'bar',
-                                            data: {
-                                                labels: data.labels,
-                                                datasets: [{
-                                                    label: 'DP Notional',
-                                                    data: data.premium_data,
-                                                    backgroundColor: data.colors,
-                                                    borderWidth: 0
-                                                }]
-                                            },
-                                            options: {
-                                                responsive: true,
-                                                maintainAspectRatio: true,
-                                                plugins: {
-                                                    legend: { display: false },
-                                                    tooltip: {
-                                                        callbacks: {
-                                                            label: function(context) {
-                                                                return '$' + (context.parsed.y / 1000000).toFixed(1) + 'M';
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                scales: {
-                                                    y: {
-                                                        beginAtZero: true,
-                                                        ticks: {
-                                                            callback: function(value) {
-                                                                return '$' + (value / 1000000).toFixed(0) + 'M';
-                                                            },
-                                                            font: { size: 9 }
-                                                        }
-                                                    },
-                                                    x: {
-                                                        ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
-                                                    }
-                                                }
-                                            }
-                                        });
-                                    })
-                                    .catch(e => console.error('DP chart error:', e));
-                            }
-                        })();
-                        </script>
                         {% endif %}
                         
                         {# Options Flow Signals Section - SECOND (just above Walls) #}
@@ -1506,6 +1454,71 @@
                 }
             });
         });
+    </script>
+    
+    <!-- Bulk load darkpool charts -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const charts = document.querySelectorAll('.dp-chart');
+        if (charts.length === 0) return;
+        
+        // Collect all symbols
+        const symbols = Array.from(charts).map(c => c.getAttribute('data-symbol')).filter(s => s);
+        if (symbols.length === 0) return;
+        
+        // Fetch all data in one call
+        fetch('/api/darkpool-chart-data-bulk?symbols=' + symbols.join(','))
+            .then(r => r.json())
+            .then(allData => {
+                charts.forEach(canvas => {
+                    const symbol = canvas.getAttribute('data-symbol');
+                    const data = allData[symbol];
+                    if (!data || data.length === 0) return;
+                    
+                    new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(d => d.label),
+                            datasets: [{
+                                label: 'DP Notional',
+                                data: data.map(d => d.premium),
+                                backgroundColor: data.map(d => d.color),
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return '$' + (context.parsed.y / 1000000).toFixed(1) + 'M';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + (value / 1000000).toFixed(0) + 'M';
+                                        },
+                                        font: { size: 9 }
+                                    }
+                                },
+                                x: {
+                                    ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
+                                }
+                            }
+                        }
+                    });
+                });
+            })
+            .catch(e => console.error('Bulk DP chart error:', e));
+    });
     </script>
 </body>
 </html>

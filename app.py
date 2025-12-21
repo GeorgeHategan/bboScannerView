@@ -3620,6 +3620,78 @@ async def darkpool_chart_data(symbol: str):
         return {"error": str(e)}
 
 
+@app.get("/api/darkpool-chart-data-bulk")
+async def darkpool_chart_data_bulk(symbols: str):
+    """Bulk API endpoint to get darkpool data for multiple symbols at once."""
+    
+    if not OPTIONS_DUCKDB_PATH:
+        return {"error": "Options database not configured"}
+    
+    try:
+        symbol_list = [s.strip().upper() for s in symbols.split(',') if s.strip()]
+        if not symbol_list:
+            return {"error": "No symbols provided"}
+        
+        conn = get_options_db_connection()
+        if not conn:
+            return {"error": "Could not connect to options database"}
+        
+        # Get darkpool data for all symbols in one query
+        placeholders = ','.join(['?' for _ in symbol_list])
+        query = f"""
+            SELECT 
+                ticker,
+                signal_date,
+                SUM(dp_premium) as total_premium,
+                STRING_AGG(DISTINCT direction, ',') as directions
+            FROM darkpool_signals
+            WHERE ticker IN ({placeholders})
+                AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
+            GROUP BY ticker, signal_date
+            ORDER BY ticker, signal_date
+        """
+        
+        results = conn.execute(query, symbol_list).fetchall()
+        conn.close()
+        
+        # Organize data by symbol
+        symbol_data = {}
+        for row in results:
+            ticker = row[0]
+            date_str = str(row[1])
+            premium = float(row[2]) if row[2] else 0
+            direction = str(row[3]) if row[3] else ''
+            
+            if ticker not in symbol_data:
+                symbol_data[ticker] = []
+            
+            # Determine color
+            direction_upper = direction.upper()
+            if 'BUY' in direction_upper or 'BULLISH' in direction_upper:
+                color = 'rgba(39, 174, 96, 0.7)'
+            elif 'SELL' in direction_upper or 'BEARISH' in direction_upper:
+                color = 'rgba(231, 76, 60, 0.7)'
+            else:
+                color = 'rgba(243, 156, 18, 0.7)'
+            
+            # Format date as MM/DD
+            date_parts = date_str.split('-')
+            label = f"{date_parts[1]}/{date_parts[2]}" if len(date_parts) == 3 else date_str
+            
+            symbol_data[ticker].append({
+                'label': label,
+                'premium': premium,
+                'color': color
+            })
+        
+        return symbol_data
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
 @app.get("/darkpool-signals", response_class=HTMLResponse)
 async def darkpool_signals(
     request: Request,
