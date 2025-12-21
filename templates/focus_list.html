@@ -4,6 +4,7 @@
     <title>Focus List - BBO Scanner</title>
     <link rel="icon" type="image/png" href="/static/favicon.png?v=2">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: arial; margin: 0; padding: 0; padding-top: 100px; }
         .sticky-header {
@@ -345,6 +346,25 @@
                         </div>
                     </td>
                 </tr>
+                {# Dark Pool & Options Charts Row #}
+                <tr>
+                    <td colspan="6" style="padding: 15px 10px;">
+                        <div style="display: flex; gap: 20px;">
+                            {# Dark Pool Chart #}
+                            <div style="flex: 1; border: 1px solid #8e44ad; border-radius: 4px; padding: 12px; background: white;">
+                                <strong style="color: #8e44ad;">🌑 Dark Pool Signals (Last 60 Days)</strong><br>
+                                <canvas class="dp-chart-focus" data-symbol="{{ item.symbol }}" style="max-height: 150px; margin-top: 10px;"></canvas>
+                                <a href="/darkpool-signals?symbol={{ item.symbol }}" style="font-size: 11px; color: #8e44ad; text-decoration: none;">→ View all dark pool signals</a>
+                            </div>
+                            {# Options Flow Chart #}
+                            <div style="flex: 1; border: 1px solid #f39c12; border-radius: 4px; padding: 12px; background: white;">
+                                <strong style="color: #f39c12;">📈 Options Flow Signals (Last 60 Days)</strong><br>
+                                <canvas class="opt-chart-focus" data-symbol="{{ item.symbol }}" style="max-height: 150px; margin-top: 10px;"></canvas>
+                                <a href="/options-signals?symbol={{ item.symbol }}" style="font-size: 11px; color: #f39c12; text-decoration: none;">→ View all options signals</a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
                 {% if item.ai_analysis %}
                 <tr>
                     <td colspan="6" style="padding: 15px 10px;">
@@ -535,7 +555,146 @@
         symbols.forEach((symbol, index) => {
             setTimeout(() => loadChart(symbol), index * 100);
         });
+        
+        // Load darkpool and options charts
+        loadDarkpoolAndOptionsCharts();
     });
+    
+    // Load darkpool and options charts for all symbols
+    async function loadDarkpoolAndOptionsCharts() {
+        const dpCharts = document.querySelectorAll('.dp-chart-focus');
+        const optCharts = document.querySelectorAll('.opt-chart-focus');
+        
+        if (dpCharts.length === 0 && optCharts.length === 0) return;
+        
+        // Collect all unique symbols
+        const symbols = [...new Set([
+            ...Array.from(dpCharts).map(c => c.getAttribute('data-symbol')),
+            ...Array.from(optCharts).map(c => c.getAttribute('data-symbol'))
+        ])].filter(s => s);
+        
+        if (symbols.length === 0) return;
+        
+        try {
+            // Fetch darkpool data
+            const dpResponse = await fetch('/api/darkpool-chart-data-bulk?symbols=' + symbols.join(','));
+            const dpData = await dpResponse.json();
+            
+            // Fetch options data
+            const optResponse = await fetch('/api/options-chart-data-bulk?symbols=' + symbols.join(','));
+            const optData = await optResponse.json();
+            
+            // Create darkpool charts
+            dpCharts.forEach(canvas => {
+                const symbol = canvas.getAttribute('data-symbol');
+                const data = dpData[symbol];
+                if (!data || data.length === 0) return;
+                
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.label),
+                        datasets: [{
+                            label: 'DP Notional',
+                            data: data.map(d => d.premium),
+                            backgroundColor: data.map(d => d.color),
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return '$' + (context.parsed.y / 1000000).toFixed(1) + 'M';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + (value / 1000000).toFixed(0) + 'M';
+                                    },
+                                    font: { size: 9 }
+                                }
+                            },
+                            x: {
+                                ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Create options charts
+            optCharts.forEach(canvas => {
+                const symbol = canvas.getAttribute('data-symbol');
+                const data = optData[symbol];
+                if (!data || data.length === 0) return;
+                
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.label),
+                        datasets: [
+                            {
+                                label: 'Bullish',
+                                data: data.map(d => d.bullish_premium),
+                                backgroundColor: 'rgba(39, 174, 96, 0.7)',
+                                borderWidth: 0,
+                                stack: 'premium'
+                            },
+                            {
+                                label: 'Bearish',
+                                data: data.map(d => d.bearish_premium),
+                                backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                                borderWidth: 0,
+                                stack: 'premium'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': $' + (context.parsed.y / 1000).toFixed(0) + 'K';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                stacked: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + (value / 1000).toFixed(0) + 'K';
+                                    },
+                                    font: { size: 9 }
+                                }
+                            },
+                            x: {
+                                stacked: true,
+                                ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
+                            }
+                        }
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error loading darkpool/options charts:', error);
+        }
+    }
     </script>
 </body>
 </html>
