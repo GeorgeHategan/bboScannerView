@@ -3638,6 +3638,16 @@ async def darkpool_chart_data_bulk(symbols: str):
         if not symbol_list:
             return {"error": "No symbols provided"}
         
+        # Generate complete 60-day range
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=59)
+        
+        all_dates = []
+        current = start_date
+        while current <= end_date:
+            all_dates.append(current.strftime('%Y-%m-%d'))
+            current += timedelta(days=1)
+        
         conn = get_options_db_connection()
         if not conn:
             return {"error": "Could not connect to options database"}
@@ -3660,35 +3670,54 @@ async def darkpool_chart_data_bulk(symbols: str):
         results = conn.execute(query, symbol_list).fetchall()
         conn.close()
         
-        # Organize data by symbol
-        symbol_data = {}
+        # Organize raw data by symbol and date
+        raw_data = {}
         for row in results:
             ticker = row[0]
             date_str = str(row[1])
             premium = float(row[2]) if row[2] else 0
             direction = str(row[3]) if row[3] else ''
             
-            if ticker not in symbol_data:
-                symbol_data[ticker] = []
+            if ticker not in raw_data:
+                raw_data[ticker] = {}
             
-            # Determine color
-            direction_upper = direction.upper()
-            if 'BUY' in direction_upper or 'BULLISH' in direction_upper:
-                color = 'rgba(39, 174, 96, 0.7)'
-            elif 'SELL' in direction_upper or 'BEARISH' in direction_upper:
-                color = 'rgba(231, 76, 60, 0.7)'
-            else:
-                color = 'rgba(243, 156, 18, 0.7)'
-            
-            # Format date as MM/DD
-            date_parts = date_str.split('-')
-            label = f"{date_parts[1]}/{date_parts[2]}" if len(date_parts) == 3 else date_str
-            
-            symbol_data[ticker].append({
-                'label': label,
+            raw_data[ticker][date_str] = {
                 'premium': premium,
-                'color': color
-            })
+                'direction': direction
+            }
+        
+        # Build complete 60-day data for each symbol
+        symbol_data = {}
+        for ticker in symbol_list:
+            symbol_data[ticker] = []
+            
+            for date in all_dates:
+                # Format date as MM/DD
+                date_parts = date.split('-')
+                label = f"{date_parts[1]}/{date_parts[2]}" if len(date_parts) == 3 else date
+                
+                # Get data for this date or use zeros
+                if ticker in raw_data and date in raw_data[ticker]:
+                    data_point = raw_data[ticker][date]
+                    premium = data_point['premium']
+                    direction = data_point['direction'].upper()
+                    
+                    # Determine color
+                    if 'BUY' in direction or 'BULLISH' in direction:
+                        color = 'rgba(39, 174, 96, 0.7)'
+                    elif 'SELL' in direction or 'BEARISH' in direction:
+                        color = 'rgba(231, 76, 60, 0.7)'
+                    else:
+                        color = 'rgba(243, 156, 18, 0.7)'
+                else:
+                    premium = 0
+                    color = 'rgba(189, 195, 199, 0.3)'  # Gray for no data
+                
+                symbol_data[ticker].append({
+                    'label': label,
+                    'premium': premium,
+                    'color': color
+                })
         
         return symbol_data
         
@@ -3709,6 +3738,16 @@ async def options_chart_data_bulk(symbols: str):
         symbol_list = [s.strip().upper() for s in symbols.split(',') if s.strip()]
         if not symbol_list:
             return {"error": "No symbols provided"}
+        
+        # Generate complete 60-day range
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=59)
+        
+        all_dates = []
+        current = start_date
+        while current <= end_date:
+            all_dates.append(current.strftime('%Y-%m-%d'))
+            current += timedelta(days=1)
         
         conn = get_options_db_connection()
         if not conn:
@@ -3732,26 +3771,46 @@ async def options_chart_data_bulk(symbols: str):
         results = conn.execute(query, symbol_list).fetchall()
         conn.close()
         
-        # Organize data by symbol
-        symbol_data = {}
+        # Organize raw data by symbol and date
+        raw_data = {}
         for row in results:
             ticker = row[0]
             date_str = str(row[1])
             bullish_premium = float(row[2]) if row[2] else 0
             bearish_premium = float(row[3]) if row[3] else 0
             
-            if ticker not in symbol_data:
-                symbol_data[ticker] = []
+            if ticker not in raw_data:
+                raw_data[ticker] = {}
             
-            # Format date as MM/DD
-            date_parts = date_str.split('-')
-            label = f"{date_parts[1]}/{date_parts[2]}" if len(date_parts) == 3 else date_str
-            
-            symbol_data[ticker].append({
-                'label': label,
+            raw_data[ticker][date_str] = {
                 'bullish_premium': bullish_premium,
                 'bearish_premium': bearish_premium
-            })
+            }
+        
+        # Build complete 60-day data for each symbol
+        symbol_data = {}
+        for ticker in symbol_list:
+            symbol_data[ticker] = []
+            
+            for date in all_dates:
+                # Format date as MM/DD
+                date_parts = date.split('-')
+                label = f"{date_parts[1]}/{date_parts[2]}" if len(date_parts) == 3 else date
+                
+                # Get data for this date or use zeros
+                if ticker in raw_data and date in raw_data[ticker]:
+                    data_point = raw_data[ticker][date]
+                    bullish_premium = data_point['bullish_premium']
+                    bearish_premium = data_point['bearish_premium']
+                else:
+                    bullish_premium = 0
+                    bearish_premium = 0
+                
+                symbol_data[ticker].append({
+                    'label': label,
+                    'bullish_premium': bullish_premium,
+                    'bearish_premium': bearish_premium
+                })
         
         return symbol_data
         
