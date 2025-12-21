@@ -452,16 +452,18 @@
                     return;
                 }
                 
-                // Create color array based on directions
+                // Create color array based on directions (use proper rgba format)
                 const colors = data.directions.map(dir => {
-                    if (dir.includes('BUY') || dir.includes('BULLISH')) return '#27ae60';
-                    if (dir.includes('SELL') || dir.includes('BEARISH')) return '#e74c3c';
-                    return '#9b59b6';
+                    if (dir.includes('BUY') || dir.includes('BULLISH')) return 'rgba(39, 174, 96, 0.6)';
+                    if (dir.includes('SELL') || dir.includes('BEARISH')) return 'rgba(231, 76, 60, 0.6)';
+                    return 'rgba(155, 89, 182, 0.6)';
                 });
                 
-                // Make bars semi-transparent so price line is visible
-                const transparentColors = colors.map(color => {
-                    return color.replace(')', ', 0.6)').replace('rgb', 'rgba').replace('#', 'rgba(');
+                // Solid colors for borders
+                const borderColors = data.directions.map(dir => {
+                    if (dir.includes('BUY') || dir.includes('BULLISH')) return 'rgba(39, 174, 96, 1)';
+                    if (dir.includes('SELL') || dir.includes('BEARISH')) return 'rgba(231, 76, 60, 1)';
+                    return 'rgba(155, 89, 182, 1)';
                 });
                 
                 const ctx = document.getElementById('darkpoolChart');
@@ -475,8 +477,8 @@
                                 label: 'Dark Pool Notional ($)',
                                 data: data.premiums,
                                 type: 'bar',
-                                backgroundColor: colors.map(c => c + '99'), // Add transparency
-                                borderColor: colors,
+                                backgroundColor: colors,
+                                borderColor: borderColors,
                                 borderWidth: 2,
                                 barThickness: 'flex',
                                 maxBarThickness: 40,
@@ -599,7 +601,7 @@
                                                 'Notional: $' + (data.premiums[idx] / 1000000).toFixed(2) + 'M',
                                                 'Volume: ' + data.volumes[idx].toLocaleString(),
                                                 'Trades: ' + data.trade_counts[idx],
-                                                'Confidence: ' + data.confidences[idx].toFixed(0),
+                                                'Confidence: ' + (typeof data.confidences[idx] === 'number' ? data.confidences[idx].toFixed(0) : data.confidences[idx]),
                                                 'Direction: ' + (data.directions[idx] || 'N/A')
                                             ];
                                             return lines;

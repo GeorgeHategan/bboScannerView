@@ -3510,7 +3510,7 @@ async def darkpool_chart_data(symbol: str):
         return {"error": "Options database not configured"}
     
     try:
-        # First, get all price data for the last 30 days (this gives us the date range)
+        # Get price data for the last 60 days to establish date range
         scanner_conn = get_db_connection(SCANNER_DATA_PATH)
         if not scanner_conn:
             return {"error": "Could not connect to scanner database"}
@@ -3524,15 +3524,20 @@ async def darkpool_chart_data(symbol: str):
         """
         price_results = scanner_conn.execute(price_query, [symbol.upper()]).fetchall()
         
-        if not price_results:
-            return {"error": f"No price data found for {symbol}"}
+        # Generate complete 60-day range (trading days only from price data, filled with all calendar days)
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=59)
         
-        # Create price map and date list from price data
-        price_map = {}
         all_dates = []
+        current = start_date
+        while current <= end_date:
+            all_dates.append(current.strftime('%Y-%m-%d'))
+            current += timedelta(days=1)
+        
+        # Create price map from available data
+        price_map = {}
         for row in price_results:
             date_str = str(row[0])
-            all_dates.append(date_str)
             price_map[date_str] = float(row[1]) if row[1] else None
         
         # Now get darkpool data
@@ -3570,48 +3575,44 @@ async def darkpool_chart_data(symbol: str):
                 'direction': str(row[5]) if row[5] else ''
             }
         
-        # Align data for all dates
-        labels = []
-        premium_data = []
-        volume_data = []
-        price_data = []
-        colors = []
+        # Build detailed data for individual chart (with full date strings)
+        dates = []
+        premiums = []
+        directions = []
+        volumes = []
+        trade_counts = []
+        confidences = []
+        prices = []
         
         for date in all_dates:
-            # Format date as MM-DD
-            date_parts = date.split('-')
-            if len(date_parts) == 3:
-                label = f"{date_parts[1]}/{date_parts[2]}"
-            else:
-                label = date
-            labels.append(label)
-            price_data.append(price_map.get(date))
+            dates.append(date)  # Keep full YYYY-MM-DD format
             
-            # Add darkpool data if exists, otherwise 0/empty
+            # Add darkpool data if exists
             if date in darkpool_map:
                 dp = darkpool_map[date]
-                premium_data.append(dp['premium'])
-                volume_data.append(dp['volume'])
-                
-                # Color based on direction
-                direction = dp['direction'].upper()
-                if 'BUY' in direction or 'BULLISH' in direction:
-                    colors.append('rgba(39, 174, 96, 0.7)')  # Green
-                elif 'SELL' in direction or 'BEARISH' in direction:
-                    colors.append('rgba(231, 76, 60, 0.7)')  # Red
-                else:
-                    colors.append('rgba(243, 156, 18, 0.7)')  # Orange/neutral
+                premiums.append(dp['premium'])
+                directions.append(dp['direction'])
+                volumes.append(dp['volume'])
+                trade_counts.append(dp['trade_count'])
+                confidences.append(dp['confidence'])
             else:
-                premium_data.append(0)
-                volume_data.append(0)
-                colors.append('rgba(189, 195, 199, 0.3)')  # Gray for no data
+                premiums.append(0)
+                directions.append('N/A')
+                volumes.append(0)
+                trade_counts.append(0)
+                confidences.append('N/A')
+            
+            # Add price if available
+            prices.append(price_map.get(date))
         
         return {
-            'labels': labels,
-            'premium_data': premium_data,
-            'volume_data': volume_data,
-            'price_data': price_data,
-            'colors': colors
+            'dates': dates,
+            'premiums': premiums,
+            'directions': directions,
+            'volumes': volumes,
+            'trade_counts': trade_counts,
+            'confidences': confidences,
+            'prices': prices
         }
         
     except Exception as e:
