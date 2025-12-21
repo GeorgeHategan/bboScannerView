@@ -6341,6 +6341,7 @@ async def index(
         
         # Read pre-calculated scanner results from database
         # Build query with optional date and ticker filters
+        # LIMIT to 50 results to prevent timeout on Render (30s limit)
         scanner_query = '''
             SELECT symbol,
                    signal_type,
@@ -6377,9 +6378,12 @@ async def index(
                 'AND scan_date < CAST(? AS TIMESTAMP)'
             )
             query_params.extend([selected_scan_date, next_day])
+        
+        # Order by signal strength (strongest first) and limit results to prevent timeout
+        scanner_query += ' ORDER BY signal_strength DESC LIMIT 50'
 
         scanner_dict = {}
-        # Simple query - just get all results
+        # Get top 50 results ordered by strength to prevent timeout
         try:
             scanner_results = conn.execute(scanner_query, query_params).fetchall()
             scanner_dict = {
@@ -6400,7 +6404,7 @@ async def index(
                     'metadata': row[14] if len(row) > 14 else None
                 } for row in scanner_results
             }
-            print(f'Found {len(scanner_dict)} results for {pattern}')
+            print(f'Found {len(scanner_dict)} results for {pattern} (top 50 by strength)')
         except Exception as e:
             print(f'Scanner query failed: {e}')
             scanner_dict = {}
