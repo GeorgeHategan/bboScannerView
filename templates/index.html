@@ -257,6 +257,12 @@
         
         // Focus List functionality
         async function addToFocus(btn, symbol, scanner, scanDate, quality) {
+            // Immediate visual feedback - turn green right away
+            btn.style.background = '#27ae60';
+            btn.style.color = '#fff';
+            btn.textContent = '⏳ Adding...';
+            btn.disabled = true;
+            
             const formData = new FormData();
             formData.append('symbol', symbol);
             formData.append('scanner_name', scanner);
@@ -271,18 +277,25 @@
                 const result = await response.json();
                 
                 if (result.status === 'ok') {
-                    // Visual feedback
-                    btn.textContent = '✓ Added';
-                    btn.style.background = '#27ae60';
-                    setTimeout(() => {
-                        btn.textContent = '⭐ Focus';
-                        btn.style.background = '#ff6b35';
-                    }, 1500);
+                    // Success - change to orange
+                    btn.textContent = '⭐ Focus';
+                    btn.style.background = '#ff6b35';
+                    btn.style.color = '#fff';
                 } else {
+                    // Error - revert
+                    btn.style.background = '#e8e8e8';
+                    btn.style.color = '#888';
+                    btn.textContent = 'focus +';
                     alert('Error: ' + (result.message || 'Failed to add'));
                 }
             } catch (error) {
+                // Error - revert
+                btn.style.background = '#e8e8e8';
+                btn.style.color = '#888';
+                btn.textContent = 'focus +';
                 alert('Error adding to focus list: ' + error.message);
+            } finally {
+                btn.disabled = false;
             }
         }
     </script>
