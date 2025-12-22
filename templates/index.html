@@ -928,7 +928,7 @@
                         {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
                         <br>
                         <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
-                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9;">
+                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9; width: 600px;">
                         {% for conf in stocks[stock][pattern + '_confirmations'] %}
                             <span class="conf-dot" data-scanner="{{ conf.scanner }}" style="font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
                             <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
@@ -1074,7 +1074,7 @@
                         {% set max_put_oi = [walls.put_wall_1.oi or 0, walls.put_wall_2.oi or 0, walls.put_wall_3.oi or 0]|max %}
                         <br>
                         <strong><img src="/static/brick_wall.png" style="width: 16px; height: 16px; vertical-align: middle;"> Options Walls:</strong><br>
-                        <div style="font-size: 11px; margin-left: 10px; line-height: 1.6; border: 1px solid #5dade2; padding: 6px; border-radius: 4px; background: #eaf6fc;">
+                        <div style="font-size: 11px; margin-left: 10px; line-height: 1.6; border: 1px solid #5dade2; padding: 6px; border-radius: 4px; background: #eaf6fc; width: 600px;">
                             <div style="display: flex; gap: 8px;">
                                 <div style="flex: 1;">
                                     <span style="color: #27ae60; font-weight: bold; font-size: 10px;">📈 CALL WALLS</span>
