@@ -928,7 +928,7 @@
                         {% if stocks[stock].get(pattern + '_confirmations') and stocks[stock][pattern + '_confirmations']|length > 0 %}
                         <br>
                         <strong>✓ Confirmed by other scanners ({{ stocks[stock][pattern + '_confirmations']|length }}):</strong><br>
-                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; margin-left: 10px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9; width: 600px;">
+                        <div id="confirmations-{{ loop.index }}" style="font-size: 12px; line-height: 1.6; {% if stocks[stock][pattern + '_confirmations']|length > 6 %}max-height: 140px; overflow-y: auto;{% endif %} border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; background: #f9f9f9; width: 600px; box-sizing: border-box;">
                         {% for conf in stocks[stock][pattern + '_confirmations'] %}
                             <span class="conf-dot" data-scanner="{{ conf.scanner }}" style="font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
                             <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
@@ -997,7 +997,7 @@
                             <span style="color: {{ verdict_color }}; font-weight: bold;">{{ verdict_icon }} {{ verdict }}</span>
                             <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish, last 5 days)</span>
                         </strong><br>
-                        <div style="margin-left: 10px; margin-top: 10px; border: 1px solid #8e44ad; padding: 12px; border-radius: 4px; background: white; width: 600px;">
+                        <div style="margin-top: 10px; border: 1px solid #8e44ad; padding: 12px; border-radius: 4px; background: white; width: 600px; box-sizing: border-box;">
                             <canvas class="dp-chart" data-symbol="{{ stock }}" id="dpChart_{{ stock }}_{{ pattern }}" style="max-height: 120px;"></canvas>
                         </div>
                         <a href="/darkpool-signals?symbol={{ stock }}" style="font-size: 11px; color: #8e44ad; text-decoration: none; margin-left: 10px;">→ View all dark pool signals for {{ stock }}</a>
@@ -1061,7 +1061,7 @@
                             <span style="color: {{ opt_verdict_color }}; font-weight: bold;">{{ opt_verdict_icon }} {{ opt_verdict }}</span>
                             <span style="font-size: 11px; color: #666; font-weight: normal;">({{ opt_bull_pct }}% bullish, last 5 days)</span>
                         </strong><br>
-                        <div style="margin-left: 10px; margin-top: 10px; border: 1px solid #f39c12; padding: 12px; border-radius: 4px; background: white; width: 600px;">
+                        <div style="margin-top: 10px; border: 1px solid #f39c12; padding: 12px; border-radius: 4px; background: white; width: 600px; box-sizing: border-box;">
                             <canvas class="opt-chart" data-symbol="{{ stock }}" id="optChart_{{ stock }}_{{ pattern }}" style="max-height: 120px;"></canvas>
                         </div>
                         <a href="/options-signals?symbol={{ stock }}" style="font-size: 11px; color: #f39c12; text-decoration: none; margin-left: 10px;">→ View all options signals for {{ stock }}</a>
@@ -1074,7 +1074,7 @@
                         {% set max_put_oi = [walls.put_wall_1.oi or 0, walls.put_wall_2.oi or 0, walls.put_wall_3.oi or 0]|max %}
                         <br>
                         <strong><img src="/static/brick_wall.png" style="width: 16px; height: 16px; vertical-align: middle;"> Options Walls:</strong><br>
-                        <div style="font-size: 11px; margin-left: 10px; line-height: 1.6; border: 1px solid #5dade2; padding: 6px; border-radius: 4px; background: #eaf6fc; width: 600px;">
+                        <div style="font-size: 11px; line-height: 1.6; border: 1px solid #5dade2; padding: 6px; border-radius: 4px; background: #eaf6fc; width: 600px; box-sizing: border-box;">
                             <div style="display: flex; gap: 8px;">
                                 <div style="flex: 1;">
                                     <span style="color: #27ae60; font-weight: bold; font-size: 10px;">📈 CALL WALLS</span>
