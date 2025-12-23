@@ -4725,6 +4725,10 @@ async def scanner_performance(request: Request):
             top_10_best = json.loads(row[14]) if row[14] else []
             top_10_worst = json.loads(row[15]) if row[15] else []
             
+            # Get current P&L from top 10 lists (best and worst picks are the first entries)
+            best_current_pnl = top_10_best[0]['current_pnl'] if top_10_best else 0
+            worst_current_pnl = top_10_worst[0]['current_pnl'] if top_10_worst else 0
+            
             performance_data.append({
                 'scanner_name': row[0],
                 'total_picks': row[1],
@@ -4737,14 +4741,14 @@ async def scanner_performance(request: Request):
                     'max_gain': round(row[7], 2),
                     'scan_date': str(row[8])[:10] if row[8] else 'N/A',
                     'entry_price': row[9] or 0,
-                    'current_pnl': 0
+                    'current_pnl': round(best_current_pnl, 1)
                 },
                 'worst_pick': {
                     'symbol': row[10],
                     'max_drawdown': round(row[11], 2),
                     'scan_date': str(row[12])[:10] if row[12] else 'N/A',
                     'entry_price': row[13] or 0,
-                    'current_pnl': 0
+                    'current_pnl': round(worst_current_pnl, 1)
                 },
                 'top_10_best': top_10_best,
                 'top_10_worst': top_10_worst,
