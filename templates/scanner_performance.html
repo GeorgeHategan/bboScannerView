@@ -347,8 +347,80 @@
                     </div>
                 </div>
                 
+                {% if scanner.top_10_best %}
+                <button class="all-picks-toggle" onclick="togglePicks('best-{{ scanner.scanner_name }}')" style="margin-top: 20px;">
+                    📈 Show Top 10 Best Picks
+                </button>
+                
+                <table class="all-picks-table" id="best-{{ scanner.scanner_name }}">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Symbol</th>
+                            <th>Pick Date</th>
+                            <th>Entry</th>
+                            <th>Max Gain</th>
+                            <th>Current P&L</th>
+                            <th>Max DD</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pick in scanner.top_10_best %}
+                        <tr>
+                            <td><strong>{{ loop.index }}</strong></td>
+                            <td><strong>{{ pick.symbol }}</strong></td>
+                            <td>{{ pick.date[:10] }}</td>
+                            <td>${{ "%.2f"|format(pick.entry_price) }}</td>
+                            <td class="gain-positive">+{{ "%.1f"|format(pick.max_gain) }}%</td>
+                            <td class="{% if pick.current_pnl > 0 %}gain-positive{% else %}gain-negative{% endif %}">
+                                {{ "%.1f"|format(pick.current_pnl) }}%
+                            </td>
+                            <td class="gain-negative">{{ "%.1f"|format(pick.max_dd) }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+                
+                {% if scanner.top_10_worst %}
+                <button class="all-picks-toggle" onclick="togglePicks('worst-{{ scanner.scanner_name }}')" style="margin-top: 20px;">
+                    📉 Show Top 10 Worst Picks
+                </button>
+                
+                <table class="all-picks-table" id="worst-{{ scanner.scanner_name }}">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Symbol</th>
+                            <th>Pick Date</th>
+                            <th>Entry</th>
+                            <th>Max Gain</th>
+                            <th>Current P&L</th>
+                            <th>Max DD</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pick in scanner.top_10_worst %}
+                        <tr>
+                            <td><strong>{{ loop.index }}</strong></td>
+                            <td><strong>{{ pick.symbol }}</strong></td>
+                            <td>{{ pick.date[:10] }}</td>
+                            <td>${{ "%.2f"|format(pick.entry_price) }}</td>
+                            <td class="{% if pick.max_gain > 0 %}gain-positive{% else %}gain-negative{% endif %}">
+                                {{ "%.1f"|format(pick.max_gain) }}%
+                            </td>
+                            <td class="{% if pick.current_pnl > 0 %}gain-positive{% else %}gain-negative{% endif %}">
+                                {{ "%.1f"|format(pick.current_pnl) }}%
+                            </td>
+                            <td class="gain-negative">{{ "%.1f"|format(pick.max_dd) }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+                
                 <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; color: #666; font-size: 0.9em;">
-                    <strong>Note:</strong> Performance metrics are pre-calculated daily for faster loading. Individual pick details have been removed to optimize page performance.
+                    <strong>Note:</strong> Performance metrics are pre-calculated daily for faster loading.
                 </div>
             </div>
             {% endfor %}
@@ -360,5 +432,19 @@
             </div>
         {% endif %}
     </div>
+    
+    <script>
+        function togglePicks(tableId) {
+            const table = document.getElementById(tableId);
+            table.classList.toggle('show');
+            
+            const button = event.target;
+            if (table.classList.contains('show')) {
+                button.textContent = button.textContent.replace('Show', 'Hide');
+            } else {
+                button.textContent = button.textContent.replace('Hide', 'Show');
+            }
+        }
+    </script>
 </body>
 </html>

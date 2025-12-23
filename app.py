@@ -4701,8 +4701,14 @@ async def scanner_performance(request: Request):
                 win_rate,
                 best_symbol,
                 best_gain,
+                best_pick_date,
+                best_entry_price,
                 worst_symbol,
                 worst_drawdown,
+                worst_pick_date,
+                worst_entry_price,
+                top_10_best,
+                top_10_worst,
                 calculated_at
             FROM main.performance_tracking
             ORDER BY avg_max_gain DESC
@@ -4711,56 +4717,39 @@ async def scanner_performance(request: Request):
         results = data_conn.execute(performance_query).fetchall()
         data_conn.close()
         
-        # Connect to scanner_results to get pick details
-        results_conn = get_db_connection(DUCKDB_PATH)
-        
         # Format data for template
         performance_data = []
         for row in results:
-            scanner_name = row[0]
-            best_symbol = row[6]
-            worst_symbol = row[8]
-            
-            # Get best pick details from scanner_results
-            best_pick_data = {'symbol': best_symbol, 'max_gain': round(row[7], 2), 'scan_date': 'N/A', 'entry_price': 0, 'current_pnl': 0}
-            if best_symbol:
-                best_query = results_conn.execute("""
-                    SELECT scan_date, entry_price 
-                    FROM scanner_results 
-                    WHERE scanner_name = ? AND symbol = ? 
-                    ORDER BY scan_date DESC LIMIT 1
-                """, [scanner_name, best_symbol]).fetchone()
-                if best_query:
-                    best_pick_data['scan_date'] = str(best_query[0])[:10]
-                    best_pick_data['entry_price'] = best_query[1] or 0
-            
-            # Get worst pick details from scanner_results
-            worst_pick_data = {'symbol': worst_symbol, 'max_drawdown': round(row[9], 2), 'scan_date': 'N/A', 'entry_price': 0, 'current_pnl': 0}
-            if worst_symbol:
-                worst_query = results_conn.execute("""
-                    SELECT scan_date, entry_price 
-                    FROM scanner_results 
-                    WHERE scanner_name = ? AND symbol = ? 
-                    ORDER BY scan_date DESC LIMIT 1
-                """, [scanner_name, worst_symbol]).fetchone()
-                if worst_query:
-                    worst_pick_data['scan_date'] = str(worst_query[0])[:10]
-                    worst_pick_data['entry_price'] = worst_query[1] or 0
+            # Parse JSON columns for top 10 lists
+            import json
+            top_10_best = json.loads(row[14]) if row[14] else []
+            top_10_worst = json.loads(row[15]) if row[15] else []
             
             performance_data.append({
-                'scanner_name': scanner_name,
+                'scanner_name': row[0],
                 'total_picks': row[1],
                 'avg_max_gain': round(row[2], 2),
                 'avg_drawdown': round(row[3], 2),
                 'avg_current_pnl': round(row[4], 2),
                 'win_rate': round(row[5], 1),
-                'best_pick': best_pick_data,
-                'worst_pick': worst_pick_data,
-                'all_picks': [],  # Removed for performance - use pre-calculated summary only
-                'calculated_at': row[10]
+                'best_pick': {
+                    'symbol': row[6],
+                    'max_gain': round(row[7], 2),
+                    'scan_date': str(row[8])[:10] if row[8] else 'N/A',
+                    'entry_price': row[9] or 0,
+                    'current_pnl': 0
+                },
+                'worst_pick': {
+                    'symbol': row[10],
+                    'max_drawdown': round(row[11], 2),
+                    'scan_date': str(row[12])[:10] if row[12] else 'N/A',
+                    'entry_price': row[13] or 0,
+                    'current_pnl': 0
+                },
+                'top_10_best': top_10_best,
+                'top_10_worst': top_10_worst,
+                'calculated_at': row[16]
             })
-        
-        results_conn.close()
         
     except Exception as e:
         print(f"Error loading scanner performance: {e}")
