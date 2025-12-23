@@ -4711,9 +4711,11 @@ async def scanner_performance(request: Request):
                 SELECT 
                     sr.symbol,
                     sr.scan_date,
-                    sr.signal_strength
+                    sr.signal_strength,
+                    sr.entry_price
                 FROM scanner_results sr
                 WHERE sr.scanner_name = ?
+                AND sr.entry_price IS NOT NULL
                 ORDER BY sr.scan_date, sr.symbol
             """
             picks = conn.execute(picks_query, [scanner]).fetchall()
@@ -4725,20 +4727,10 @@ async def scanner_performance(request: Request):
             # Calculate performance for each pick
             pick_performances = []
             
-            for symbol, scan_date, strength in picks:
-                # Get entry price (closing price on pick date)
-                entry_query = """
-                    SELECT close
-                    FROM scanner_data.main.daily_cache
-                    WHERE symbol = ?
-                    AND date = ?
-                """
-                entry_result = conn.execute(entry_query, [symbol, scan_date]).fetchone()
-                
-                if not entry_result:
+            for symbol, scan_date, strength, entry_price in picks:
+                # Use entry_price from scanner_results (already captured at detection time)
+                if not entry_price or entry_price <= 0:
                     continue
-                
-                entry_price = entry_result[0]
                 
                 # Get price history after pick date
                 price_query = """
