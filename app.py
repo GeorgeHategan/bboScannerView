@@ -4734,15 +4734,16 @@ async def scanner_performance(request: Request):
                     continue
                 
                 # Get price history after pick date
+                # Note: daily_cache.date is VARCHAR, so cast scan_date to string
                 price_query = """
                     SELECT date, close, high, low
                     FROM scanner_data.main.daily_cache
                     WHERE symbol = ?
-                    AND date > ?
+                    AND date > CAST(? AS VARCHAR)
                     ORDER BY date
                     LIMIT 60
                 """
-                prices = conn.execute(price_query, [symbol, scan_date]).fetchall()
+                prices = conn.execute(price_query, [symbol, str(scan_date)]).fetchall()
                 
                 if not prices:
                     continue
