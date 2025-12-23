@@ -4718,7 +4718,7 @@ async def scanner_performance(request: Request):
                 AND sr.entry_price IS NOT NULL
                 AND sr.scan_date < CURRENT_DATE
                 ORDER BY sr.scan_date DESC
-                LIMIT 50
+                LIMIT 10
             """
             picks = conn.execute(picks_query, [scanner]).fetchall()
             
