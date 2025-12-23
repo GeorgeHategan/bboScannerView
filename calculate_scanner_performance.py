@@ -47,7 +47,7 @@ print(f"Processing {len(scanners)} scanners...")
 for (scanner_name,) in scanners:
     print(f"\n  Processing {scanner_name}...")
     
-    # Get picks (limit to recent for initial calculation)
+    # Get all picks (no limit - process all historical data)
     picks = results_conn.execute("""
         SELECT symbol, scan_date, entry_price
         FROM scanner_results
@@ -55,7 +55,6 @@ for (scanner_name,) in scanners:
         AND entry_price IS NOT NULL
         AND scan_date < CURRENT_DATE
         ORDER BY scan_date DESC
-        LIMIT 50
     """, [scanner_name]).fetchall()
     
     if not picks:
