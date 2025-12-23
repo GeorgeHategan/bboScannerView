@@ -298,7 +298,7 @@
                         <h3>🏆 Best Pick</h3>
                         <div class="pick-detail">
                             <span class="label">Symbol:</span>
-                            <span class="value">{{ scanner.best_pick.symbol }}</span>
+                            <span class="value"><a href="https://www.tradingview.com/chart/?symbol={{ scanner.best_pick.symbol }}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: bold;">{{ scanner.best_pick.symbol }}</a></span>
                         </div>
                         <div class="pick-detail">
                             <span class="label">Pick Date:</span>
@@ -324,7 +324,7 @@
                         <h3>📉 Worst Drawdown</h3>
                         <div class="pick-detail">
                             <span class="label">Symbol:</span>
-                            <span class="value">{{ scanner.worst_pick.symbol }}</span>
+                            <span class="value"><a href="https://www.tradingview.com/chart/?symbol={{ scanner.worst_pick.symbol }}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: bold;">{{ scanner.worst_pick.symbol }}</a></span>
                         </div>
                         <div class="pick-detail">
                             <span class="label">Pick Date:</span>
@@ -368,7 +368,7 @@
                         {% for pick in scanner.top_10_best %}
                         <tr>
                             <td><strong>{{ loop.index }}</strong></td>
-                            <td><strong>{{ pick.symbol }}</strong></td>
+                            <td><strong><a href="https://www.tradingview.com/chart/?symbol={{ pick.symbol }}" target="_blank" style="color: #667eea; text-decoration: none;">{{ pick.symbol }}</a></strong></td>
                             <td>{{ pick.date[:10] }}</td>
                             <td>${{ "%.2f"|format(pick.entry_price) }}</td>
                             <td class="gain-positive">+{{ "%.1f"|format(pick.max_gain) }}%</td>
@@ -403,7 +403,7 @@
                         {% for pick in scanner.top_10_worst %}
                         <tr>
                             <td><strong>{{ loop.index }}</strong></td>
-                            <td><strong>{{ pick.symbol }}</strong></td>
+                            <td><strong><a href="https://www.tradingview.com/chart/?symbol={{ pick.symbol }}" target="_blank" style="color: #667eea; text-decoration: none;">{{ pick.symbol }}</a></strong></td>
                             <td>{{ pick.date[:10] }}</td>
                             <td>${{ "%.2f"|format(pick.entry_price) }}</td>
                             <td class="{% if pick.max_gain > 0 %}gain-positive{% else %}gain-negative{% endif %}">
