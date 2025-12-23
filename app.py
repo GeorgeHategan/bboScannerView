@@ -4723,12 +4723,19 @@ async def scanner_performance(request: Request):
                 'win_rate': round(row[5], 1),
                 'best_pick': {
                     'symbol': row[6],
-                    'max_gain': round(row[7], 2)
+                    'max_gain': round(row[7], 2),
+                    'scan_date': 'Pre-calculated',
+                    'entry_price': 0,
+                    'current_pnl': 0
                 },
                 'worst_pick': {
                     'symbol': row[8],
-                    'max_drawdown': round(row[9], 2)
+                    'max_drawdown': round(row[9], 2),
+                    'scan_date': 'Pre-calculated',
+                    'entry_price': 0,
+                    'current_pnl': 0
                 },
+                'all_picks': [],  # Removed for performance - use pre-calculated summary only
                 'calculated_at': row[10]
             })
         
