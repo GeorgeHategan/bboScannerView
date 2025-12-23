@@ -4706,7 +4706,7 @@ async def scanner_performance(request: Request):
             # Reconnect for each scanner to avoid timeout
             conn = get_db_connection(DUCKDB_PATH)
             
-            # Get all picks for this scanner (exclude today to allow for price data)
+            # Get recent picks for this scanner (exclude today, limit for performance)
             picks_query = """
                 SELECT 
                     sr.symbol,
@@ -4717,7 +4717,8 @@ async def scanner_performance(request: Request):
                 WHERE sr.scanner_name = ?
                 AND sr.entry_price IS NOT NULL
                 AND sr.scan_date < CURRENT_DATE
-                ORDER BY sr.scan_date, sr.symbol
+                ORDER BY sr.scan_date DESC
+                LIMIT 50
             """
             picks = conn.execute(picks_query, [scanner]).fetchall()
             
