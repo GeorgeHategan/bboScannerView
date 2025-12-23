@@ -4728,6 +4728,9 @@ async def scanner_performance(request: Request):
             # Calculate performance for each pick
             pick_performances = []
             
+            # Connect to scanner_data for price history
+            data_conn = get_db_connection(SCANNER_DATA_PATH)
+            
             for symbol, scan_date, strength, entry_price in picks:
                 # Use entry_price from scanner_results (already captured at detection time)
                 if not entry_price or entry_price <= 0:
@@ -4737,13 +4740,13 @@ async def scanner_performance(request: Request):
                 # Note: daily_cache.date is VARCHAR, so cast scan_date to string
                 price_query = """
                     SELECT date, close, high, low
-                    FROM scanner_data.main.daily_cache
+                    FROM main.daily_cache
                     WHERE symbol = ?
                     AND date > CAST(? AS VARCHAR)
                     ORDER BY date
                     LIMIT 60
                 """
-                prices = conn.execute(price_query, [symbol, str(scan_date)]).fetchall()
+                prices = data_conn.execute(price_query, [symbol, str(scan_date)]).fetchall()
                 
                 if not prices:
                     continue
@@ -4815,7 +4818,8 @@ async def scanner_performance(request: Request):
                 'all_picks': sorted(pick_performances, key=lambda x: x['max_gain'], reverse=True)
             })
             
-            # Close connection after processing each scanner
+            # Close connections after processing each scanner
+            data_conn.close()
             conn.close()
         
         # Sort by avg max gain
