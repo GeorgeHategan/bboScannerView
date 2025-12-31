@@ -4712,7 +4712,7 @@ async def scanner_performance(request: Request):
                 calculated_at,
                 calculation_date
             FROM main.performance_tracking
-            WHERE calculation_date = '2025-12-31'
+            WHERE calculation_date = (SELECT MAX(calculation_date) FROM main.performance_tracking)
             ORDER BY avg_max_gain DESC
         """
         
