@@ -4709,8 +4709,10 @@ async def scanner_performance(request: Request):
                 worst_entry_price,
                 top_10_best,
                 top_10_worst,
-                calculated_at
+                calculated_at,
+                calculation_date
             FROM main.performance_tracking
+            WHERE calculation_date = '2025-12-31'
             ORDER BY avg_max_gain DESC
         """
         
