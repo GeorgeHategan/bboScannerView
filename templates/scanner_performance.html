@@ -255,6 +255,9 @@
         <div class="header">
             <h1>📊 Scanner Performance Analytics</h1>
             <p>Track performance from pick date to today - Max P&L, Drawdowns, Win Rates</p>
+            {% if performance_data and performance_data|length > 0 %}
+            <p style="color: #666; font-size: 0.9em; margin-top: 8px;">📅 Data calculated: {{ performance_data[0].calculated_at }}</p>
+            {% endif %}
             <div class="nav-buttons">
                 <a href="/" class="nav-btn">🏠 Home</a>
                 <a href="/stats" class="nav-btn">📈 Stats</a>
