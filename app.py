@@ -6550,7 +6550,8 @@ async def index(
                     # If a specific scan date is selected, get walls from the previous trading day
                     # (scanner analyzes data from previous day's close)
                     if selected_scan_date:
-                        # MEMORY FIX: Only get latest wall per symbol (no need for history)
+                        # Get exactly one row per symbol (latest before scan date)
+                        # Uses QUALIFY to get only latest row per symbol
                         walls_query = f'''
                             SELECT underlying_symbol, scan_date, stock_price,
                                    call_wall_strike, call_wall_oi,
@@ -6563,15 +6564,14 @@ async def index(
                             FROM options_walls
                             WHERE underlying_symbol IN ({placeholders})
                             AND CAST(scan_date AS DATE) < CAST(? AS DATE)
-                            ORDER BY underlying_symbol, scan_date DESC
-                            LIMIT 50
+                            QUALIFY ROW_NUMBER() OVER (PARTITION BY underlying_symbol ORDER BY scan_date DESC) = 1
                         '''
                         walls_results = options_conn.execute(
                             walls_query, symbols_list + [selected_scan_date]
                         ).fetchall()
                     else:
-                        # No date selected - get latest walls per symbol
-                        # MEMORY FIX: Limit to 50 rows (one per symbol)
+                        # No date selected - get exactly one row per symbol (latest)
+                        # Uses QUALIFY to get only latest row per symbol
                         walls_query = f'''
                             SELECT underlying_symbol, scan_date, stock_price,
                                    call_wall_strike, call_wall_oi,
@@ -6583,8 +6583,7 @@ async def index(
                                    total_call_oi, total_put_oi, put_call_ratio
                             FROM options_walls
                             WHERE underlying_symbol IN ({placeholders})
-                            ORDER BY underlying_symbol, scan_date DESC
-                            LIMIT 50
+                            QUALIFY ROW_NUMBER() OVER (PARTITION BY underlying_symbol ORDER BY scan_date DESC) = 1
                         '''
                         walls_results = options_conn.execute(
                             walls_query, symbols_list
