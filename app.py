@@ -6423,7 +6423,7 @@ async def index(
                 options_conn = get_options_db_connection()
                 if options_conn:
                     placeholders = ','.join(['?' for _ in symbols_list])
-                    # MEMORY FIX: Limit to 3 most recent signals per symbol
+                    # Get all signals for chart display (60 day history)
                     options_query = f'''
                         SELECT underlying_symbol, signal_date, signal_type, 
                                signal_strength, confidence_score, strike, dte,
@@ -6431,7 +6431,6 @@ async def index(
                         FROM accumulation_signals
                         WHERE underlying_symbol IN ({placeholders})
                         ORDER BY underlying_symbol, signal_date DESC
-                        LIMIT 100
                     '''
                     options_results = options_conn.execute(
                         options_query, symbols_list
@@ -6476,7 +6475,7 @@ async def index(
                 dp_conn = get_options_db_connection()
                 if dp_conn:
                     placeholders = ','.join(['?' for _ in symbols_list])
-                    # MEMORY FIX: Limit to 3 most recent signals per symbol
+                    # Get all signals for chart display (60 day history)
                     dp_query = f'''
                         SELECT ticker, signal_date, signal_type, 
                                signal_strength, confidence_score, direction,
@@ -6486,7 +6485,6 @@ async def index(
                         FROM darkpool_signals
                         WHERE ticker IN ({placeholders})
                         ORDER BY ticker, signal_date DESC
-                        LIMIT 100
                     '''
                     dp_results = dp_conn.execute(
                         dp_query, symbols_list
