@@ -486,133 +486,69 @@ oauth.register(
 # Admin email - only this user can access admin panel
 ADMIN_EMAIL = 'hategan@gmail.com'
 
-# User management database - PostgreSQL on Render for persistence
-# Get PostgreSQL connection string from environment
-DATABASE_URL = os.environ.get('DATABASE_URL', '')
-
+# User management database - Now using MotherDuck (scanner_data) instead of PostgreSQL
+# This saves the cost of a separate Render PostgreSQL database
 
 def get_user_db_connection():
-    """Get connection to user management database (PostgreSQL or SQLite)."""
-    if DATABASE_URL:
-        # Production: Use PostgreSQL on Render
-        try:
-            import psycopg2
-            # Render uses postgresql:// but psycopg2 needs postgres://
-            db_url = DATABASE_URL.replace('postgresql://', 'postgres://')
-            conn = psycopg2.connect(db_url)
-            return conn
-        except Exception as e:
-            logger.error(f"Error connecting to PostgreSQL: {e}")
-            return None
-    else:
-        # Local development: Use SQLite
-        logger.warning("No DATABASE_URL - using local SQLite")
-        import sqlite3
-        USER_DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
-        return sqlite3.connect(USER_DB_PATH)
+    """Get connection to user management database (MotherDuck scanner_data)."""
+    try:
+        # Use the same MotherDuck connection as scanner data
+        return get_db_connection(SCANNER_DATA_PATH)
+    except Exception as e:
+        logger.error(f"Error connecting to MotherDuck for user DB: {e}")
+        return None
 
 
 def init_user_db():
-    """Initialize user management database (PostgreSQL or SQLite)."""
+    """Initialize user management database (MotherDuck scanner_data)."""
     conn = get_user_db_connection()
     if not conn:
         logger.error("Could not initialize user database")
         return
 
     try:
-        cursor = conn.cursor()
+        # DuckDB/MotherDuck syntax - tables should already exist from migration
+        # Just ensure admin is in allowed users
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS main.allowed_users (
+                id INTEGER PRIMARY KEY,
+                email VARCHAR UNIQUE NOT NULL,
+                added_by VARCHAR NOT NULL,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT true
+            )
+        """)
 
-        if DATABASE_URL:
-            # PostgreSQL syntax
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS allowed_users (
-                    id SERIAL PRIMARY KEY,
-                    email VARCHAR(255) UNIQUE NOT NULL,
-                    added_by VARCHAR(255) NOT NULL,
-                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    is_active BOOLEAN DEFAULT true
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS login_logs (
-                    id SERIAL PRIMARY KEY,
-                    email VARCHAR(255) NOT NULL,
-                    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    ip_address VARCHAR(50),
-                    user_agent TEXT,
-                    success BOOLEAN DEFAULT true,
-                    failure_reason TEXT,
-                    country VARCHAR(100),
-                    country_code VARCHAR(10),
-                    city VARCHAR(100)
-                )
-            ''')
-        else:
-            # SQLite syntax
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS allowed_users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email TEXT UNIQUE NOT NULL,
-                    added_by TEXT NOT NULL,
-                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    is_active BOOLEAN DEFAULT 1
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS login_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email TEXT NOT NULL,
-                    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    ip_address TEXT,
-                    user_agent TEXT,
-                    success BOOLEAN DEFAULT 1,
-                    failure_reason TEXT,
-                    country TEXT,
-                    country_code TEXT,
-                    city TEXT
-                )
-            ''')
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS main.login_logs (
+                id INTEGER PRIMARY KEY,
+                email VARCHAR NOT NULL,
+                login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ip_address VARCHAR,
+                user_agent VARCHAR,
+                success BOOLEAN DEFAULT true,
+                failure_reason VARCHAR,
+                country VARCHAR,
+                country_code VARCHAR,
+                city VARCHAR
+            )
+        """)
 
         # Ensure admin is always in allowed users
-        if DATABASE_URL:
-            cursor.execute('''
-                INSERT INTO allowed_users (email, added_by)
-                VALUES (%s, 'system')
-                ON CONFLICT (email) DO NOTHING
-            ''', (ADMIN_EMAIL,))
-        else:
-            cursor.execute('''
-                INSERT OR IGNORE INTO allowed_users (email, added_by)
-                VALUES (?, 'system')
-            ''', (ADMIN_EMAIL,))
+        existing = conn.execute(
+            "SELECT email FROM main.allowed_users WHERE email = ?", [ADMIN_EMAIL]
+        ).fetchone()
+        if not existing:
+            # Get next ID
+            max_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM main.allowed_users").fetchone()[0]
+            conn.execute(
+                "INSERT INTO main.allowed_users (id, email, added_by, is_active) VALUES (?, ?, 'system', true)",
+                [max_id + 1, ADMIN_EMAIL]
+            )
 
-        # Add users from ALLOWED_EMAILS env var
-        env_emails = os.environ.get('ALLOWED_EMAILS', '').split(',')
-        for email in env_emails:
-            email = email.strip()
-            if email:
-                if DATABASE_URL:
-                    cursor.execute('''
-                        INSERT INTO allowed_users (email, added_by)
-                        VALUES (%s, 'env_migration')
-                        ON CONFLICT (email) DO NOTHING
-                    ''', (email,))
-                else:
-                    cursor.execute('''
-                        INSERT OR IGNORE INTO allowed_users (email, added_by)
-                        VALUES (?, 'env_migration')
-                    ''', (email,))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-        logger.info("User database initialized successfully")
+        logger.info("User database initialized successfully (MotherDuck)")
     except Exception as e:
         logger.error(f"Error initializing user database: {e}")
-        if conn:
-            conn.close()
 
 
 # Initialize user database
@@ -621,30 +557,22 @@ init_user_db()
 
 # Helper: get allowed emails from database
 def get_allowed_emails():
-    """Get list of allowed emails from database."""
+    """Get list of allowed emails from MotherDuck database."""
     try:
         conn = get_user_db_connection()
         if not conn:
             return [ADMIN_EMAIL]
 
-        cursor = conn.cursor()
-        if DATABASE_URL:
-            cursor.execute(
-                'SELECT email FROM allowed_users WHERE is_active = true'
-            )
-        else:
-            cursor.execute(
-                'SELECT email FROM allowed_users WHERE is_active = 1'
-            )
-
-        emails = [row[0] for row in cursor.fetchall()]
-        cursor.close()
-        conn.close()
-        return emails
+        # DuckDB syntax
+        result = conn.execute(
+            'SELECT email FROM main.allowed_users WHERE is_active = true'
+        ).fetchall()
+        
+        emails = [row[0] for row in result]
+        return emails if emails else [ADMIN_EMAIL]
     except Exception as e:
         logger.error(f"Error fetching allowed emails: {e}")
-        env_emails = os.environ.get('ALLOWED_EMAILS', '').split(',')
-        return [e.strip() for e in env_emails if e.strip()] or [ADMIN_EMAIL]
+        return [ADMIN_EMAIL]
 
 def get_ip_location(ip: str) -> dict:
     """Get country and city from IP address using ip-api.com."""
@@ -673,7 +601,6 @@ def log_visitor(request: Request, page_path: str = None,
         if not conn:
             return
 
-        cursor = conn.cursor()
         ip = request.client.host if request.client else 'unknown'
         user_agent = request.headers.get('user-agent', 'unknown')[:500]
         page = page_path or request.url.path
@@ -684,28 +611,15 @@ def log_visitor(request: Request, page_path: str = None,
         country_code = location.get('countryCode')
         city = location.get('city')
 
-        if DATABASE_URL:
-            # PostgreSQL syntax
-            cursor.execute('''
-                INSERT INTO login_logs (email, ip_address, user_agent,
-                                       success, failure_reason, country,
-                                       country_code, city)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (email or 'visitor', ip, user_agent, False,
-                  f'page_visit:{page}', country, country_code, city))
-        else:
-            # SQLite syntax
-            cursor.execute('''
-                INSERT INTO login_logs (email, ip_address, user_agent,
-                                       success, failure_reason, country,
-                                       country_code, city)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (email or 'visitor', ip, user_agent, False,
-                  f'page_visit:{page}', country, country_code, city))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
+        # DuckDB/MotherDuck syntax - get next ID
+        max_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM main.login_logs").fetchone()[0]
+        conn.execute('''
+            INSERT INTO main.login_logs (id, email, ip_address, user_agent,
+                                   success, failure_reason, country,
+                                   country_code, city)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', [max_id + 1, email or 'visitor', ip, user_agent, False,
+              f'page_visit:{page}', country, country_code, city])
     except Exception as e:
         logger.error(f"Error logging visitor: {e}")
 
@@ -719,7 +633,6 @@ def log_login_attempt(email: str, request: Request, success: bool,
             logger.warning("Could not log login - no database connection")
             return
 
-        cursor = conn.cursor()
         ip = request.client.host if request.client else 'unknown'
         user_agent = request.headers.get('user-agent', 'unknown')[:500]
 
@@ -731,28 +644,15 @@ def log_login_attempt(email: str, request: Request, success: bool,
             country_code = location.get('countryCode')
             city = location.get('city')
 
-        if DATABASE_URL:
-            # PostgreSQL syntax
-            cursor.execute('''
-                INSERT INTO login_logs (email, ip_address, user_agent,
-                                       success, failure_reason, country,
-                                       country_code, city)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (email, ip, user_agent, success, failure_reason,
-                  country, country_code, city))
-        else:
-            # SQLite syntax
-            cursor.execute('''
-                INSERT INTO login_logs (email, ip_address, user_agent,
-                                       success, failure_reason, country,
-                                       country_code, city)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (email, ip, user_agent, success, failure_reason,
-                  country, country_code, city))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
+        # DuckDB/MotherDuck syntax - get next ID
+        max_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM main.login_logs").fetchone()[0]
+        conn.execute('''
+            INSERT INTO main.login_logs (id, email, ip_address, user_agent,
+                                   success, failure_reason, country,
+                                   country_code, city)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', [max_id + 1, email, ip, user_agent, success, failure_reason,
+              country, country_code, city])
     except Exception as e:
         logger.error(f"Error logging login attempt: {e}")
 
@@ -1254,17 +1154,16 @@ async def admin_page(request: Request):
     if not user or user.get('email') != ADMIN_EMAIL:
         return RedirectResponse('/login', status_code=302)
     
-    # Get all users
+    # Get all users (DuckDB/MotherDuck)
     conn = get_user_db_connection()
     if not conn:
         return HTMLResponse("Database connection error", status_code=500)
 
-    cursor = conn.cursor()
-    cursor.execute('''
+    users_result = conn.execute('''
         SELECT id, email, added_by, added_at, is_active
-        FROM allowed_users
+        FROM main.allowed_users
         ORDER BY added_at DESC
-    ''')
+    ''').fetchall()
     users = [
         {
             'id': row[0],
@@ -1273,17 +1172,17 @@ async def admin_page(request: Request):
             'added_at': row[3],
             'is_active': row[4]
         }
-        for row in cursor.fetchall()
+        for row in users_result
     ]
 
     # Get recent login logs
-    cursor.execute('''
+    logs_result = conn.execute('''
         SELECT email, login_time, ip_address, success, failure_reason,
                country, country_code, city
-        FROM login_logs
+        FROM main.login_logs
         ORDER BY login_time DESC
         LIMIT 100
-    ''')
+    ''').fetchall()
     logs = [
         {
             'email': row[0],
@@ -1295,36 +1194,21 @@ async def admin_page(request: Request):
             'country_code': row[6],
             'city': row[7]
         }
-        for row in cursor.fetchall()
+        for row in logs_result
     ]
 
-    # Get intruders (failed attempts grouped by IP)
-    if DATABASE_URL:
-        # PostgreSQL
-        cursor.execute('''
-            SELECT ip_address, country, country_code, city,
-                   COUNT(*) as attempts,
-                   STRING_AGG(DISTINCT email, ', ') as emails,
-                   MAX(login_time) as last_attempt
-            FROM login_logs
-            WHERE success = false
-            GROUP BY ip_address, country, country_code, city
-            ORDER BY attempts DESC, last_attempt DESC
-            LIMIT 50
-        ''')
-    else:
-        # SQLite
-        cursor.execute('''
-            SELECT ip_address, country, country_code, city,
-                   COUNT(*) as attempts,
-                   GROUP_CONCAT(DISTINCT email) as emails,
-                   MAX(login_time) as last_attempt
-            FROM login_logs
-            WHERE success = 0
-            GROUP BY ip_address
-            ORDER BY attempts DESC, last_attempt DESC
-            LIMIT 50
-        ''')
+    # Get intruders (failed attempts grouped by IP) - DuckDB syntax
+    intruders_result = conn.execute('''
+        SELECT ip_address, country, country_code, city,
+               COUNT(*) as attempts,
+               STRING_AGG(DISTINCT email, ', ') as emails,
+               MAX(login_time) as last_attempt
+        FROM main.login_logs
+        WHERE success = false
+        GROUP BY ip_address, country, country_code, city
+        ORDER BY attempts DESC, last_attempt DESC
+        LIMIT 50
+    ''').fetchall()
 
     intruders = [
         {
@@ -1336,11 +1220,8 @@ async def admin_page(request: Request):
             'emails': row[5],
             'last_attempt': row[6]
         }
-        for row in cursor.fetchall()
+        for row in intruders_result
     ]
-
-    cursor.close()
-    conn.close()
 
     return templates.TemplateResponse('admin.html', {
         'request': request,
@@ -1369,24 +1250,13 @@ async def admin_add_user(request: Request, email: str = Form(...)):
         if not conn:
             raise HTTPException(status_code=500, detail='Database error')
 
-        cursor = conn.cursor()
-
-        if DATABASE_URL:
-            # PostgreSQL syntax
-            cursor.execute('''
-                INSERT INTO allowed_users (email, added_by)
-                VALUES (%s, %s)
-            ''', (email, user.get('email')))
-        else:
-            # SQLite syntax
-            cursor.execute('''
-                INSERT INTO allowed_users (email, added_by)
-                VALUES (?, ?)
-            ''', (email, user.get('email')))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
+        # DuckDB/MotherDuck syntax - get next ID
+        max_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM main.allowed_users").fetchone()[0]
+        conn.execute('''
+            INSERT INTO main.allowed_users (id, email, added_by, is_active)
+            VALUES (?, ?, ?, true)
+        ''', [max_id + 1, email, user.get('email')])
+        
         logger.info(f"Admin added user: {email}")
     except Exception as e:
         error_str = str(e)
@@ -1409,44 +1279,24 @@ async def admin_remove_user(request: Request, user_id: int):
     if not conn:
         raise HTTPException(status_code=500, detail='Database error')
 
-    cursor = conn.cursor()
-
-    # Get the user email first
-    if DATABASE_URL:
-        cursor.execute(
-            'SELECT email FROM allowed_users WHERE id = %s', (user_id,)
-        )
-    else:
-        cursor.execute(
-            'SELECT email FROM allowed_users WHERE id = ?', (user_id,)
-        )
-
-    result = cursor.fetchone()
+    # Get the user email first (DuckDB syntax)
+    result = conn.execute(
+        'SELECT email FROM main.allowed_users WHERE id = ?', [user_id]
+    ).fetchone()
 
     if not result:
-        cursor.close()
-        conn.close()
         raise HTTPException(status_code=404, detail='User not found')
 
     target_email = result[0]
 
     # Prevent removing admin
     if target_email == ADMIN_EMAIL:
-        cursor.close()
-        conn.close()
         raise HTTPException(
             status_code=400, detail='Cannot remove admin user'
         )
 
     # Delete the user
-    if DATABASE_URL:
-        cursor.execute('DELETE FROM allowed_users WHERE id = %s', (user_id,))
-    else:
-        cursor.execute('DELETE FROM allowed_users WHERE id = ?', (user_id,))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+    conn.execute('DELETE FROM main.allowed_users WHERE id = ?', [user_id])
 
     logger.info(f"Admin removed user: {target_email}")
     return RedirectResponse('/admin', status_code=302)
@@ -1464,33 +1314,19 @@ async def admin_toggle_user(request: Request, user_id: int):
     if not conn:
         raise HTTPException(status_code=500, detail='Database error')
 
-    cursor = conn.cursor()
-
-    # Get the user email first
-    if DATABASE_URL:
-        cursor.execute(
-            'SELECT email, is_active FROM allowed_users WHERE id = %s',
-            (user_id,)
-        )
-    else:
-        cursor.execute(
-            'SELECT email, is_active FROM allowed_users WHERE id = ?',
-            (user_id,)
-        )
-
-    result = cursor.fetchone()
+    # Get the user email first (DuckDB syntax)
+    result = conn.execute(
+        'SELECT email, is_active FROM main.allowed_users WHERE id = ?',
+        [user_id]
+    ).fetchone()
 
     if not result:
-        cursor.close()
-        conn.close()
         raise HTTPException(status_code=404, detail='User not found')
 
     target_email, is_active = result
 
     # Prevent deactivating admin
     if target_email == ADMIN_EMAIL:
-        cursor.close()
-        conn.close()
         raise HTTPException(
             status_code=400,
             detail='Cannot deactivate admin user'
@@ -1498,21 +1334,10 @@ async def admin_toggle_user(request: Request, user_id: int):
 
     # Toggle status
     new_status = not is_active
-
-    if DATABASE_URL:
-        cursor.execute(
-            'UPDATE allowed_users SET is_active = %s WHERE id = %s',
-            (new_status, user_id)
-        )
-    else:
-        cursor.execute(
-            'UPDATE allowed_users SET is_active = ? WHERE id = ?',
-            (new_status, user_id)
-        )
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+    conn.execute(
+        'UPDATE main.allowed_users SET is_active = ? WHERE id = ?',
+        [new_status, user_id]
+    )
 
     logger.info(
         f"Admin toggled user {target_email} status to {new_status}"
