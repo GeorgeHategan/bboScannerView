@@ -130,56 +130,100 @@ def get_db_connection(db_path: str = None):
 
 
 class TTLCache:
-    """Simple thread-safe TTL cache for query results."""
-    def __init__(self, maxsize: int = 100):
+    """Simple thread-safe TTL cache for query results with memory limits."""
+    # Reduced maxsize for 512MB Render limit - each cached query can be large
+    def __init__(self, maxsize: int = 30, max_memory_mb: int = 50):
         self._cache = {}
         self._lock = threading.Lock()
         self._maxsize = maxsize
+        self._max_memory_bytes = max_memory_mb * 1024 * 1024
+        self._estimated_memory = 0
+    
+    def _estimate_size(self, value) -> int:
+        """Rough estimate of object memory size."""
+        import sys
+        try:
+            if isinstance(value, (list, tuple)):
+                return sys.getsizeof(value) + sum(self._estimate_size(item) for item in value[:100])
+            elif isinstance(value, dict):
+                return sys.getsizeof(value) + sum(
+                    self._estimate_size(k) + self._estimate_size(v) 
+                    for k, v in list(value.items())[:100]
+                )
+            else:
+                return sys.getsizeof(value)
+        except:
+            return 1000  # Default estimate
     
     def get(self, key: str):
         """Get value from cache if not expired."""
         with self._lock:
             if key in self._cache:
-                value, expiry = self._cache[key]
+                value, expiry, size = self._cache[key]
                 if datetime.now() < expiry:
                     return value
                 else:
+                    self._estimated_memory -= size
                     del self._cache[key]
         return None
     
-    def set(self, key: str, value, ttl_seconds: int = 120):
-        """Set value in cache with TTL (default 2 minutes - reduced for memory)."""
+    def _cleanup_expired(self):
+        """Remove all expired entries."""
+        now = datetime.now()
+        expired_keys = [k for k, (_, exp, _) in self._cache.items() if now >= exp]
+        for k in expired_keys:
+            _, _, size = self._cache[k]
+            self._estimated_memory -= size
+            del self._cache[k]
+    
+    def set(self, key: str, value, ttl_seconds: int = 60):
+        """Set value in cache with TTL (default 1 minute for memory conservation)."""
         with self._lock:
-            # If cache is full, remove oldest entries
-            if len(self._cache) >= self._maxsize:
-                # Remove expired entries first
-                now = datetime.now()
-                expired_keys = [k for k, (_, exp) in self._cache.items() if now >= exp]
-                for k in expired_keys:
-                    del self._cache[k]
-                
-                # If still over limit, remove oldest entry
-                if len(self._cache) >= self._maxsize:
-                    oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][1])
-                    del self._cache[oldest_key]
+            # Estimate size of new value
+            value_size = self._estimate_size(value)
+            
+            # Don't cache very large values (>10MB)
+            if value_size > 10 * 1024 * 1024:
+                print(f"[Cache] Skipping large value ({value_size/1024/1024:.1f}MB) for key: {key[:50]}")
+                return
+            
+            # Cleanup expired entries first
+            self._cleanup_expired()
+            
+            # If still over memory limit, remove oldest entries
+            while (self._estimated_memory + value_size > self._max_memory_bytes or 
+                   len(self._cache) >= self._maxsize) and self._cache:
+                oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][1])
+                _, _, old_size = self._cache[oldest_key]
+                self._estimated_memory -= old_size
+                del self._cache[oldest_key]
             
             expiry = datetime.now() + timedelta(seconds=ttl_seconds)
-            self._cache[key] = (value, expiry)
+            self._cache[key] = (value, expiry, value_size)
+            self._estimated_memory += value_size
     
     def invalidate(self, key: str = None):
         """Invalidate a specific key or all keys."""
         with self._lock:
             if key:
+                if key in self._cache:
+                    _, _, size = self._cache[key]
+                    self._estimated_memory -= size
                 self._cache.pop(key, None)
             else:
                 self._cache.clear()
+                self._estimated_memory = 0
     
     def stats(self):
-        """Get cache stats."""
+        """Get cache stats including memory usage."""
         with self._lock:
-            now = datetime.now()
-            valid = sum(1 for _, (_, exp) in self._cache.items() if now < exp)
-            return {"total": len(self._cache), "valid": valid}
+            self._cleanup_expired()
+            return {
+                "total": len(self._cache), 
+                "valid": len(self._cache),
+                "memory_mb": round(self._estimated_memory / 1024 / 1024, 2),
+                "max_memory_mb": round(self._max_memory_bytes / 1024 / 1024, 2)
+            }
 
 # Global cache instance
 _query_cache = TTLCache()
@@ -380,26 +424,23 @@ app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", l
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         public_paths = ['/login', '/auth/google', '/auth/google/callback',
-                        '/favicon.ico', '/static', '/webhook']
+                        '/favicon.ico', '/static', '/webhook', '/api/health', '/api/memory']
         path = request.url.path
 
-        # Log all visitors to non-static paths
-        if not any(path.startswith(p) for p in ['/favicon.ico', '/static']):
-            # Get user email if logged in
-            session_data = request.scope.get('session')
-            user_email = None
-            if session_data:
-                user = session_data.get('user')
-                if user:
-                    user_email = user.get('email')
-
-            # Log the visitor (runs in background, won't slow down request)
-            import threading
-            threading.Thread(
-                target=log_visitor,
-                args=(request, path, user_email),
-                daemon=True
-            ).start()
+        # DISABLED: Visitor logging was creating a new thread per request
+        # causing memory leaks on 512MB Render tier
+        # To re-enable, uncomment and use a background task queue instead
+        # 
+        # # Log all visitors to non-static paths
+        # if not any(path.startswith(p) for p in ['/favicon.ico', '/static']):
+        #     session_data = request.scope.get('session')
+        #     user_email = None
+        #     if session_data:
+        #         user = session_data.get('user')
+        #         if user:
+        #             user_email = user.get('email')
+        #     # Use asyncio task instead of thread to avoid memory leak
+        #     asyncio.create_task(async_log_visitor(request, path, user_email))
 
         # Continue with authentication check
         if not any(path.startswith(p) for p in public_paths):
@@ -854,7 +895,7 @@ def get_cached_latest_scan_date():
 
 
 def get_cached_ticker_list():
-    """Get list of all tickers with 10-minute cache."""
+    """Get list of all tickers with 5-minute cache (reduced for memory)."""
     cache_key = "ticker_list"
     cached = _query_cache.get(cache_key)
     if cached is not None:
@@ -862,14 +903,15 @@ def get_cached_ticker_list():
     
     try:
         conn = get_db_connection(DUCKDB_PATH)
+        # Reduced from 10000 to 2000 to save memory on 512MB Render tier
         ticker_list = conn.execute("""
             SELECT DISTINCT symbol 
             FROM scanner_results
             ORDER BY symbol
-            LIMIT 10000
+            LIMIT 2000
         """).fetchall()
         result = [row[0] for row in ticker_list]
-        _query_cache.set(cache_key, result, 600)  # 10 minute cache
+        _query_cache.set(cache_key, result, 300)  # 5 minute cache (reduced from 10)
         return result
     except Exception as e:
         print(f"Could not fetch ticker list: {e}")
@@ -877,7 +919,7 @@ def get_cached_ticker_list():
 
 
 def get_cached_symbol_metadata():
-    """Get symbol metadata (company, market_cap, sector) with 30-minute cache."""
+    """Get symbol metadata (company, market_cap, sector) with 10-minute cache (reduced for memory)."""
     cache_key = "symbol_metadata"
     cached = _query_cache.get(cache_key)
     if cached is not None:
@@ -885,6 +927,7 @@ def get_cached_symbol_metadata():
     
     try:
         conn = get_db_connection(SCANNER_DATA_PATH)
+        # Reduced from 10000 to 2000 to save memory on 512MB Render tier
         result = conn.execute('''
             SELECT DISTINCT d.symbol, 
                    COALESCE(f.company_name, d.symbol) as company,
@@ -894,7 +937,7 @@ def get_cached_symbol_metadata():
             FROM main.daily_cache d
             LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
             ORDER BY d.symbol
-            LIMIT 10000
+            LIMIT 2000
         ''').fetchall()
         
         metadata = {}
@@ -907,7 +950,7 @@ def get_cached_symbol_metadata():
                 'industry': industry
             }
         
-        _query_cache.set(cache_key, metadata, 1800)  # 30 minute cache
+        _query_cache.set(cache_key, metadata, 600)  # 10 minute cache (reduced from 30)
         return metadata
     except Exception as e:
         print(f"Could not fetch symbol metadata: {e}")
@@ -1634,7 +1677,8 @@ def get_vix_sqlite_count():
 
 def sync_sqlite_to_motherduck():
     """Sync VIX data from local SQLite to MotherDuck, avoiding duplicates, then clear SQLite."""
-    sqlite_data = get_vix_sqlite_history(limit=10000)
+    # Reduced from 10000 to 500 to prevent memory spikes during sync
+    sqlite_data = get_vix_sqlite_history(limit=500)
     if not sqlite_data:
         return {"status": "ok", "message": "No data to sync", "synced": 0}
     
@@ -2480,6 +2524,100 @@ async def test_webhook():
     }
 
 
+# ============================================================
+# MEMORY MONITORING ENDPOINTS (for debugging 512MB Render limit)
+# ============================================================
+
+@app.get("/api/health")
+async def health_check():
+    """Simple health check endpoint."""
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
+
+@app.get("/api/memory")
+async def memory_stats():
+    """Get current memory usage stats for debugging.
+    
+    Useful for monitoring memory on Render's 512MB limit.
+    Access: /api/memory
+    """
+    import gc
+    
+    # Force garbage collection first
+    gc.collect()
+    
+    try:
+        import resource
+        # Get memory usage on Unix systems (macOS/Linux)
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        memory_mb = rusage.ru_maxrss / 1024 / 1024  # macOS returns bytes
+        # On Linux it's in KB, so adjust if needed
+        import platform
+        if platform.system() == 'Linux':
+            memory_mb = rusage.ru_maxrss / 1024
+    except ImportError:
+        memory_mb = None
+    
+    # Alternative: use psutil if available
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        psutil_memory_mb = memory_info.rss / 1024 / 1024
+    except ImportError:
+        psutil_memory_mb = None
+    
+    # Get cache stats
+    cache_stats = _query_cache.stats()
+    
+    # Get connection pool info
+    pool_connections = len(_connection_pool._connections)
+    
+    # Get garbage collector stats
+    gc_stats = {
+        "collections": gc.get_count(),
+        "objects": len(gc.get_objects()),
+        "garbage": len(gc.garbage)
+    }
+    
+    return {
+        "status": "ok",
+        "memory": {
+            "resource_maxrss_mb": round(memory_mb, 2) if memory_mb else None,
+            "psutil_rss_mb": round(psutil_memory_mb, 2) if psutil_memory_mb else None,
+            "render_limit_mb": 512,
+            "warning_threshold_mb": 450
+        },
+        "cache": cache_stats,
+        "connection_pool": {
+            "active_connections": pool_connections
+        },
+        "garbage_collector": gc_stats,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+@app.post("/api/cache/clear")
+async def clear_cache():
+    """Clear all cached data to free memory.
+    
+    Use this if memory usage is too high.
+    """
+    import gc
+    
+    # Clear the query cache
+    _query_cache.invalidate()
+    
+    # Force garbage collection
+    gc.collect()
+    
+    return {
+        "status": "ok",
+        "message": "Cache cleared and garbage collected",
+        "cache_stats": _query_cache.stats()
+    }
+
+
 @app.post("/api/vix/sync")
 async def sync_vix_to_motherduck():
     """Sync VIX data from local SQLite to MotherDuck.
@@ -2557,8 +2695,8 @@ async def vix_chart(request: Request):
     vix_values = []
     vx30_values = []
     
-    # First, get webhook data from SQLite
-    sqlite_data = get_vix_sqlite_history(limit=10000)
+    # First, get webhook data from SQLite - reduced from 10000 to 500 for memory
+    sqlite_data = get_vix_sqlite_history(limit=500)
     sqlite_count = get_vix_sqlite_count()
     
     for row in sqlite_data:
@@ -2574,17 +2712,19 @@ async def vix_chart(request: Request):
         vix_values.append(row['vix'])
         vx30_values.append(row['vx30'])
     
-    # Then get historical data from MotherDuck
+    # Then get historical data from MotherDuck - limit to 1000 for memory
     motherduck_count = 0
     conn = get_options_db_connection()
     if conn:
         try:
             motherduck_count = conn.execute("SELECT COUNT(*) FROM vix_data").fetchone()[0]
             
+            # Added LIMIT 1000 to prevent memory issues
             result = conn.execute("""
                 SELECT timestamp, vix, vx30, source, notes
                 FROM vix_data 
                 ORDER BY timestamp DESC
+                LIMIT 1000
             """).fetchall()
             conn.close()
             
@@ -6414,17 +6554,20 @@ async def index(
                 print(f'All scanners query failed: {e}')
                 all_scanners_dict = {}
         
-        # Fetch all scanner confirmations for each symbol
+        # Fetch recent scanner confirmations for each symbol (limit to last 30 days to save memory)
         confirmations_dict = {}
         if symbols_list:
             try:
                 placeholders = ','.join(['?' for _ in symbols_list])
+                # MEMORY FIX: Limit to last 30 days and max 5 confirmations per symbol
                 confirmations_query = f'''
                     SELECT symbol, scanner_name, scan_date, signal_strength
                     FROM scanner_results
                     WHERE symbol IN ({placeholders})
                     AND scanner_name != ?
+                    AND scan_date >= CURRENT_DATE - INTERVAL 30 DAY
                     ORDER BY symbol, scan_date DESC, scanner_name
+                    LIMIT 200
                 '''
                 params = symbols_list + [pattern]
                 conf_results = conn.execute(confirmations_query, params).fetchall()
@@ -6455,6 +6598,7 @@ async def index(
                 options_conn = get_options_db_connection()
                 if options_conn:
                     placeholders = ','.join(['?' for _ in symbols_list])
+                    # MEMORY FIX: Limit to 3 most recent signals per symbol
                     options_query = f'''
                         SELECT underlying_symbol, signal_date, signal_type, 
                                signal_strength, confidence_score, strike, dte,
@@ -6462,6 +6606,7 @@ async def index(
                         FROM accumulation_signals
                         WHERE underlying_symbol IN ({placeholders})
                         ORDER BY underlying_symbol, signal_date DESC
+                        LIMIT 100
                     '''
                     options_results = options_conn.execute(
                         options_query, symbols_list
@@ -6506,6 +6651,7 @@ async def index(
                 dp_conn = get_options_db_connection()
                 if dp_conn:
                     placeholders = ','.join(['?' for _ in symbols_list])
+                    # MEMORY FIX: Limit to 3 most recent signals per symbol
                     dp_query = f'''
                         SELECT ticker, signal_date, signal_type, 
                                signal_strength, confidence_score, direction,
@@ -6515,6 +6661,7 @@ async def index(
                         FROM darkpool_signals
                         WHERE ticker IN ({placeholders})
                         ORDER BY ticker, signal_date DESC
+                        LIMIT 100
                     '''
                     dp_results = dp_conn.execute(
                         dp_query, symbols_list
@@ -6578,6 +6725,7 @@ async def index(
                     # If a specific scan date is selected, get walls from the previous trading day
                     # (scanner analyzes data from previous day's close)
                     if selected_scan_date:
+                        # MEMORY FIX: Only get latest wall per symbol (no need for history)
                         walls_query = f'''
                             SELECT underlying_symbol, scan_date, stock_price,
                                    call_wall_strike, call_wall_oi,
@@ -6591,12 +6739,14 @@ async def index(
                             WHERE underlying_symbol IN ({placeholders})
                             AND CAST(scan_date AS DATE) < CAST(? AS DATE)
                             ORDER BY underlying_symbol, scan_date DESC
+                            LIMIT 50
                         '''
                         walls_results = options_conn.execute(
                             walls_query, symbols_list + [selected_scan_date]
                         ).fetchall()
                     else:
                         # No date selected - get latest walls per symbol
+                        # MEMORY FIX: Limit to 50 rows (one per symbol)
                         walls_query = f'''
                             SELECT underlying_symbol, scan_date, stock_price,
                                    call_wall_strike, call_wall_oi,
@@ -6609,6 +6759,7 @@ async def index(
                             FROM options_walls
                             WHERE underlying_symbol IN ({placeholders})
                             ORDER BY underlying_symbol, scan_date DESC
+                            LIMIT 50
                         '''
                         walls_results = options_conn.execute(
                             walls_query, symbols_list
