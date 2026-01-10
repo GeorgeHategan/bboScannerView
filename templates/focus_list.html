@@ -3,7 +3,6 @@
 <head>
     <title>Focus List - BBO Scanner</title>
     <link rel="icon" type="image/png" href="/static/favicon.png?v=2">
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: arial; margin: 0; padding: 0; padding-top: 100px; }
@@ -98,49 +97,35 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 11px;
-            margin-left: 10px;
         }
         .remove-btn:hover {
-            background: #e74c3c;
+            background: #ff6b6b;
             color: white;
         }
         .strength-high { color: #27ae60; font-weight: bold; }
         .strength-medium { color: #f39c12; font-weight: bold; }
-        .strength-low { color: #95a5a6; }
+        .strength-low { color: #e74c3c; font-weight: bold; }
         .quality-badge {
+            display: inline-block;
             padding: 3px 8px;
-            border-radius: 3px;
+            border-radius: 4px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: bold;
         }
         .quality-strong { background: #d4edda; color: #155724; }
-        .quality-good { background: #fff3cd; color: #856404; }
-        .quality-moderate { background: #f8d7da; color: #721c24; }
-        .empty-state {
-            text-align: center;
-            padding: 80px 20px;
-            color: #666;
-        }
-        .empty-state h2 {
-            color: #999;
-            margin-bottom: 10px;
-        }
-        .empty-state p {
-            font-size: 16px;
-        }
+        .quality-good { background: #d1ecf1; color: #0c5460; }
+        .quality-moderate { background: #fff3cd; color: #856404; }
         .meta-info {
-            font-size: 14px;
+            font-size: 13px;
             color: #555;
-            margin-top: 5px;
         }
         .conf-section {
             font-size: 12px;
-            margin-top: 10px;
-            padding: 8px;
-            background: #f9f9f9;
+            line-height: 1.6;
             border: 1px solid #e0e0e0;
+            padding: 8px;
             border-radius: 4px;
-            max-width: 400px;
+            background: #f9f9f9;
         }
         .conf-dot {
             display: inline-block;
@@ -149,102 +134,200 @@
             border-radius: 50%;
             margin-right: 4px;
         }
+        .conf-dot[data-scanner*="bullish"] { background: #27ae60; }
+        .conf-dot[data-scanner*="continuation"] { background: #f39c12; }
+        .conf-dot[data-scanner*="momentum"] { background: #e74c3c; }
+        .conf-dot[data-scanner*="breakdown"] { background: #9b59b6; }
+        .conf-dot[data-scanner*="breakout"] { background: #3498db; }
+        .conf-dot[data-scanner*="reversal"] { background: #1abc9c; }
+        .conf-dot[data-scanner*="volume"] { background: #e67e22; }
+        
+        .oms-tooltip {
+            position: relative;
+            cursor: help;
+            border-bottom: 1px dotted #666;
+        }
+        .oms-tooltip .oms-tooltip-text {
+            visibility: hidden;
+            width: 300px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 12px;
+            position: absolute;
+            z-index: 9999;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -150px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 11px;
+            line-height: 1.5;
+            font-weight: normal;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .oms-tooltip .oms-tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .oms-tooltip:hover .oms-tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .info-tooltip {
+            position: relative;
+            cursor: help;
+            border-bottom: 1px dotted #666;
+        }
+        .info-tooltip .info-tooltip-text {
+            visibility: hidden;
+            width: 280px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 9999;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -140px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 11px;
+            line-height: 1.4;
+            font-weight: normal;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .info-tooltip .info-tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .info-tooltip:hover .info-tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .fund-quality {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            position: relative;
+            cursor: help;
+            vertical-align: middle;
+        }
+        .fund-bar {
+            display: inline-flex;
+            gap: 2px;
+            align-items: center;
+        }
+        .fund-block {
+            width: 7px;
+            height: 11px;
+            border-radius: 1px;
+        }
+        .fund-block.empty { background-color: #3A3A3A; }
+        .fund-block.dark_green { background-color: #2E7D32; }
+        .fund-block.green { background-color: #66BB6A; }
+        .fund-block.amber { background-color: #FBC02D; }
+        .fund-block.orange { background-color: #FB8C00; }
+        .fund-block.red { background-color: #C62828; }
+        .fund-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            margin-left: 2px;
+        }
+        .fund-dot.green { background-color: #66BB6A; }
+        .fund-dot.red { background-color: #C62828; }
+        .fund-dot.gray { background-color: #888888; }
+        .fund-tooltip {
+            visibility: hidden;
+            width: 220px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 9999;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 11px;
+            line-height: 1.5;
+            font-weight: normal;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .fund-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .fund-quality:hover .fund-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .ai-analysis {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 5px solid #6366f1;
+            margin-top: 15px;
+        }
+        .ai-analysis-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4338ca;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #c7d2fe;
+            padding-bottom: 10px;
+        }
+        .ai-analysis-content {
+            font-size: 13px;
+            color: #1f2937;
+            line-height: 1.8;
+        }
     </style>
-    <script>
-        const SCANNER_COLORS = {
-            'accumulation_distribution': '#F2AE7F',
-            'breakout':                  '#96FFBD',
-            'bull_flag':                 '#DC3E26',
-            'candlestick_bullish':       '#CEE4B3',
-            'candlestick_continuation':  '#F9EC7E',
-            'cup_and_handle':            '#D5CAE4',
-            'fundamental_swing':         '#80C4B7',
-            'golden_cross':              '#9EE8E1',
-            'momentum_burst':            '#EC6D67',
-            'supertrend':                '#4AAFD5',
-            'tight_consolidation':       '#E59462',
-            'volatility_macd':           '#E3CCB2',
-            'wyckoff':                   '#D8905A',
-            'wyckoff_accumulation':      '#6BAA6B'
-        };
-        
-        function getScannerColor(scannerName) {
-            const normalized = scannerName.toLowerCase().replace(/ /g, '_');
-            return SCANNER_COLORS[normalized] || '#999999';
-        }
-        
-        async function removeItem(id) {
-            const formData = new FormData();
-            formData.append('item_id', id);
-            
-            try {
-                const response = await fetch('/api/focus-list/remove', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                
-                if (result.status === 'ok') {
-                    const row = document.getElementById('row-' + id);
-                    if (row) {
-                        row.style.transition = 'opacity 0.3s, transform 0.3s';
-                        row.style.opacity = '0';
-                        row.style.transform = 'translateX(-20px)';
-                        setTimeout(() => {
-                            row.remove();
-                            document.querySelectorAll('.day-section').forEach(section => {
-                                if (section.querySelectorAll('.stock-row').length === 0) {
-                                    section.remove();
-                                }
-                            });
-                            if (document.querySelectorAll('.day-section').length === 0) {
-                                location.reload();
-                            }
-                        }, 300);
-                    }
-                } else {
-                    alert('Error: ' + (result.message || 'Failed to remove'));
-                }
-            } catch (error) {
-                alert('Error removing item: ' + error.message);
-            }
-        }
-        
-        // Color the scanner badges and confirmation dots on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.scanner-badge[data-scanner]').forEach(badge => {
-                badge.style.background = getScannerColor(badge.dataset.scanner);
-            });
-            document.querySelectorAll('.conf-dot[data-scanner]').forEach(dot => {
-                dot.style.background = getScannerColor(dot.dataset.scanner);
-            });
-        });
-    </script>
 </head>
 <body>
     <div class="sticky-header">
         <div class="sticky-header-content">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h1 style="margin: 0 0 5px 0;">🎯 Focus List</h1>
-                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">{{ total_count }} setups saved for review</p>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <a href="/" style="background: #e8f4f8; color: #2c5f7a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d0e5ed;">🔍 Scanners</a>
-                    <a href="/options-signals" style="background: #fff3e0; color: #e65100; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #ffcc80;">📈 Options Flows</a>
-                    <a href="/darkpool-signals" style="background: #f3e5f5; color: #8e44ad; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d4a5d9;">🌑 Dark Pools</a>
-                    <a href="/ranked" style="background: #e8f4f8; color: #2c5f7a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #d0e5ed;">🏆 Top Ranked</a>
-                    <a href="/stats" style="background: #f3e5f5; color: #6a1b9a; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: normal; border: 1px solid #e1bee7;">📊 Stats</a>
-                </div>
-            </div>
+            <h2 style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <a href="/" style="text-decoration: none; color: #333;">← Back</a>
+                <span style="color: #e74c3c;">🎯 Focus List</span>
+                <span style="font-size: 14px; color: #666; font-weight: normal;">({{ total_count }} setup{% if total_count != 1 %}s{% endif %})</span>
+            </h2>
         </div>
     </div>
-
-    {% if total_count == 0 %}
-    <div class="empty-state">
-        <h2>📋 Your Focus List is Empty</h2>
-        <p>Browse scanner results and click the <strong>focus +</strong> button to add setups here.</p>
-        <a href="/" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #ff6b35; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Browse Scanners</a>
+    
+    {% if not grouped_items %}
+    <div style="text-align: center; padding: 50px; color: #666;">
+        <h3>No items in your focus list</h3>
+        <p>Add stocks from the scanner results to track them here.</p>
+        <a href="/" style="color: #0066cc;">← Go to Scanner</a>
     </div>
     {% else %}
     
@@ -276,103 +359,235 @@
                         {{ item.scan_date if item.scan_date else '-' }}
                     </td>
                     <td style="width: 80px;">
-                        {% if item.entry_price %}
-                        ${{ "%.2f"|format(item.entry_price) }}
-                        {% else %}
-                        -
-                        {% endif %}
+                        {% if item.entry_price %}${{ "%.2f"|format(item.entry_price) }}{% else %}-{% endif %}
                     </td>
                     <td style="width: 80px;">
                         {% if item.strength %}
-                            {% if item.strength >= 80 %}
-                            <span class="strength-high">{{ item.strength }}</span>
-                            {% elif item.strength >= 60 %}
-                            <span class="strength-medium">{{ item.strength }}</span>
-                            {% else %}
-                            <span class="strength-low">{{ item.strength }}</span>
-                            {% endif %}
-                        {% else %}
-                        -
-                        {% endif %}
+                            {% if item.strength >= 80 %}<span class="strength-high">{{ item.strength }}</span>
+                            {% elif item.strength >= 60 %}<span class="strength-medium">{{ item.strength }}</span>
+                            {% else %}<span class="strength-low">{{ item.strength }}</span>{% endif %}
+                        {% else %}-{% endif %}
                     </td>
                     <td style="width: 80px;">
                         {% if item.quality %}
-                            {% if 'strong' in item.quality.lower() %}
-                            <span class="quality-badge quality-strong">{{ item.quality }}</span>
-                            {% elif 'good' in item.quality.lower() %}
-                            <span class="quality-badge quality-good">{{ item.quality }}</span>
-                            {% else %}
-                            <span class="quality-badge quality-moderate">{{ item.quality }}</span>
-                            {% endif %}
-                        {% else %}
-                        -
-                        {% endif %}
+                            {% if 'strong' in item.quality.lower() %}<span class="quality-badge quality-strong">{{ item.quality }}</span>
+                            {% elif 'good' in item.quality.lower() %}<span class="quality-badge quality-good">{{ item.quality }}</span>
+                            {% else %}<span class="quality-badge quality-moderate">{{ item.quality }}</span>{% endif %}
+                        {% else %}-{% endif %}
                     </td>
                 </tr>
+                
                 <tr>
-                    <td colspan="3" class="meta-info">
-                        <strong>Sector:</strong> {% if item.sector %}{{ item.sector }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
-                        &nbsp;|&nbsp;
-                        <strong>Industry:</strong> {% if item.industry %}{{ item.industry }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
-                        &nbsp;|&nbsp;
-                        <strong>Mkt Cap:</strong> {% if item.market_cap %}<span style="font-weight:700; color:#0066cc;">{{ item.market_cap }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
-                    </td>
-                    <td colspan="3" class="meta-info" style="padding-left: 20px;">
-                        <strong>Vol:</strong> {{ "{:,}".format(item.volume) if item.volume else 'N/A' }}
-                        &nbsp;|&nbsp;
-                        <strong>Avg:</strong> {{ "{:,}".format(item.avg_volume) if item.avg_volume else 'N/A' }}
-                        &nbsp;|&nbsp;
-                        <strong>Ratio:</strong> {{ item.volume_ratio if item.volume_ratio else 'N/A' }}x{% if item.volume_ratio and item.volume_ratio >= 2.0 %}<span style="color: green; font-weight: bold;"> ✓HIGH</span>{% elif item.volume_ratio and item.volume_ratio >= 1.5 %}<span style="color: orange; font-weight: bold;"> ↑</span>{% elif item.volume_ratio and item.volume_ratio < 0.8 %}<span style="color: red;"> ↓</span>{% endif %}
+                    <td colspan="6" style="padding: 0;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="width: 63%; vertical-align: top; padding-right: 10px;">
+                                    <div style="display: flex; flex-direction: column; height: 100%;">
+                                        <div style="font-size: 13px; color: #555; margin-bottom: 8px;">
+                                            <strong>Sector:</strong> {% if item.sector %}{{ item.sector }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                                            &nbsp;|&nbsp;
+                                            <strong>Industry:</strong> {% if item.industry %}{{ item.industry }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                                            &nbsp;|&nbsp;
+                                            <strong>Mkt Cap:</strong> {% if item.market_cap %}<span style="font-weight:700; color:#0066cc;">${{ item.market_cap }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                                            &nbsp;|&nbsp;
+                                            <strong>Fund:</strong>
+                                            {% if item.fund_quality %}
+                                            {% set fq = item.fund_quality %}
+                                            <span class="fund-quality">
+                                                <span class="fund-bar">
+                                                    {% for i in range(5) %}
+                                                    <span class="fund-block {% if i < fq.bar_blocks %}{{ fq.bar_bucket }}{% else %}empty{% endif %}"></span>
+                                                    {% endfor %}
+                                                </span>
+                                                <span class="fund-dot {{ fq.dot_state }}"></span>
+                                                <span class="fund-tooltip">
+                                                    <strong>Fundamental Quality: {{ fq.fund_score }}/100</strong><br>
+                                                    {% if fq.computed_at %}Updated: {{ fq.computed_at[:10] }}<br>{% endif %}
+                                                    <hr style="border-color: #555; margin: 6px 0;">
+                                                    Op. Margin: {% if fq.operating_margin is not none %}{{ "%.1f"|format(fq.operating_margin * 100) }}%{% else %}—{% endif %}<br>
+                                                    ROE: {% if fq.return_on_equity is not none %}{{ "%.1f"|format(fq.return_on_equity * 100) }}%{% else %}—{% endif %}<br>
+                                                    Profit Margin: {% if fq.profit_margin is not none %}{{ "%.1f"|format(fq.profit_margin * 100) }}%{% else %}—{% endif %}<br>
+                                                    Q EPS Growth: {% if fq.quarterly_earnings_growth is not none %}{{ "%.1f"|format(fq.quarterly_earnings_growth * 100) }}%{% else %}—{% endif %}<br>
+                                                    P/E Ratio: {% if fq.pe_ratio is not none %}{{ "%.1f"|format(fq.pe_ratio) }}{% else %}—{% endif %}
+                                                </span>
+                                            </span>
+                                            {% else %}<span style="color:#999;">N/A</span>{% endif %}
+                                        </div>
+                                        <div style="flex: 1; display: flex; align-items: center;">
+                                            <img src="https://finviz.com/chart.ashx?t={{ item.symbol }}&ty=c&ta=1&p=d&s=l" style="display: block; width: 100%;" />
+                                        </div>
+                                    </div>
+                                </td>
+                                
+                                <td style="width: 37%; vertical-align: top; padding-left: 20px;">
+                                    <div style="font-size: 13px; line-height: 1.5;">
+                                        <div style="font-size: 13px; color: #555; margin-bottom: 8px;">
+                                            <strong>Vol:</strong> {{ "{:,}".format(item.volume) if item.volume else 'N/A' }}
+                                            &nbsp;|&nbsp;
+                                            <strong>Avg:</strong> {{ "{:,}".format(item.avg_volume) if item.avg_volume else 'N/A' }}
+                                            &nbsp;|&nbsp;
+                                            <strong>Ratio:</strong> {{ item.volume_ratio }}x{% if item.volume_ratio and item.volume_ratio >= 2.0 %}<span style="color: green; font-weight: bold;"> ✓HIGH</span>{% elif item.volume_ratio and item.volume_ratio >= 1.5 %}<span style="color: orange; font-weight: bold;"> ↑</span>{% elif item.volume_ratio and item.volume_ratio < 0.8 %}<span style="color: red;"> ↓</span>{% endif %}
+                                            &nbsp;|&nbsp;
+                                            <span class="oms-tooltip"><strong>OMS:</strong><span class="oms-tooltip-text"><strong>Options Market Share (OMS)</strong><br><br>Measures options influence vs stock trading.<br><br><strong>Formula:</strong><br>(Max OI at key strikes × 100) ÷ Daily Volume<br><br><strong>Thresholds:</strong><br>• Stock-Dom (&lt;0.3): Shares control price<br>• Mixed (0.3-1.0): Both influence price<br>• Options-Dom (1.0-2.0): Options drive price<br>• Gamma-Dom (≥2.0): Extreme options control</span></span> {% if item.oms %}{{ item.oms }}{% if item.oms >= 2.0 %}<span style="color: #e74c3c; font-weight: bold;"> Gamma-Dom</span>{% elif item.oms >= 1.0 %}<span style="color: #9c27b0; font-weight: bold;"> Options-Dom</span>{% elif item.oms >= 0.3 %}<span style="color: #ff9800; font-weight: bold;"> Mixed</span>{% else %}<span style="color: #27ae60; font-weight: bold;"> Stock-Dom</span>{% endif %}{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                                        </div>
+                                        
+                                        {% if item.confirmations and item.confirmations|length > 0 %}
+                                        <br>
+                                        <strong>✓ Confirmed by other scanners ({{ item.confirmations|length }}):</strong><br>
+                                        <div class="conf-section" style="max-height: 120px; overflow-y: auto; width: 700px; box-sizing: border-box;">
+                                        {% for conf in item.confirmations %}
+                                            <span class="conf-dot" data-scanner="{{ conf.scanner }}" style="font-weight: bold;">●</span> <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
+                                            <span style="color: #666;">({{ conf.date }}{% if conf.strength %}, strength: {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
+                                        {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if item.darkpool_signals and item.darkpool_signals|length > 0 %}
+                                        {% set dp_signals = item.darkpool_signals %}
+                                        {% set bias = namespace(bull_score=0, bear_score=0) %}
+                                        {% for dp in dp_signals[:10] %}
+                                            {% set weight = 1 %}
+                                            {% if dp.strength == 'EXTREME' %}{% set weight = 3 %}{% elif dp.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
+                                            {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}{% set bias.bull_score = bias.bull_score + weight %}
+                                            {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}{% set bias.bear_score = bias.bear_score + weight %}{% endif %}
+                                        {% endfor %}
+                                        {% set total_score = bias.bull_score + bias.bear_score %}
+                                        {% if total_score > 0 %}{% set bull_pct = (bias.bull_score / total_score * 100)|int %}{% else %}{% set bull_pct = 50 %}{% endif %}
+                                        {% if bull_pct >= 65 %}{% set verdict = 'BULLISH' %}{% set verdict_color = '#27ae60' %}{% set verdict_icon = '🟢' %}
+                                        {% elif bull_pct <= 35 %}{% set verdict = 'BEARISH' %}{% set verdict_color = '#e74c3c' %}{% set verdict_icon = '🔴' %}
+                                        {% else %}{% set verdict = 'NEUTRAL' %}{% set verdict_color = '#f39c12' %}{% set verdict_icon = '🟡' %}{% endif %}
+                                        
+                                        <br>
+                                        <strong>🌑 Dark Pool Signals ({{ dp_signals|length }}): 
+                                            <span style="color: {{ verdict_color }}; font-weight: bold;">{{ verdict_icon }} {{ verdict }}</span>
+                                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish)</span>
+                                        </strong><br>
+                                        <div style="margin-top: 10px; border: 1px solid #8e44ad; padding: 12px; border-radius: 4px; background: white; width: 700px; box-sizing: border-box;">
+                                            <canvas class="dp-chart" data-symbol="{{ item.symbol }}" id="dpChart_{{ item.symbol }}" style="max-height: 120px;"></canvas>
+                                        </div>
+                                        <a href="/darkpool-signals?symbol={{ item.symbol }}" style="font-size: 11px; color: #8e44ad; text-decoration: none; margin-left: 10px;">→ View all dark pool signals for {{ item.symbol }}</a>
+                                        {% endif %}
+                                        
+                                        {% if item.options_signals and item.options_signals|length > 0 %}
+                                        {% set opt_signals = item.options_signals %}
+                                        {% set opt_bias = namespace(bull_score=0, bear_score=0) %}
+                                        {% for opt in opt_signals[:10] %}
+                                            {% set weight = 1 %}
+                                            {% if opt.strength == 'EXTREME' %}{% set weight = 3 %}{% elif opt.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
+                                            {% if opt.direction == 'BULLISH' or opt.direction == 'BUY' %}{% set opt_bias.bull_score = opt_bias.bull_score + weight %}
+                                            {% elif opt.direction == 'BEARISH' or opt.direction == 'SELL' %}{% set opt_bias.bear_score = opt_bias.bear_score + weight %}{% endif %}
+                                        {% endfor %}
+                                        {% set opt_total_score = opt_bias.bull_score + opt_bias.bear_score %}
+                                        {% if opt_total_score > 0 %}{% set opt_bull_pct = (opt_bias.bull_score / opt_total_score * 100)|int %}{% else %}{% set opt_bull_pct = 50 %}{% endif %}
+                                        {% if opt_bull_pct >= 65 %}{% set opt_verdict = 'BULLISH' %}{% set opt_verdict_color = '#27ae60' %}{% set opt_verdict_icon = '🟢' %}
+                                        {% elif opt_bull_pct <= 35 %}{% set opt_verdict = 'BEARISH' %}{% set opt_verdict_color = '#e74c3c' %}{% set opt_verdict_icon = '🔴' %}
+                                        {% else %}{% set opt_verdict = 'NEUTRAL' %}{% set opt_verdict_color = '#f39c12' %}{% set opt_verdict_icon = '🟡' %}{% endif %}
+                                        
+                                        <br>
+                                        <strong>📈 Options Flow Signals ({{ opt_signals|length }}): 
+                                            <span style="color: {{ opt_verdict_color }}; font-weight: bold;">{{ opt_verdict_icon }} {{ opt_verdict }}</span>
+                                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ opt_bull_pct }}% bullish)</span>
+                                        </strong><br>
+                                        <div style="margin-top: 10px; border: 1px solid #f39c12; padding: 12px; border-radius: 4px; background: white; width: 700px; box-sizing: border-box;">
+                                            <canvas class="opt-chart" data-symbol="{{ item.symbol }}" id="optChart_{{ item.symbol }}" style="max-height: 120px;"></canvas>
+                                        </div>
+                                        <a href="/options-signals?symbol={{ item.symbol }}" style="font-size: 11px; color: #f39c12; text-decoration: none; margin-left: 10px;">→ View all options signals for {{ item.symbol }}</a>
+                                        {% endif %}
+                                        
+                                        {% if item.options_walls %}
+                                        {% set walls = item.options_walls %}
+                                        {% set max_call_oi = [walls.call_wall_1.oi or 0, walls.call_wall_2.oi or 0, walls.call_wall_3.oi or 0]|max %}
+                                        {% set max_put_oi = [walls.put_wall_1.oi or 0, walls.put_wall_2.oi or 0, walls.put_wall_3.oi or 0]|max %}
+                                        <br>
+                                        <strong><img src="/static/brick_wall.png" style="width: 16px; height: 16px; vertical-align: middle;"> Options Walls:</strong><br>
+                                        <div style="font-size: 11px; line-height: 1.6; border: 1px solid #5dade2; padding: 6px; border-radius: 4px; background: #eaf6fc; width: 700px; box-sizing: border-box;">
+                                            <div style="display: flex; gap: 8px;">
+                                                <div style="flex: 1;">
+                                                    <span style="color: #27ae60; font-weight: bold; font-size: 10px;">📈 CALL WALLS</span>
+                                                    {% if walls.call_wall_1.strike %}
+                                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.call_wall_1.strike) }} <span style="color: #666;">({{ "{:,}".format(walls.call_wall_1.oi) }})</span></span>
+                                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                                            <div style="width: {{ (walls.call_wall_1.oi / max_call_oi * 100) if max_call_oi > 0 else 0 }}%; height: 100%; background: #27ae60; border-radius: 3px;"></div>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if walls.call_wall_2.strike %}
+                                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.call_wall_2.strike) }} <span style="color: #888;">({{ "{:,}".format(walls.call_wall_2.oi) }})</span></span>
+                                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                                            <div style="width: {{ (walls.call_wall_2.oi / max_call_oi * 100) if max_call_oi > 0 else 0 }}%; height: 100%; background: #58d68d; border-radius: 3px;"></div>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if walls.call_wall_3.strike %}
+                                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.call_wall_3.strike) }} <span style="color: #888;">({{ "{:,}".format(walls.call_wall_3.oi) }})</span></span>
+                                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                                            <div style="width: {{ (walls.call_wall_3.oi / max_call_oi * 100) if max_call_oi > 0 else 0 }}%; height: 100%; background: #abebc6; border-radius: 3px;"></div>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                                <div style="flex: 1;">
+                                                    <span style="color: #e74c3c; font-weight: bold; font-size: 10px;">📉 PUT WALLS</span>
+                                                    {% if walls.put_wall_1.strike %}
+                                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.put_wall_1.strike) }} <span style="color: #666;">({{ "{:,}".format(walls.put_wall_1.oi) }})</span></span>
+                                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                                            <div style="width: {{ (walls.put_wall_1.oi / max_put_oi * 100) if max_put_oi > 0 else 0 }}%; height: 100%; background: #e74c3c; border-radius: 3px;"></div>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if walls.put_wall_2.strike %}
+                                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.put_wall_2.strike) }} <span style="color: #888;">({{ "{:,}".format(walls.put_wall_2.oi) }})</span></span>
+                                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                                            <div style="width: {{ (walls.put_wall_2.oi / max_put_oi * 100) if max_put_oi > 0 else 0 }}%; height: 100%; background: #ec7063; border-radius: 3px;"></div>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if walls.put_wall_3.strike %}
+                                                    <div style="display: flex; align-items: center; gap: 3px;">
+                                                        <span style="min-width: 75px; white-space: nowrap;">${{ "%.0f"|format(walls.put_wall_3.strike) }} <span style="color: #888;">({{ "{:,}".format(walls.put_wall_3.oi) }})</span></span>
+                                                        <div style="flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden;">
+                                                            <div style="width: {{ (walls.put_wall_3.oi / max_put_oi * 100) if max_put_oi > 0 else 0 }}%; height: 100%; background: #f5b7b1; border-radius: 3px;"></div>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #ddd; font-size: 10px; color: #666; display: flex; justify-content: space-between;">
+                                                <span>P/C: <strong style="color: {% if walls.put_call_ratio < 0.7 %}#27ae60{% elif walls.put_call_ratio > 1.0 %}#e74c3c{% else %}#f39c12{% endif %};">{{ "%.2f"|format(walls.put_call_ratio) }}</strong>
+                                                | Call: <strong>{{ "{:,}".format(walls.total_call_oi) }}</strong> | Put: <strong>{{ "{:,}".format(walls.total_put_oi) }}</strong></span>
+                                                <span>
+                                                    {% if walls.gamma_flip %}
+                                                    <span class="info-tooltip">γ Flip<span class="info-tooltip-text"><strong>Gamma Flip Price</strong><br><br>Price level where dealer gamma exposure flips.<br><br><strong>Calculation:</strong><br>(Top Call Wall + Top Put Wall) ÷ 2</span></span>: <strong>${{ "%.0f"|format(walls.gamma_flip) }}</strong>
+                                                    {% if walls.gamma_flip_distance %}(<span style="color: {% if walls.gamma_flip_distance > 0 %}#27ae60{% else %}#e74c3c{% endif %}; font-weight: bold;">{{ "%+.1f"|format(walls.gamma_flip_distance) }}%</span>){% endif %}
+                                                    | 
+                                                    {% endif %}
+                                                    <span class="info-tooltip">γ<span class="info-tooltip-text"><strong>Gamma Exposure</strong><br><br>+Pos: P/C &lt; 0.7 — Dealers reduce vol<br>−Neg: P/C &gt; 1.0 — Dealers amplify moves<br>~Neut: P/C 0.7-1.0 — Normal behavior</span></span>: {% if walls.put_call_ratio < 0.7 %}<span style="color: #27ae60; font-weight: bold;">+Pos</span>{% elif walls.put_call_ratio > 1.0 %}<span style="color: #e74c3c; font-weight: bold;">−Neg</span>{% else %}<span style="color: #f39c12; font-weight: bold;">~Neut</span>{% endif %}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div style="margin-top: 15px; font-size: 11px; color: #999;">
+                                            Added to focus list: {{ item.added_date.replace('T', ' ')[:16] if item.added_date else '' }}
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
                     </td>
                 </tr>
-                <tr>
-                    <td colspan="3" style="position: relative;">
-                        <div id="chart-{{ item.symbol }}" style="width: 100%; height: 400px;"></div>
-                    </td>
-                    <td colspan="3" style="vertical-align: top; padding-left: 20px;">
-                        {% if item.confirmations and item.confirmations|length > 0 %}
-                        <div class="conf-section">
-                            <strong>✓ Also detected by ({{ item.confirmations|length }}):</strong><br>
-                            {% for conf in item.confirmations %}
-                            <span class="conf-dot" data-scanner="{{ conf.scanner }}"></span>
-                            <span style="color: #0066cc;">{{ conf.scanner.replace('_', ' ').title() }}</span>
-                            <span style="color: #666; font-size: 11px;">({{ conf.date }}{% if conf.strength %}, {{ '%.0f'|format(conf.strength) }}{% endif %})</span><br>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                        
-                        <div style="margin-top: 15px; font-size: 11px; color: #999;">
-                            Added: {{ item.added_date.replace('T', ' ')[:16] if item.added_date else '' }}
-                        </div>
-                    </td>
-                </tr>
-                {# Dark Pool & Options Charts Row #}
-                <tr>
-                    <td colspan="6" style="padding: 15px 10px;">
-                        <div style="display: flex; gap: 20px;">
-                            {# Dark Pool Chart #}
-                            <div style="flex: 1; border: 1px solid #8e44ad; border-radius: 4px; padding: 12px; background: white;">
-                                <strong style="color: #8e44ad;">🌑 Dark Pool Signals (Last 60 Days)</strong><br>
-                                <canvas class="dp-chart-focus" data-symbol="{{ item.symbol }}" style="max-height: 150px; margin-top: 10px;"></canvas>
-                                <a href="/darkpool-signals?symbol={{ item.symbol }}" style="font-size: 11px; color: #8e44ad; text-decoration: none;">→ View all dark pool signals</a>
-                            </div>
-                            {# Options Flow Chart #}
-                            <div style="flex: 1; border: 1px solid #f39c12; border-radius: 4px; padding: 12px; background: white;">
-                                <strong style="color: #f39c12;">📈 Options Flow Signals (Last 60 Days)</strong><br>
-                                <canvas class="opt-chart-focus" data-symbol="{{ item.symbol }}" style="max-height: 150px; margin-top: 10px;"></canvas>
-                                <a href="/options-signals?symbol={{ item.symbol }}" style="font-size: 11px; color: #f39c12; text-decoration: none;">→ View all options signals</a>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
+                
                 {% if item.ai_analysis %}
                 <tr>
-                    <td colspan="6" style="padding: 15px 10px;">
-                        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 10px; padding: 20px; border-left: 5px solid #6366f1;">
-                            <div style="font-size: 14px; font-weight: 600; color: #4338ca; margin-bottom: 15px; border-bottom: 1px solid #c7d2fe; padding-bottom: 10px;">
-                                📊 Analysis & Trade Plan
-                            </div>
-                            <div style="font-size: 13px; color: #1f2937; line-height: 1.8;">
+                    <td colspan="6" style="padding: 10px 10px 15px 10px;">
+                        <div class="ai-analysis">
+                            <div class="ai-analysis-header">🤖 AI Analysis & Trade Plan</div>
+                            <div class="ai-analysis-content">
                                 {{ item.ai_analysis | replace('1. **', '<div style="margin-bottom: 12px;"><span style="background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-weight: 600; color: #1e40af;">1.</span> <strong>') | replace('2. **', '</div><div style="margin-bottom: 12px;"><span style="background: #dcfce7; padding: 2px 8px; border-radius: 4px; font-weight: 600; color: #166534;">2.</span> <strong>') | replace('3. **', '</div><div style="margin-bottom: 12px;"><span style="background: #fef3c7; padding: 2px 8px; border-radius: 4px; font-weight: 600; color: #92400e;">3.</span> <strong>') | replace('4. **', '</div><div style="margin-bottom: 12px;"><span style="background: #fce7f3; padding: 2px 8px; border-radius: 4px; font-weight: 600; color: #9d174d;">4.</span> <strong>') | replace('**:', '</strong>:') | replace('**', '</strong>') | safe }}</div>
                             </div>
                         </div>
@@ -388,313 +603,67 @@
     {% endif %}
     
     <script>
-    // Load charts for all symbols
-    async function loadChart(symbol) {
+    async function removeItem(id) {
+        if (!confirm('Remove this item from your focus list?')) return;
         try {
-            const response = await fetch(`/api/chart-data/${symbol}?days=30`);
+            const response = await fetch(`/api/focus-list/${id}`, { method: 'DELETE' });
             const result = await response.json();
-            
-            if (result.status !== 'ok') {
-                console.error(`Failed to load chart for ${symbol}`);
-                return;
+            if (result.status === 'ok') {
+                document.getElementById(`row-${id}`).remove();
+            } else {
+                alert('Failed to remove item');
             }
-            
-            const data = result.data;
-            
-            // Create candlestick trace
-            const candlestick = {
-                x: data.dates,
-                open: data.open,
-                high: data.high,
-                low: data.low,
-                close: data.close,
-                type: 'candlestick',
-                name: symbol,
-                increasing: {line: {color: '#26a69a'}},
-                decreasing: {line: {color: '#ef5350'}},
-                xaxis: 'x',
-                yaxis: 'y'
-            };
-            
-            // Create volume bars trace
-            const volumeColors = data.close.map((close, i) => {
-                if (i === 0) return '#999';
-                return close >= data.close[i-1] ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)';
-            });
-            
-            const volume = {
-                x: data.dates,
-                y: data.volume,
-                type: 'bar',
-                name: 'Volume',
-                marker: {color: volumeColors},
-                xaxis: 'x',
-                yaxis: 'y2'
-            };
-            
-            const layout = {
-                title: {
-                    text: `${symbol} - Last 30 Days`,
-                    font: {size: 14}
-                },
-                xaxis: {
-                    rangeslider: {visible: false},
-                    type: 'date'
-                },
-                yaxis: {
-                    title: 'Price',
-                    domain: [0.3, 1]
-                },
-                yaxis2: {
-                    title: 'Volume',
-                    domain: [0, 0.2]
-                },
-                margin: {l: 50, r: 50, t: 40, b: 40},
-                height: 400,
-                showlegend: true,
-                legend: {x: 0.02, y: 0.98, bgcolor: 'rgba(255,255,255,0.8)'},
-                hovermode: 'x unified',
-                shapes: []
-            };
-            
-            // Add call/put walls if available
-            if (data.walls) {
-                const annotations = [];
-                
-                // Add call walls (green)
-                if (data.walls.call_walls && data.walls.call_walls.length > 0) {
-                    data.walls.call_walls.forEach((wall, idx) => {
-                        layout.shapes.push({
-                            type: 'line',
-                            x0: data.dates[0],
-                            x1: data.dates[data.dates.length - 1],
-                            y0: wall.strike,
-                            y1: wall.strike,
-                            yref: 'y',
-                            line: {
-                                color: 'rgba(34, 197, 94, 0.6)',
-                                width: 2,
-                                dash: 'dot'
-                            }
-                        });
-                        
-                        annotations.push({
-                            x: data.dates[data.dates.length - 1],
-                            y: wall.strike,
-                            xref: 'x',
-                            yref: 'y',
-                            text: `C${idx+1}: $${wall.strike.toFixed(2)} (${(wall.oi/1000).toFixed(1)}k)`,
-                            showarrow: false,
-                            xanchor: 'left',
-                            bgcolor: 'rgba(34, 197, 94, 0.8)',
-                            font: {color: 'white', size: 10},
-                            borderpad: 4
-                        });
-                    });
-                }
-                
-                // Add put walls (red)
-                if (data.walls.put_walls && data.walls.put_walls.length > 0) {
-                    data.walls.put_walls.forEach((wall, idx) => {
-                        layout.shapes.push({
-                            type: 'line',
-                            x0: data.dates[0],
-                            x1: data.dates[data.dates.length - 1],
-                            y0: wall.strike,
-                            y1: wall.strike,
-                            yref: 'y',
-                            line: {
-                                color: 'rgba(239, 68, 68, 0.6)',
-                                width: 2,
-                                dash: 'dot'
-                            }
-                        });
-                        
-                        annotations.push({
-                            x: data.dates[data.dates.length - 1],
-                            y: wall.strike,
-                            xref: 'x',
-                            yref: 'y',
-                            text: `P${idx+1}: $${wall.strike.toFixed(2)} (${(wall.oi/1000).toFixed(1)}k)`,
-                            showarrow: false,
-                            xanchor: 'left',
-                            bgcolor: 'rgba(239, 68, 68, 0.8)',
-                            font: {color: 'white', size: 10},
-                            borderpad: 4
-                        });
-                    });
-                }
-                
-                layout.annotations = annotations;
-            }
-            
-            const config = {
-                responsive: true,
-                displayModeBar: true,
-                displaylogo: false,
-                modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
-            };
-            
-            Plotly.newPlot(`chart-${symbol}`, [candlestick, volume], layout, config);
-            
         } catch (error) {
-            console.error(`Error loading chart for ${symbol}:`, error);
+            console.error('Error removing item:', error);
+            alert('Failed to remove item');
         }
     }
     
-    // Load all charts when page is ready
-    document.addEventListener('DOMContentLoaded', function() {
-        const symbols = [];
-        {% for day, items in grouped_items.items() %}
-            {% for item in items %}
-                symbols.push('{{ item.symbol }}');
-            {% endfor %}
+    const dpData = {};
+    const optData = {};
+    
+    {% for day, items in grouped_items.items() %}
+    {% for item in items %}
+    {% if item.darkpool_signals %}
+    dpData['{{ item.symbol }}'] = [
+        {% for dp in item.darkpool_signals[:30] %}
+        { label: '{{ dp.date[5:] if dp.date else "" }}', value: {{ dp.dp_premium or 0 }}, color: '{{ "#27ae60" if dp.direction in ["BUY", "BULLISH"] else "#e74c3c" if dp.direction in ["SELL", "BEARISH"] else "#f39c12" }}' },
         {% endfor %}
-        
-        // Load charts with a slight delay between each to avoid overwhelming the server
-        symbols.forEach((symbol, index) => {
-            setTimeout(() => loadChart(symbol), index * 100);
+    ].reverse();
+    {% endif %}
+    {% if item.options_signals %}
+    optData['{{ item.symbol }}'] = [
+        {% for opt in item.options_signals[:30] %}
+        { label: '{{ opt.date[5:] if opt.date else "" }}', bullish_premium: {{ opt.premium if opt.direction in ['BULLISH', 'BUY'] else 0 }}, bearish_premium: {{ opt.premium if opt.direction in ['BEARISH', 'SELL'] else 0 }} },
+        {% endfor %}
+    ].reverse();
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.dp-chart').forEach(canvas => {
+            const symbol = canvas.getAttribute('data-symbol');
+            const data = dpData[symbol];
+            if (!data || data.length === 0) return;
+            new Chart(canvas, {
+                type: 'bar',
+                data: { labels: data.map(d => d.label), datasets: [{ label: 'Premium', data: data.map(d => d.value), backgroundColor: data.map(d => d.color), borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '$' + (ctx.parsed.y / 1000000).toFixed(1) + 'M' } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + (v / 1000000).toFixed(0) + 'M', font: { size: 9 } } }, x: { ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 } } } }
+            });
         });
         
-        // Load darkpool and options charts
-        loadDarkpoolAndOptionsCharts();
+        document.querySelectorAll('.opt-chart').forEach(canvas => {
+            const symbol = canvas.getAttribute('data-symbol');
+            const data = optData[symbol];
+            if (!data || data.length === 0) return;
+            new Chart(canvas, {
+                type: 'bar',
+                data: { labels: data.map(d => d.label), datasets: [{ label: 'Bullish', data: data.map(d => d.bullish_premium), backgroundColor: 'rgba(39, 174, 96, 0.7)', borderWidth: 0, stack: 'premium' }, { label: 'Bearish', data: data.map(d => d.bearish_premium), backgroundColor: 'rgba(231, 76, 60, 0.7)', borderWidth: 0, stack: 'premium' }] },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + (ctx.parsed.y / 1000).toFixed(0) + 'K' } } }, scales: { y: { beginAtZero: true, stacked: true, ticks: { callback: v => '$' + (v / 1000).toFixed(0) + 'K', font: { size: 9 } } }, x: { stacked: true, ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 } } } }
+            });
+        });
     });
-    
-    // Load darkpool and options charts for all symbols
-    async function loadDarkpoolAndOptionsCharts() {
-        const dpCharts = document.querySelectorAll('.dp-chart-focus');
-        const optCharts = document.querySelectorAll('.opt-chart-focus');
-        
-        if (dpCharts.length === 0 && optCharts.length === 0) return;
-        
-        // Collect all unique symbols
-        const symbols = [...new Set([
-            ...Array.from(dpCharts).map(c => c.getAttribute('data-symbol')),
-            ...Array.from(optCharts).map(c => c.getAttribute('data-symbol'))
-        ])].filter(s => s);
-        
-        if (symbols.length === 0) return;
-        
-        try {
-            // Fetch darkpool data
-            const dpResponse = await fetch('/api/darkpool-chart-data-bulk?symbols=' + symbols.join(','));
-            const dpData = await dpResponse.json();
-            
-            // Fetch options data
-            const optResponse = await fetch('/api/options-chart-data-bulk?symbols=' + symbols.join(','));
-            const optData = await optResponse.json();
-            
-            // Create darkpool charts
-            dpCharts.forEach(canvas => {
-                const symbol = canvas.getAttribute('data-symbol');
-                const data = dpData[symbol];
-                if (!data || data.length === 0) return;
-                
-                new Chart(canvas, {
-                    type: 'bar',
-                    data: {
-                        labels: data.map(d => d.label),
-                        datasets: [{
-                            label: 'DP Notional',
-                            data: data.map(d => d.premium),
-                            backgroundColor: data.map(d => d.color),
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return '$' + (context.parsed.y / 1000000).toFixed(1) + 'M';
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + (value / 1000000).toFixed(0) + 'M';
-                                    },
-                                    font: { size: 9 }
-                                }
-                            },
-                            x: {
-                                ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
-                            }
-                        }
-                    }
-                });
-            });
-            
-            // Create options charts
-            optCharts.forEach(canvas => {
-                const symbol = canvas.getAttribute('data-symbol');
-                const data = optData[symbol];
-                if (!data || data.length === 0) return;
-                
-                new Chart(canvas, {
-                    type: 'bar',
-                    data: {
-                        labels: data.map(d => d.label),
-                        datasets: [
-                            {
-                                label: 'Bullish',
-                                data: data.map(d => d.bullish_premium),
-                                backgroundColor: 'rgba(39, 174, 96, 0.7)',
-                                borderWidth: 0,
-                                stack: 'premium'
-                            },
-                            {
-                                label: 'Bearish',
-                                data: data.map(d => d.bearish_premium),
-                                backgroundColor: 'rgba(231, 76, 60, 0.7)',
-                                borderWidth: 0,
-                                stack: 'premium'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.dataset.label + ': $' + (context.parsed.y / 1000).toFixed(0) + 'K';
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                stacked: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + (value / 1000).toFixed(0) + 'K';
-                                    },
-                                    font: { size: 9 }
-                                }
-                            },
-                            x: {
-                                stacked: true,
-                                ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
-                            }
-                        }
-                    }
-                });
-            });
-        } catch (error) {
-            console.error('Error loading darkpool/options charts:', error);
-        }
-    }
     </script>
 </body>
 </html>

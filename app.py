@@ -2941,6 +2941,173 @@ async def focus_list_page(request: Request):
             
             conn.close()
             
+            # Fetch options signals for all symbols
+            options_signals_dict = {}
+            darkpool_signals_dict = {}
+            options_walls_dict = {}
+            fund_quality_dict = {}
+            
+            if OPTIONS_DUCKDB_PATH:
+                try:
+                    options_conn = get_options_db_connection()
+                    if options_conn:
+                        placeholders = ','.join(['?' for _ in symbols])
+                        
+                        # Get options signals
+                        options_query = f'''
+                            SELECT underlying_symbol, signal_date, signal_type, 
+                                   signal_strength, confidence_score, strike, dte,
+                                   premium_spent, notes, direction
+                            FROM accumulation_signals
+                            WHERE underlying_symbol IN ({placeholders})
+                            ORDER BY underlying_symbol, signal_date DESC
+                        '''
+                        options_results = options_conn.execute(options_query, symbols).fetchall()
+                        
+                        for row in options_results:
+                            sym = row[0]
+                            if sym not in options_signals_dict:
+                                options_signals_dict[sym] = []
+                            options_signals_dict[sym].append({
+                                'date': str(row[1]) if row[1] else '',
+                                'signal_type': row[2],
+                                'strength': row[3],
+                                'confidence': row[4],
+                                'strike': row[5],
+                                'dte': row[6],
+                                'premium': row[7],
+                                'notes': row[8],
+                                'direction': row[9] if len(row) > 9 else None
+                            })
+                        
+                        # Get darkpool signals
+                        dp_query = f'''
+                            SELECT ticker, signal_date, signal_type, 
+                                   signal_strength, confidence_score, direction,
+                                   dp_volume, dp_premium, avg_price,
+                                   sell_volume, buy_volume, buy_sell_ratio,
+                                   block_count, avg_block_size, consecutive_days, notes
+                            FROM darkpool_signals
+                            WHERE ticker IN ({placeholders})
+                            ORDER BY ticker, signal_date DESC
+                        '''
+                        dp_results = options_conn.execute(dp_query, symbols).fetchall()
+                        
+                        for row in dp_results:
+                            sym = row[0]
+                            if sym not in darkpool_signals_dict:
+                                darkpool_signals_dict[sym] = []
+                            darkpool_signals_dict[sym].append({
+                                'date': str(row[1]) if row[1] else '',
+                                'signal_type': row[2],
+                                'strength': row[3],
+                                'confidence': row[4],
+                                'direction': row[5],
+                                'dp_volume': row[6],
+                                'dp_premium': row[7],
+                                'avg_price': row[8],
+                                'buy_volume': row[10],
+                                'sell_volume': row[9],
+                                'buy_sell_ratio': row[11],
+                                'block_count': row[12],
+                                'avg_block_size': row[13],
+                                'consecutive_days': row[14],
+                                'notes': row[15]
+                            })
+                        
+                        # Get options walls (latest per symbol)
+                        walls_query = f'''
+                            SELECT underlying_symbol, scan_date, stock_price,
+                                   call_wall_strike, call_wall_oi,
+                                   call_wall_2_strike, call_wall_2_oi,
+                                   call_wall_3_strike, call_wall_3_oi,
+                                   put_wall_strike, put_wall_oi,
+                                   put_wall_2_strike, put_wall_2_oi,
+                                   put_wall_3_strike, put_wall_3_oi,
+                                   total_call_oi, total_put_oi, put_call_ratio
+                            FROM options_walls
+                            WHERE underlying_symbol IN ({placeholders})
+                            QUALIFY ROW_NUMBER() OVER (PARTITION BY underlying_symbol ORDER BY scan_date DESC) = 1
+                        '''
+                        walls_results = options_conn.execute(walls_query, symbols).fetchall()
+                        
+                        for row in walls_results:
+                            sym = row[0]
+                            stock_price = row[2] or 0
+                            call_wall_1_strike = row[3] or 0
+                            put_wall_1_strike = row[9] or 0
+                            
+                            if call_wall_1_strike and put_wall_1_strike:
+                                gamma_flip = (call_wall_1_strike + put_wall_1_strike) / 2
+                            else:
+                                gamma_flip = None
+                            
+                            if gamma_flip and stock_price:
+                                gamma_flip_distance = ((gamma_flip - stock_price) / stock_price) * 100
+                            else:
+                                gamma_flip_distance = None
+                            
+                            options_walls_dict[sym] = {
+                                'scan_date': str(row[1]) if row[1] else '',
+                                'stock_price': stock_price,
+                                'call_wall_1': {'strike': row[3], 'oi': row[4]},
+                                'call_wall_2': {'strike': row[5], 'oi': row[6]},
+                                'call_wall_3': {'strike': row[7], 'oi': row[8]},
+                                'put_wall_1': {'strike': row[9], 'oi': row[10]},
+                                'put_wall_2': {'strike': row[11], 'oi': row[12]},
+                                'put_wall_3': {'strike': row[13], 'oi': row[14]},
+                                'total_call_oi': row[15],
+                                'total_put_oi': row[16],
+                                'put_call_ratio': row[17],
+                                'gamma_flip': gamma_flip,
+                                'gamma_flip_distance': gamma_flip_distance
+                            }
+                        
+                        options_conn.close()
+                except Exception as e:
+                    print(f"Error fetching options/darkpool data for focus list: {e}")
+            
+            # Fetch fundamental quality scores
+            try:
+                fund_conn = get_db_connection(DUCKDB_PATH)
+                if fund_conn:
+                    placeholders = ','.join(['?' for _ in symbols])
+                    fund_query = f'''
+                        SELECT symbol, fund_score, bar_blocks, bar_bucket, dot_state,
+                               score_components, computed_at
+                        FROM scanner_data.main.fundamental_quality_scores
+                        WHERE symbol IN ({placeholders})
+                    '''
+                    fund_results = fund_conn.execute(fund_query, symbols).fetchall()
+                    
+                    for row in fund_results:
+                        sym = row[0]
+                        raw_inputs = {}
+                        if row[5]:
+                            import json
+                            try:
+                                components = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                                raw_inputs = components.get('raw_inputs', {})
+                            except:
+                                pass
+                        
+                        fund_quality_dict[sym] = {
+                            'fund_score': row[1],
+                            'bar_blocks': row[2],
+                            'bar_bucket': row[3],
+                            'dot_state': row[4],
+                            'computed_at': str(row[6]) if row[6] else None,
+                            'operating_margin': raw_inputs.get('operating_margin'),
+                            'return_on_equity': raw_inputs.get('return_on_equity'),
+                            'profit_margin': raw_inputs.get('profit_margin'),
+                            'quarterly_earnings_growth': raw_inputs.get('quarterly_earnings_growth'),
+                            'pe_ratio': raw_inputs.get('pe_ratio')
+                        }
+                    
+                    fund_conn.close()
+            except Exception as e:
+                print(f"Error fetching fundamental quality for focus list: {e}")
+            
             # Enrich each item
             for item in items:
                 sym = item['symbol']
@@ -2973,6 +3140,37 @@ async def focus_list_page(request: Request):
                     ][:10]  # Limit to 10 most recent
                 else:
                     item['confirmations'] = []
+                
+                # Add options signals
+                item['options_signals'] = options_signals_dict.get(sym, [])
+                
+                # Add darkpool signals
+                item['darkpool_signals'] = darkpool_signals_dict.get(sym, [])
+                
+                # Add options walls
+                item['options_walls'] = options_walls_dict.get(sym)
+                
+                # Calculate OMS
+                if item['options_walls'] and item['volume'] and item['volume'] > 0:
+                    walls = item['options_walls']
+                    oi_values = [
+                        walls.get('call_wall_1', {}).get('oi') or 0,
+                        walls.get('call_wall_2', {}).get('oi') or 0,
+                        walls.get('call_wall_3', {}).get('oi') or 0,
+                        walls.get('put_wall_1', {}).get('oi') or 0,
+                        walls.get('put_wall_2', {}).get('oi') or 0,
+                        walls.get('put_wall_3', {}).get('oi') or 0,
+                    ]
+                    max_oi = max(oi_values)
+                    if max_oi > 0:
+                        item['oms'] = round((max_oi * 100) / item['volume'], 2)
+                    else:
+                        item['oms'] = None
+                else:
+                    item['oms'] = None
+                
+                # Add fundamental quality
+                item['fund_quality'] = fund_quality_dict.get(sym)
                     
         except Exception as e:
             print(f"Error enriching focus list items: {e}")
@@ -2986,6 +3184,11 @@ async def focus_list_page(request: Request):
                 item.setdefault('avg_volume', 0)
                 item.setdefault('volume_ratio', 0)
                 item.setdefault('confirmations', [])
+                item.setdefault('options_signals', [])
+                item.setdefault('darkpool_signals', [])
+                item.setdefault('options_walls', None)
+                item.setdefault('oms', None)
+                item.setdefault('fund_quality', None)
     
     # Group items by added date (day only)
     from collections import OrderedDict
