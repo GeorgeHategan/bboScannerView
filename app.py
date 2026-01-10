@@ -6493,12 +6493,10 @@ async def index(
             )
             query_params.extend([selected_scan_date, next_day])
         
-        # Order by signal strength (strongest first) and limit results to prevent timeout and memory issues
-        # Reduced to 25 to stay within 512MB memory limit on Render free tier
-        scanner_query += ' ORDER BY signal_strength DESC LIMIT 25'
+        # Order by signal strength (strongest first)
+        scanner_query += ' ORDER BY signal_strength DESC'
 
         scanner_dict = {}
-        # Get top 50 results ordered by strength to prevent timeout
         try:
             scanner_results = conn.execute(scanner_query, query_params).fetchall()
             scanner_dict = {
