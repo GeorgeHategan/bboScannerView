@@ -2887,7 +2887,7 @@ async def focus_list_page(request: Request):
             # Get fundamental cache data (earnings_date not in this table)
             placeholders = ','.join(['?' for _ in symbols])
             metadata_query = f'''
-                SELECT symbol, name, market_cap, sector, industry
+                SELECT symbol, company_name, market_cap, sector, industry
                 FROM scanner_data.main.fundamental_cache
                 WHERE symbol IN ({placeholders})
             '''
