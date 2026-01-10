@@ -486,6 +486,20 @@ oauth.register(
 # Admin email - only this user can access admin panel
 ADMIN_EMAIL = 'hategan@gmail.com'
 
+# Database configuration - MUST be defined before user database functions
+# For local development, use MotherDuck to access production data
+# For production (Render), use environment variable
+motherduck_token = os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN', '')
+if motherduck_token:
+    # Use scanner_results database for scanner picks
+    DUCKDB_PATH = f'md:scanner_results?motherduck_token={motherduck_token}'
+    # Also connect to scanner_data for fundamental/cache data and user management
+    SCANNER_DATA_PATH = f'md:scanner_data?motherduck_token={motherduck_token}'
+else:
+    # Fallback to local DB if no MotherDuck token - this will fail on Render
+    DUCKDB_PATH = '/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.main.duckdb'
+    SCANNER_DATA_PATH = DUCKDB_PATH
+
 # User management database - Now using MotherDuck (scanner_data) instead of PostgreSQL
 # This saves the cost of a separate Render PostgreSQL database
 
@@ -1381,25 +1395,13 @@ async def admin_clear_cache(request: Request):
 # Setup templates
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# Database configuration
-# For local development, use MotherDuck to access production data
-# For production (Render), use environment variable
-
-# Scanner results database (primary - for scanner picks)
-motherduck_token = os.environ.get('motherduck_token') or os.environ.get('MOTHERDUCK_TOKEN', '')
+# Database configuration logging (paths already defined earlier for user DB)
 print(f"DEBUG: motherduck_token found: {bool(motherduck_token)}")
 if motherduck_token:
-    # Use scanner_results database for scanner picks
-    DUCKDB_PATH = f'md:scanner_results?motherduck_token={motherduck_token}'
-    # Also connect to scanner_data for fundamental/cache data
-    SCANNER_DATA_PATH = f'md:scanner_data?motherduck_token={motherduck_token}'
     print("INFO: Connecting to MotherDuck production database")
     print(f"INFO: Scanner results DB: md:scanner_results?motherduck_token=***")
     print(f"INFO: Scanner data DB: md:scanner_data?motherduck_token=***")
 else:
-    # Fallback to local DB if no MotherDuck token - this will fail on Render
-    DUCKDB_PATH = '/Users/george/scannerPOC/breakoutScannersPOCs/scanner_data.main.duckdb'
-    SCANNER_DATA_PATH = DUCKDB_PATH
     print("WARNING: No motherduck_token found, using local database")
     print("ERROR: This will fail on Render - ensure MOTHERDUCK_TOKEN env var is set!")
 
