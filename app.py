@@ -6630,6 +6630,52 @@ async def index(
                 print(f'Options walls query failed: {e}')
                 options_walls_dict = {}
         
+        # Fetch fundamental quality scores for each symbol
+        fund_quality_dict = {}
+        if symbols_list:
+            try:
+                fund_conn = get_db_connection(DUCKDB_PATH)
+                if fund_conn:
+                    placeholders = ','.join(['?' for _ in symbols_list])
+                    fund_query = f'''
+                        SELECT symbol, fund_score, bar_blocks, bar_bucket, dot_state,
+                               score_components, computed_at
+                        FROM scanner_data.main.fundamental_quality_scores
+                        WHERE symbol IN ({placeholders})
+                    '''
+                    fund_results = fund_conn.execute(fund_query, symbols_list).fetchall()
+                    
+                    for row in fund_results:
+                        sym = row[0]
+                        # Parse score_components JSON for tooltip data
+                        raw_inputs = {}
+                        if row[5]:
+                            import json
+                            try:
+                                components = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                                raw_inputs = components.get('raw_inputs', {})
+                            except:
+                                pass
+                        
+                        fund_quality_dict[sym] = {
+                            'fund_score': row[1],
+                            'bar_blocks': row[2],
+                            'bar_bucket': row[3],
+                            'dot_state': row[4],
+                            'computed_at': str(row[6]) if row[6] else None,
+                            'operating_margin': raw_inputs.get('operating_margin'),
+                            'return_on_equity': raw_inputs.get('return_on_equity'),
+                            'profit_margin': raw_inputs.get('profit_margin'),
+                            'quarterly_earnings_growth': raw_inputs.get('quarterly_earnings_growth'),
+                            'pe_ratio': raw_inputs.get('pe_ratio')
+                        }
+                    
+                    fund_conn.close()
+                    print(f'Loaded fundamental quality scores for {len(fund_quality_dict)} symbols')
+            except Exception as e:
+                print(f'Fundamental quality query failed: {e}')
+                fund_quality_dict = {}
+        
         for symbol in symbols_list:
             # Check if symbol has scanner results
             if symbol in scanner_dict:
@@ -6831,6 +6877,12 @@ async def index(
                         else:
                             stocks[symbol][f'{pattern}_options_walls'] = None
                             stocks[symbol][f'{pattern}_oms'] = None
+                        
+                        # Add fundamental quality scores
+                        if symbol in fund_quality_dict:
+                            stocks[symbol]['fund_quality'] = fund_quality_dict[symbol]
+                        else:
+                            stocks[symbol]['fund_quality'] = None
                         
                         # Skip external API calls - too slow for Render
                         stocks[symbol][f'{pattern}_earnings_date'] = None
