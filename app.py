@@ -6628,13 +6628,20 @@ async def index(
                 options_conn = get_options_db_connection()
                 if options_conn:
                     placeholders = ','.join(['?' for _ in symbols_list])
-                    # Get all signals for chart display (60 day history)
+                    # Get signals for chart display (60 day history only to save memory)
+                    # MEMORY FIX: Limit to 60 days AND only top 3 signals per symbol per day
+                    # This prevents memory overload from high-activity stocks like INTC
                     options_query = f'''
                         SELECT underlying_symbol, signal_date, signal_type, 
                                signal_strength, confidence_score, strike, dte,
                                premium_spent, notes, direction
                         FROM accumulation_signals
                         WHERE underlying_symbol IN ({placeholders})
+                        AND signal_date >= CURRENT_DATE - INTERVAL 60 DAY
+                        QUALIFY ROW_NUMBER() OVER (
+                            PARTITION BY underlying_symbol, signal_date 
+                            ORDER BY signal_strength DESC
+                        ) <= 3
                         ORDER BY underlying_symbol, signal_date DESC
                     '''
                     options_results = options_conn.execute(
@@ -6680,7 +6687,8 @@ async def index(
                 dp_conn = get_options_db_connection()
                 if dp_conn:
                     placeholders = ','.join(['?' for _ in symbols_list])
-                    # Get all signals for chart display (60 day history)
+                    # Get signals for chart display (60 day history only to save memory)
+                    # MEMORY FIX: Limit to 60 days and top 2 signals per day
                     dp_query = f'''
                         SELECT ticker, signal_date, signal_type, 
                                signal_strength, confidence_score, direction,
@@ -6689,6 +6697,11 @@ async def index(
                                block_count, avg_block_size, consecutive_days, notes
                         FROM darkpool_signals
                         WHERE ticker IN ({placeholders})
+                        AND signal_date >= CURRENT_DATE - INTERVAL 60 DAY
+                        QUALIFY ROW_NUMBER() OVER (
+                            PARTITION BY ticker, signal_date 
+                            ORDER BY signal_strength DESC
+                        ) <= 2
                         ORDER BY ticker, signal_date DESC
                     '''
                     dp_results = dp_conn.execute(
