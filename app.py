@@ -1838,7 +1838,7 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
         if fund_conn:
             # Get basic fundamentals (sector, industry, market cap)
             fund_basic = fund_conn.execute("""
-                SELECT company_name, market_cap, sector, industry
+                SELECT company_name, market_cap, sector, industry, quarterly_revenue_growth
                 FROM scanner_data.main.fundamental_cache
                 WHERE symbol = ?
             """, [symbol]).fetchone()
@@ -1847,7 +1847,7 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
             fund_quality = fund_conn.execute("""
                 SELECT fund_score, bar_blocks, bar_bucket, dot_state, score_components
                 FROM scanner_data.main.fundamental_quality_scores
-                WHERE symbol = ?
+                WHERE symbol = ? AND score_version = 'fq_v2'
             """, [symbol]).fetchone()
             
             if fund_basic or fund_quality:
@@ -1855,7 +1855,8 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
                     'company_name': fund_basic[0] if fund_basic else None,
                     'market_cap': fund_basic[1] if fund_basic else None,
                     'sector': fund_basic[2] if fund_basic else None,
-                    'industry': fund_basic[3] if fund_basic else None
+                    'industry': fund_basic[3] if fund_basic else None,
+                    'quarterly_revenue_growth': fund_basic[4] if fund_basic and len(fund_basic) > 4 else None
                 }
                 
                 if fund_quality:
@@ -3266,7 +3267,7 @@ async def focus_list_page(request: Request):
                         SELECT symbol, fund_score, bar_blocks, bar_bucket, dot_state,
                                score_components, computed_at
                         FROM scanner_data.main.fundamental_quality_scores
-                        WHERE symbol IN ({placeholders})
+                        WHERE symbol IN ({placeholders}) AND score_version = 'fq_v2'
                     '''
                     fund_results = fund_conn.execute(fund_query, symbols).fetchall()
                     
@@ -7187,7 +7188,7 @@ async def index(
                         SELECT symbol, fund_score, bar_blocks, bar_bucket, dot_state,
                                score_components, computed_at
                         FROM scanner_data.main.fundamental_quality_scores
-                        WHERE symbol IN ({placeholders})
+                        WHERE symbol IN ({placeholders}) AND score_version = 'fq_v2'
                     '''
                     fund_results = fund_conn.execute(fund_query, symbols_list).fetchall()
                     
