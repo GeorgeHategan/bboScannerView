@@ -742,7 +742,6 @@
     }
     
     const dpData = {};
-    const optData = {};
     
     {% for day, items in grouped_items.items() %}
     {% for item in items %}
@@ -753,13 +752,6 @@
           bullish_premium: {{ dp.dp_premium if dp.direction in ["BUY", "BULLISH"] else 0 }}, 
           bearish_premium: {{ dp.dp_premium if dp.direction in ["SELL", "BEARISH"] else 0 }}, 
           neutral_premium: {{ dp.dp_premium if dp.direction not in ["BUY", "BULLISH", "SELL", "BEARISH"] else 0 }} },
-        {% endfor %}
-    ].reverse();
-    {% endif %}
-    {% if item.options_signals %}
-    optData['{{ item.symbol }}'] = [
-        {% for opt in item.options_signals[:60] %}
-        { label: '{{ opt.date[5:] if opt.date else "" }}', bullish_premium: {{ opt.premium if opt.direction in ['BULLISH', 'BUY'] else 0 }}, bearish_premium: {{ opt.premium if opt.direction in ['BEARISH', 'SELL'] else 0 }} },
         {% endfor %}
     ].reverse();
     {% endif %}
@@ -782,16 +774,60 @@
             });
         });
         
-        document.querySelectorAll('.opt-chart').forEach(canvas => {
-            const symbol = canvas.getAttribute('data-symbol');
-            const data = optData[symbol];
-            if (!data || data.length === 0) return;
-            new Chart(canvas, {
-                type: 'bar',
-                data: { labels: data.map(d => d.label), datasets: [{ label: 'Bullish', data: data.map(d => d.bullish_premium), backgroundColor: 'rgba(39, 174, 96, 0.7)', borderWidth: 0, stack: 'premium' }, { label: 'Bearish', data: data.map(d => d.bearish_premium), backgroundColor: 'rgba(231, 76, 60, 0.7)', borderWidth: 0, stack: 'premium' }] },
-                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + (ctx.parsed.y / 1000).toFixed(0) + 'K' } } }, scales: { y: { beginAtZero: true, stacked: true, ticks: { callback: v => '$' + (v / 1000).toFixed(0) + 'K', font: { size: 9 } } }, x: { stacked: true, ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 } } } }
-            });
-        });
+        // Load options charts using bulk API (same as scanner results page)
+        const optCharts = document.querySelectorAll('.opt-chart');
+        if (optCharts.length > 0) {
+            const optSymbols = Array.from(optCharts).map(c => c.getAttribute('data-symbol')).filter(s => s);
+            if (optSymbols.length > 0) {
+                fetch('/api/options-chart-data-bulk?symbols=' + optSymbols.join(','))
+                    .then(r => r.json())
+                    .then(allData => {
+                        optCharts.forEach(canvas => {
+                            const symbol = canvas.getAttribute('data-symbol');
+                            const data = allData[symbol];
+                            if (!data || data.length === 0) return;
+                            
+                            new Chart(canvas, {
+                                type: 'bar',
+                                data: {
+                                    labels: data.map(d => d.label),
+                                    datasets: [
+                                        { label: 'Bullish', data: data.map(d => d.bullish_premium), backgroundColor: 'rgba(39, 174, 96, 0.7)', borderWidth: 0, stack: 'premium' },
+                                        { label: 'Bearish', data: data.map(d => d.bearish_premium), backgroundColor: 'rgba(231, 76, 60, 0.7)', borderWidth: 0, stack: 'premium' }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: true,
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: ctx => ctx.dataset.label + ': $' + (ctx.parsed.y / 1000).toFixed(0) + 'K'
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            stacked: true,
+                                            ticks: {
+                                                callback: v => '$' + (v / 1000).toFixed(0) + 'K',
+                                                font: { size: 9 }
+                                            }
+                                        },
+                                        x: {
+                                            stacked: true,
+                                            ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(e => console.error('Bulk options chart error:', e));
+            }
+        }
     });
     </script>
 </body>
