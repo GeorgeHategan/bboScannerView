@@ -3013,10 +3013,13 @@ async def api_get_chart_data(symbol: str, days: int = 30):
 @app.get("/focus-list", response_class=HTMLResponse)
 async def focus_list_page(request: Request):
     """Display the focus list page with day separators, charts and full stock info."""
-    items = get_focus_list()
-    
-    # Enrich items with stock metadata from the database
-    if items:
+    try:
+        print("Focus list: Starting endpoint...")
+        items = get_focus_list()
+        print(f"Focus list: Got {len(items)} items from database")
+        
+        # Enrich items with stock metadata from the database
+        if items:
         symbols = list(set(item['symbol'] for item in items))
         
         # Fetch metadata for all symbols
@@ -3435,26 +3438,35 @@ async def focus_list_page(request: Request):
                 item.setdefault('fund_quality', None)
                 item.setdefault('news_sentiment', None)
     
-    # Group items by added date (day only)
-    from collections import OrderedDict
-    grouped = OrderedDict()
-    for item in items:
-        # Extract just the date part
-        added_ts = item['added_date']
-        if 'T' in added_ts:
-            day = added_ts.split('T')[0]
-        else:
-            day = added_ts.split(' ')[0]
+        # Group items by added date (day only)
+        from collections import OrderedDict
+        grouped = OrderedDict()
+        for item in items:
+            # Extract just the date part
+            added_ts = item.get('added_date') or ''
+            if not added_ts:
+                day = 'Unknown'
+            elif 'T' in added_ts:
+                day = added_ts.split('T')[0]
+            else:
+                day = added_ts.split(' ')[0]
+            
+            if day not in grouped:
+                grouped[day] = []
+            grouped[day].append(item)
         
-        if day not in grouped:
-            grouped[day] = []
-        grouped[day].append(item)
+        print(f"Focus list: Rendering {len(items)} items in {len(grouped)} groups")
     
-    return templates.TemplateResponse('focus_list.html', {
-        'request': request,
-        'grouped_items': grouped,
-        'total_count': len(items)
-    })
+        return templates.TemplateResponse('focus_list.html', {
+            'request': request,
+            'grouped_items': grouped,
+            'total_count': len(items)
+        })
+    except Exception as e:
+        import traceback
+        print(f"FOCUS LIST ERROR: {e}")
+        traceback.print_exc()
+        return HTMLResponse(f"<h1>Focus List Error</h1><pre>{e}</pre>", status_code=500)
 
 
 @app.get("/options-signals", response_class=HTMLResponse)
