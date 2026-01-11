@@ -1676,14 +1676,16 @@ def get_openai_client():
 
 
 def get_stock_data_for_analysis(symbol: str) -> dict:
-    """Fetch dark pool signals, options signals, price history, technicals, and options walls for AI analysis."""
+    """Fetch dark pool signals, options signals, price history, technicals, options walls, fundamentals, and news for AI analysis."""
     data = {
         'symbol': symbol, 
         'darkpool_signals': [], 
         'options_signals': [],
         'price_history': [],
         'options_walls': None,
-        'technical_indicators': None
+        'technical_indicators': None,
+        'fundamentals': None,
+        'news_sentiment': None
     }
     
     # Get options data (dark pool signals, options signals, and walls)
@@ -1826,6 +1828,70 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
     except Exception as e:
         print(f"Error fetching price history for AI analysis: {e}")
     
+    # Get fundamental data from scanner_data database
+    try:
+        fund_conn = get_db_connection(SCANNER_DATA_PATH)
+        if fund_conn:
+            # Get basic fundamentals (sector, industry, market cap)
+            fund_basic = fund_conn.execute("""
+                SELECT company_name, market_cap, sector, industry
+                FROM scanner_data.main.fundamental_cache
+                WHERE symbol = ?
+            """, [symbol]).fetchone()
+            
+            # Get fundamental quality scores
+            fund_quality = fund_conn.execute("""
+                SELECT fund_score, bar_blocks, bar_bucket, dot_state, score_components
+                FROM scanner_data.main.fundamental_quality_scores
+                WHERE symbol = ?
+            """, [symbol]).fetchone()
+            
+            if fund_basic or fund_quality:
+                data['fundamentals'] = {
+                    'company_name': fund_basic[0] if fund_basic else None,
+                    'market_cap': fund_basic[1] if fund_basic else None,
+                    'sector': fund_basic[2] if fund_basic else None,
+                    'industry': fund_basic[3] if fund_basic else None
+                }
+                
+                if fund_quality:
+                    data['fundamentals']['fund_score'] = fund_quality[0]
+                    data['fundamentals']['fund_rating'] = fund_quality[2]  # bar_bucket (Strong/Good/Moderate/Weak)
+                    # Parse score_components for detailed metrics
+                    if fund_quality[4]:
+                        try:
+                            components = json.loads(fund_quality[4]) if isinstance(fund_quality[4], str) else fund_quality[4]
+                            raw_inputs = components.get('raw_inputs', {})
+                            data['fundamentals']['operating_margin'] = raw_inputs.get('operating_margin')
+                            data['fundamentals']['return_on_equity'] = raw_inputs.get('return_on_equity')
+                            data['fundamentals']['profit_margin'] = raw_inputs.get('profit_margin')
+                            data['fundamentals']['quarterly_earnings_growth'] = raw_inputs.get('quarterly_earnings_growth')
+                            data['fundamentals']['pe_ratio'] = raw_inputs.get('pe_ratio')
+                        except:
+                            pass
+            
+            # Get news sentiment
+            news_result = fund_conn.execute("""
+                SELECT news_sentiment_score, bar_blocks, bar_direction, 
+                       cluster_level, article_count_5d, article_count_2d
+                FROM scanner_data.main.news_sentiment_pressure_scores
+                WHERE symbol = ?
+            """, [symbol]).fetchone()
+            
+            if news_result:
+                data['news_sentiment'] = {
+                    'score': news_result[0],
+                    'bar_blocks': news_result[1],
+                    'direction': news_result[2],
+                    'cluster_level': news_result[3],
+                    'article_count_5d': news_result[4],
+                    'article_count_2d': news_result[5]
+                }
+            
+            fund_conn.close()
+    except Exception as e:
+        print(f"Error fetching fundamentals/news for AI analysis: {e}")
+    
     return data
 
 
@@ -1930,29 +1996,71 @@ Technical Indicators:
 - ATR(14): ${ti['atr_14']} (volatility measure)
 """
     
+    # Build fundamentals summary
+    fund_summary = ""
+    if data['fundamentals']:
+        f = data['fundamentals']
+        mkt_cap_str = f"${f['market_cap']:,.0f}" if f.get('market_cap') else 'N/A'
+        pe_str = f"{f['pe_ratio']:.1f}" if f.get('pe_ratio') else 'N/A'
+        roe_str = f"{f['return_on_equity']:.1f}%" if f.get('return_on_equity') else 'N/A'
+        margin_str = f"{f['profit_margin']:.1f}%" if f.get('profit_margin') else 'N/A'
+        growth_str = f"{f['quarterly_earnings_growth']:.1f}%" if f.get('quarterly_earnings_growth') else 'N/A'
+        
+        fund_summary = f"""
+Fundamentals:
+- Company: {f.get('company_name') or 'N/A'}
+- Sector: {f.get('sector') or 'N/A'} | Industry: {f.get('industry') or 'N/A'}
+- Market Cap: {mkt_cap_str}
+- Fundamental Rating: {f.get('fund_rating') or 'N/A'} (Score: {f.get('fund_score') or 'N/A'})
+- P/E Ratio: {pe_str}
+- Return on Equity: {roe_str}
+- Profit Margin: {margin_str}
+- Quarterly Earnings Growth: {growth_str}
+"""
+    
+    # Build news sentiment summary
+    news_summary = ""
+    if data['news_sentiment']:
+        n = data['news_sentiment']
+        direction_map = {'UP': 'Positive/Bullish', 'DOWN': 'Negative/Bearish', 'NEUTRAL': 'Neutral'}
+        direction_str = direction_map.get(n.get('direction'), n.get('direction') or 'N/A')
+        cluster_map = {'HIGH': 'High news volume', 'MEDIUM': 'Medium news volume', 'LOW': 'Low news volume'}
+        cluster_str = cluster_map.get(n.get('cluster_level'), n.get('cluster_level') or 'N/A')
+        
+        news_summary = f"""
+News Sentiment:
+- Overall Sentiment: {direction_str} (Score: {n.get('score') or 'N/A'}, Intensity: {n.get('bar_blocks') or 0}/5)
+- News Volume: {cluster_str}
+- Articles (5-day): {n.get('article_count_5d') or 0} | Articles (2-day): {n.get('article_count_2d') or 0}
+"""
+    
     if not dp_summary and not opt_summary and not price_summary:
         return "No data available for analysis."
     
     prompt = f"""Analyze {symbol} for a swing trader based on the following data:
 
 Scanner: {scanner_name or 'N/A'}
+{fund_summary}
+{news_summary}
 {price_summary}
 {tech_summary}
 {walls_summary}
 {dp_summary}
 {opt_summary}
 
-Provide analysis in exactly this format with 4 numbered points:
+Provide analysis in exactly this format with 5 numbered points:
 
 1. **Institutional Sentiment**: [BULLISH/BEARISH/NEUTRAL] - Brief explanation of dark pool and options flow signals.
 
-2. **Technical Setup**: Current trend status, RSI reading, and position relative to key moving averages.
+2. **Fundamental Assessment**: Brief comment on the company's financial health based on sector, P/E, margins, and earnings growth.
 
-3. **Key Levels**: Important support levels (from put walls) and resistance levels (from call walls).
+3. **News & Sentiment**: Current news sentiment direction and whether it supports or contradicts the technical setup.
 
-4. **Trade Plan**: Entry zone: $X-$Y | Stop Loss: $Z (below support) | Take Profit: $W (at resistance) | Risk/Reward ratio.
+4. **Technical Setup**: Current trend status, RSI reading, and position relative to key moving averages.
 
-Be specific with price levels. Use the ATR for stop loss sizing."""
+5. **Trade Plan**: Entry zone: $X-$Y | Stop Loss: $Z (below support) | Take Profit: $W (at resistance) | Risk/Reward ratio.
+
+Be specific with price levels. Use the ATR for stop loss sizing. Consider fundamentals and news in your risk assessment."""
 
     try:
         response = client.chat.completions.create(
@@ -1961,7 +2069,7 @@ Be specific with price levels. Use the ATR for stop loss sizing."""
                 {"role": "system", "content": "You are a professional swing trader and stock analyst. Always provide specific price levels for entries, stops, and targets. Be concise but actionable."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=350,
+            max_tokens=500,
             temperature=0.7
         )
         return response.choices[0].message.content
@@ -2922,26 +3030,31 @@ async def focus_list_page(request: Request):
                 } for row in vol_results
             }
             
-            # Get confirmations (other scanners that picked each symbol)
-            conf_query = f'''
-                SELECT symbol, scanner_name, scan_date, signal_strength
-                FROM scanner_results
-                WHERE symbol IN ({placeholders})
-                ORDER BY symbol, scan_date DESC, scanner_name
-            '''
-            conf_results = conn.execute(conf_query, symbols).fetchall()
-            confirmations_dict = {}
-            for row in conf_results:
-                sym = row[0]
-                if sym not in confirmations_dict:
-                    confirmations_dict[sym] = []
-                confirmations_dict[sym].append({
-                    'scanner': row[1],
-                    'date': str(row[2])[:10] if row[2] else '',
-                    'strength': row[3]
-                })
-            
             conn.close()
+            
+            # Get confirmations from scanner_results database (separate connection)
+            confirmations_dict = {}
+            try:
+                results_conn = get_db_connection(DUCKDB_PATH)
+                conf_query = f'''
+                    SELECT symbol, scanner_name, scan_date, signal_strength
+                    FROM scanner_results
+                    WHERE symbol IN ({placeholders})
+                    ORDER BY symbol, scan_date DESC, scanner_name
+                '''
+                conf_results = results_conn.execute(conf_query, symbols).fetchall()
+                for row in conf_results:
+                    sym = row[0]
+                    if sym not in confirmations_dict:
+                        confirmations_dict[sym] = []
+                    confirmations_dict[sym].append({
+                        'scanner': row[1],
+                        'date': str(row[2])[:10] if row[2] else '',
+                        'strength': row[3]
+                    })
+                results_conn.close()
+            except Exception as e:
+                print(f"Error fetching confirmations for focus list: {e}")
             
             # Fetch options signals for all symbols
             options_signals_dict = {}
