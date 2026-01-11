@@ -454,15 +454,31 @@
                 
                 // Create color array based on directions (use proper rgba format)
                 const colors = data.directions.map(dir => {
-                    if (dir.includes('BUY') || dir.includes('BULLISH')) return 'rgba(39, 174, 96, 0.6)';
-                    if (dir.includes('SELL') || dir.includes('BEARISH')) return 'rgba(231, 76, 60, 0.6)';
+                    // If multiple directions on same day (e.g., "NEUTRAL,BEARISH"), show neutral
+                    const hasMultiple = dir.includes(',');
+                    const hasNeutral = dir.includes('NEUTRAL');
+                    const hasBullish = dir.includes('BUY') || dir.includes('BULLISH');
+                    const hasBearish = dir.includes('SELL') || dir.includes('BEARISH');
+                    
+                    // Mixed signals = neutral color
+                    if (hasMultiple || hasNeutral) return 'rgba(155, 89, 182, 0.6)';
+                    if (hasBullish) return 'rgba(39, 174, 96, 0.6)';
+                    if (hasBearish) return 'rgba(231, 76, 60, 0.6)';
                     return 'rgba(155, 89, 182, 0.6)';
                 });
                 
                 // Solid colors for borders
                 const borderColors = data.directions.map(dir => {
-                    if (dir.includes('BUY') || dir.includes('BULLISH')) return 'rgba(39, 174, 96, 1)';
-                    if (dir.includes('SELL') || dir.includes('BEARISH')) return 'rgba(231, 76, 60, 1)';
+                    // If multiple directions on same day (e.g., "NEUTRAL,BEARISH"), show neutral
+                    const hasMultiple = dir.includes(',');
+                    const hasNeutral = dir.includes('NEUTRAL');
+                    const hasBullish = dir.includes('BUY') || dir.includes('BULLISH');
+                    const hasBearish = dir.includes('SELL') || dir.includes('BEARISH');
+                    
+                    // Mixed signals = neutral color
+                    if (hasMultiple || hasNeutral) return 'rgba(155, 89, 182, 1)';
+                    if (hasBullish) return 'rgba(39, 174, 96, 1)';
+                    if (hasBearish) return 'rgba(231, 76, 60, 1)';
                     return 'rgba(155, 89, 182, 1)';
                 });
                 

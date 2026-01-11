@@ -4194,13 +4194,20 @@ async def darkpool_chart_data_bulk(symbols: str):
                     premium = data_point['premium']
                     direction = data_point['direction'].upper()
                     
-                    # Determine color
-                    if 'BUY' in direction or 'BULLISH' in direction:
+                    # Determine color - mixed signals or NEUTRAL = purple
+                    has_multiple = ',' in direction
+                    has_neutral = 'NEUTRAL' in direction
+                    has_bullish = 'BUY' in direction or 'BULLISH' in direction
+                    has_bearish = 'SELL' in direction or 'BEARISH' in direction
+                    
+                    if has_multiple or has_neutral:
+                        color = 'rgba(155, 89, 182, 0.7)'  # Purple for neutral/mixed
+                    elif has_bullish:
                         color = 'rgba(39, 174, 96, 0.7)'
-                    elif 'SELL' in direction or 'BEARISH' in direction:
+                    elif has_bearish:
                         color = 'rgba(231, 76, 60, 0.7)'
                     else:
-                        color = 'rgba(243, 156, 18, 0.7)'
+                        color = 'rgba(155, 89, 182, 0.7)'  # Default to purple
                 else:
                     premium = 0
                     color = 'rgba(189, 195, 199, 0.3)'  # Gray for no data
