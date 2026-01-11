@@ -3295,6 +3295,19 @@ async def focus_list_page(request: Request):
                             'pe_ratio': raw_inputs.get('pe_ratio')
                         }
                     
+                    # Fetch quarterly_revenue_growth from fundamental_cache
+                    cache_query = f'''
+                        SELECT symbol, quarterly_revenue_growth
+                        FROM scanner_data.main.fundamental_cache
+                        WHERE symbol IN ({placeholders})
+                    '''
+                    cache_results = fund_conn.execute(cache_query, symbols).fetchall()
+                    
+                    for row in cache_results:
+                        sym = row[0]
+                        if sym in fund_quality_dict:
+                            fund_quality_dict[sym]['quarterly_revenue_growth'] = row[1]
+                    
                     fund_conn.close()
             except Exception as e:
                 print(f"Error fetching fundamental quality for focus list: {e}")
@@ -7216,6 +7229,19 @@ async def index(
                             'quarterly_earnings_growth': raw_inputs.get('quarterly_earnings_growth'),
                             'pe_ratio': raw_inputs.get('pe_ratio')
                         }
+                    
+                    # Fetch quarterly_revenue_growth from fundamental_cache
+                    cache_query = f'''
+                        SELECT symbol, quarterly_revenue_growth
+                        FROM scanner_data.main.fundamental_cache
+                        WHERE symbol IN ({placeholders})
+                    '''
+                    cache_results = fund_conn.execute(cache_query, symbols_list).fetchall()
+                    
+                    for row in cache_results:
+                        sym = row[0]
+                        if sym in fund_quality_dict:
+                            fund_quality_dict[sym]['quarterly_revenue_growth'] = row[1]
                     
                     fund_conn.close()
                     print(f'Loaded fundamental quality scores for {len(fund_quality_dict)} symbols')
