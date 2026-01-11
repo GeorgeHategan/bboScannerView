@@ -3020,7 +3020,7 @@ async def focus_list_page(request: Request):
         
         # Enrich items with stock metadata from the database
         if items:
-        symbols = list(set(item['symbol'] for item in items))
+            symbols = list(set(item['symbol'] for item in items))
         
         # Fetch metadata for all symbols
         try:
