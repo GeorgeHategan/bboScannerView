@@ -3282,52 +3282,63 @@ async def focus_list_page(request: Request):
             except Exception as e:
                 print(f"Error fetching news sentiment for focus list: {e}")
             
-            # Calculate PnL for each item from daily_cache (same logic as performance tracking)
+            # Calculate PnL for each item from daily_cache (batch query for efficiency)
             pnl_dict = {}
             try:
                 pnl_conn = get_db_connection(SCANNER_DATA_PATH)
                 if pnl_conn:
+                    # Build list of (symbol, scan_date, entry_price) for batch processing
+                    pnl_items = []
                     for item in items:
                         sym = item['symbol']
                         entry_price = item.get('entry_price')
                         scan_date = item.get('scan_date')
+                        if entry_price and entry_price > 0 and scan_date:
+                            pnl_items.append((sym, scan_date, entry_price))
+                    
+                    if pnl_items:
+                        # Single batch query for all symbols - get latest price and high/low since scan
+                        pnl_symbols = list(set(p[0] for p in pnl_items))
+                        placeholders = ','.join(['?' for _ in pnl_symbols])
                         
-                        if not entry_price or entry_price <= 0 or not scan_date:
-                            continue
+                        # Get current prices (latest close for each symbol)
+                        current_query = f"""
+                            SELECT dc.symbol, dc.close
+                            FROM scanner_data.main.daily_cache dc
+                            INNER JOIN (
+                                SELECT symbol, MAX(date) as max_date
+                                FROM scanner_data.main.daily_cache
+                                WHERE symbol IN ({placeholders})
+                                GROUP BY symbol
+                            ) latest ON dc.symbol = latest.symbol AND dc.date = latest.max_date
+                        """
+                        current_results = pnl_conn.execute(current_query, pnl_symbols).fetchall()
+                        current_prices = {row[0]: row[1] for row in current_results}
                         
-                        # Get price history since scan_date
-                        prices = pnl_conn.execute("""
-                            SELECT close, high, low
-                            FROM scanner_data.main.daily_cache
-                            WHERE symbol = ?
-                            AND date > ?
-                            ORDER BY date
-                        """, [sym, scan_date]).fetchall()
-                        
-                        if not prices:
-                            continue
-                        
-                        # Calculate metrics (same as calculate_scanner_performance.py)
-                        current_price = prices[-1][0]
-                        max_gain = max(((p[1] - entry_price) / entry_price * 100) for p in prices)
-                        
-                        # Calculate max drawdown from peak
-                        peak = entry_price
-                        max_dd = 0
-                        for close, high, low in prices:
-                            peak = max(peak, high)
-                            if peak > entry_price:
-                                dd = ((low - peak) / peak * 100)
-                                max_dd = min(max_dd, dd)
-                        
-                        current_pnl = ((current_price - entry_price) / entry_price * 100)
-                        
-                        pnl_dict[sym] = {
-                            'current_price': current_price,
-                            'current_pnl': round(current_pnl, 1),
-                            'max_gain': round(max_gain, 1),
-                            'max_drawdown': round(max_dd, 1)
-                        }
+                        # Calculate PnL for each item
+                        for sym, scan_date, entry_price in pnl_items:
+                            # Get high/low since scan_date for this symbol
+                            hl_result = pnl_conn.execute("""
+                                SELECT MAX(high), MIN(low)
+                                FROM scanner_data.main.daily_cache
+                                WHERE symbol = ? AND date > ?
+                            """, [sym, scan_date]).fetchone()
+                            
+                            if hl_result and hl_result[0] and sym in current_prices:
+                                max_high = hl_result[0]
+                                min_low = hl_result[1]
+                                current_price = current_prices[sym]
+                                
+                                max_gain = ((max_high - entry_price) / entry_price * 100)
+                                max_dd = ((min_low - entry_price) / entry_price * 100)
+                                current_pnl = ((current_price - entry_price) / entry_price * 100)
+                                
+                                pnl_dict[sym] = {
+                                    'current_price': current_price,
+                                    'current_pnl': round(current_pnl, 1),
+                                    'max_gain': round(max_gain, 1),
+                                    'max_drawdown': round(max_dd, 1)
+                                }
                     
                     pnl_conn.close()
                     print(f"Focus list: Calculated PnL for {len(pnl_dict)} symbols")
