@@ -3019,8 +3019,17 @@ async def focus_list_page(request: Request):
     """Display the focus list page with day separators, charts and full stock info."""
     try:
         print("Focus list: Starting endpoint...")
+        import gc
+        gc.collect()  # Free memory before heavy operations
+        
         items = get_focus_list()
         print(f"Focus list: Got {len(items)} items from database")
+        
+        # Limit items to prevent memory issues on 512MB tier
+        MAX_ITEMS = 50
+        if len(items) > MAX_ITEMS:
+            print(f"Focus list: Limiting to {MAX_ITEMS} items (was {len(items)})")
+            items = items[:MAX_ITEMS]
         
         # Enrich items with stock metadata from the database
         symbols = []
