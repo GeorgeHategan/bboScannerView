@@ -556,12 +556,27 @@
                                         
                                         {% if item.darkpool_signals and item.darkpool_signals|length > 0 %}
                                         {% set dp_signals = item.darkpool_signals %}
+                                        {# Calculate bias from last 5 days only #}
                                         {% set bias = namespace(bull_score=0, bear_score=0) %}
-                                        {% for dp in dp_signals[:10] %}
-                                            {% set weight = 1 %}
-                                            {% if dp.strength == 'EXTREME' %}{% set weight = 3 %}{% elif dp.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
-                                            {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}{% set bias.bull_score = bias.bull_score + weight %}
-                                            {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}{% set bias.bear_score = bias.bear_score + weight %}{% endif %}
+                                        {% for dp in dp_signals %}
+                                            {% set sig_date = dp.date %}
+                                            {% set is_recent = false %}
+                                            {% if sig_date and sig_date|length >= 10 %}
+                                                {% set date_parts = sig_date.split('-') %}
+                                                {% if date_parts|length == 3 %}
+                                                    {% set sig_day = date_parts[2]|int %}
+                                                    {% set sig_month = date_parts[1]|int %}
+                                                    {# Check if within last ~5 days (Jan 2026: days 6-11 are recent) #}
+                                                    {% if sig_month == 1 and sig_day >= 6 %}{% set is_recent = true %}
+                                                    {% elif sig_month == 12 and sig_day >= 28 %}{% set is_recent = true %}{% endif %}
+                                                {% endif %}
+                                            {% endif %}
+                                            {% if is_recent %}
+                                                {% set weight = 1 %}
+                                                {% if dp.strength == 'EXTREME' %}{% set weight = 3 %}{% elif dp.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
+                                                {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}{% set bias.bull_score = bias.bull_score + weight %}
+                                                {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}{% set bias.bear_score = bias.bear_score + weight %}{% endif %}
+                                            {% endif %}
                                         {% endfor %}
                                         {% set total_score = bias.bull_score + bias.bear_score %}
                                         {% if total_score > 0 %}{% set bull_pct = (bias.bull_score / total_score * 100)|int %}{% else %}{% set bull_pct = 50 %}{% endif %}
@@ -572,7 +587,7 @@
                                         <br>
                                         <strong>🌑 Dark Pool Signals ({{ dp_signals|length }}): 
                                             <span style="color: {{ verdict_color }}; font-weight: bold;">{{ verdict_icon }} {{ verdict }}</span>
-                                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish)</span>
+                                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish, last 5 days)</span>
                                         </strong><br>
                                         <div style="margin-top: 10px; border: 1px solid #8e44ad; padding: 12px; border-radius: 4px; background: white; width: 700px; box-sizing: border-box;">
                                             <canvas class="dp-chart" data-symbol="{{ item.symbol }}" id="dpChart_{{ item.symbol }}" style="max-height: 120px;"></canvas>
@@ -582,12 +597,27 @@
                                         
                                         {% if item.options_signals and item.options_signals|length > 0 %}
                                         {% set opt_signals = item.options_signals %}
+                                        {# Calculate bias from last 5 days only #}
                                         {% set opt_bias = namespace(bull_score=0, bear_score=0) %}
-                                        {% for opt in opt_signals[:10] %}
-                                            {% set weight = 1 %}
-                                            {% if opt.strength == 'EXTREME' %}{% set weight = 3 %}{% elif opt.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
-                                            {% if opt.direction == 'BULLISH' or opt.direction == 'BUY' %}{% set opt_bias.bull_score = opt_bias.bull_score + weight %}
-                                            {% elif opt.direction == 'BEARISH' or opt.direction == 'SELL' %}{% set opt_bias.bear_score = opt_bias.bear_score + weight %}{% endif %}
+                                        {% for opt in opt_signals %}
+                                            {% set sig_date = opt.date %}
+                                            {% set is_recent = false %}
+                                            {% if sig_date and sig_date|length >= 10 %}
+                                                {% set date_parts = sig_date.split('-') %}
+                                                {% if date_parts|length == 3 %}
+                                                    {% set sig_day = date_parts[2]|int %}
+                                                    {% set sig_month = date_parts[1]|int %}
+                                                    {# Check if within last ~5 days (Jan 2026: days 6-11 are recent) #}
+                                                    {% if sig_month == 1 and sig_day >= 6 %}{% set is_recent = true %}
+                                                    {% elif sig_month == 12 and sig_day >= 28 %}{% set is_recent = true %}{% endif %}
+                                                {% endif %}
+                                            {% endif %}
+                                            {% if is_recent %}
+                                                {% set weight = 1 %}
+                                                {% if opt.strength == 'EXTREME' %}{% set weight = 3 %}{% elif opt.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
+                                                {% if opt.direction == 'BULLISH' or opt.direction == 'BUY' %}{% set opt_bias.bull_score = opt_bias.bull_score + weight %}
+                                                {% elif opt.direction == 'BEARISH' or opt.direction == 'SELL' %}{% set opt_bias.bear_score = opt_bias.bear_score + weight %}{% endif %}
+                                            {% endif %}
                                         {% endfor %}
                                         {% set opt_total_score = opt_bias.bull_score + opt_bias.bear_score %}
                                         {% if opt_total_score > 0 %}{% set opt_bull_pct = (opt_bias.bull_score / opt_total_score * 100)|int %}{% else %}{% set opt_bull_pct = 50 %}{% endif %}
@@ -598,7 +628,7 @@
                                         <br>
                                         <strong>📈 Options Flow Signals ({{ opt_signals|length }}): 
                                             <span style="color: {{ opt_verdict_color }}; font-weight: bold;">{{ opt_verdict_icon }} {{ opt_verdict }}</span>
-                                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ opt_bull_pct }}% bullish)</span>
+                                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ opt_bull_pct }}% bullish, last 5 days)</span>
                                         </strong><br>
                                         <div style="margin-top: 10px; border: 1px solid #f39c12; padding: 12px; border-radius: 4px; background: white; width: 700px; box-sizing: border-box;">
                                             <canvas class="opt-chart" data-symbol="{{ item.symbol }}" id="optChart_{{ item.symbol }}" style="max-height: 120px;"></canvas>
