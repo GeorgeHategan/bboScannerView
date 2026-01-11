@@ -424,8 +424,12 @@ app = FastAPI(title="BBO Scanner View", description="Stock Scanner Dashboard", l
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         public_paths = ['/login', '/auth/google', '/auth/google/callback',
-                        '/favicon.ico', '/static', '/webhook', '/api/health', '/api/memory']
+                        '/favicon.ico', '/static', '/webhook', '/api/health', '/api/memory', '/health']
         path = request.url.path
+        # Handle HEAD requests to root path for Render health checks
+        if request.method == 'HEAD' and path == '/':
+            from starlette.responses import Response
+            return Response(status_code=200)
 
         # DISABLED: Visitor logging was creating a new thread per request
         # causing memory leaks on 512MB Render tier
