@@ -2160,6 +2160,35 @@ def get_focus_list():
         return []
 
 
+def get_focus_list_symbols():
+    """Get a dict of symbols on the focus list with their added dates (for checking if already on list)."""
+    conn = get_options_db_connection()
+    if not conn:
+        return {}
+    
+    try:
+        results = conn.execute("""
+            SELECT symbol, added_date
+            FROM focus_list 
+            ORDER BY added_date DESC
+        """).fetchall()
+        conn.close()
+        
+        # Return dict with symbol -> added_date (keeping first/most recent if duplicates)
+        focus_dict = {}
+        for row in results:
+            symbol = row[0]
+            if symbol not in focus_dict:  # Keep most recent date
+                added_date = str(row[1])[:10] if row[1] else ''
+                focus_dict[symbol] = added_date
+        return focus_dict
+    except Exception as e:
+        print(f"Error getting focus list symbols: {e}")
+        if conn:
+            conn.close()
+        return {}
+
+
 def get_latest_vix_data():
     """Get the most recent VIX and VX30 values."""
     conn = get_options_db_connection()
@@ -6540,6 +6569,9 @@ async def index(
     # Get list of all available tickers for autocomplete (CACHED - 10 min)
     available_tickers = get_cached_ticker_list()
     
+    # Get focus list symbols to show which items are already on the list
+    focus_list_symbols = get_focus_list_symbols()
+    
     # Don't auto-select a scanner - show all by default
     pattern = pattern if pattern and pattern != '' else False
     
@@ -7613,7 +7645,8 @@ async def index(
         'last_updated': last_updated,
         'scanner_distribution': scanner_distribution,
         'scanner_history': scanner_history,
-        'scanner_colors': SCANNER_COLORS  # Pass hardcoded color mapping to template
+        'scanner_colors': SCANNER_COLORS,  # Pass hardcoded color mapping to template
+        'focus_list_symbols': focus_list_symbols  # Dict of symbol -> added_date for focus list items
     })
 
 
