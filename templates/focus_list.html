@@ -557,20 +557,19 @@
                                         {% if item.darkpool_signals and item.darkpool_signals|length > 0 %}
                                         {% set dp_signals = item.darkpool_signals %}
                                         {# Calculate bias from most recent 10 signals #}
-                                        {% set bias = namespace(bull_score=0, bear_score=0, neutral_score=0, count=0) %}
+                                        {% set bias = namespace(bull_premium=0, bear_premium=0, neutral_premium=0, count=0) %}
                                         {% for dp in dp_signals %}
                                             {# Only count first 10 signals (sorted by date DESC) #}
                                             {% if bias.count < 10 %}
                                                 {% set bias.count = bias.count + 1 %}
-                                                {% set weight = 1 %}
-                                                {% if dp.strength == 'EXTREME' %}{% set weight = 3 %}{% elif dp.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
-                                                {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}{% set bias.bull_score = bias.bull_score + weight %}
-                                                {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}{% set bias.bear_score = bias.bear_score + weight %}
-                                                {% else %}{% set bias.neutral_score = bias.neutral_score + weight %}{% endif %}
+                                                {% set premium = dp.dp_premium or 0 %}
+                                                {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}{% set bias.bull_premium = bias.bull_premium + premium %}
+                                                {% elif dp.direction == 'SELL' or dp.direction == 'BEARISH' %}{% set bias.bear_premium = bias.bear_premium + premium %}
+                                                {% else %}{% set bias.neutral_premium = bias.neutral_premium + premium %}{% endif %}
                                             {% endif %}
                                         {% endfor %}
-                                        {% set total_score = bias.bull_score + bias.bear_score + bias.neutral_score %}
-                                        {% if total_score > 0 %}{% set bull_pct = (bias.bull_score / total_score * 100)|int %}{% else %}{% set bull_pct = 50 %}{% endif %}
+                                        {% set total_premium = bias.bull_premium + bias.bear_premium + bias.neutral_premium %}
+                                        {% if total_premium > 0 %}{% set bull_pct = (bias.bull_premium / total_premium * 100)|int %}{% else %}{% set bull_pct = 50 %}{% endif %}
                                         {% if bull_pct >= 60 %}{% set verdict = 'BULLISH' %}{% set verdict_color = '#27ae60' %}{% set verdict_icon = '🟢' %}
                                         {% elif bull_pct <= 40 %}{% set verdict = 'BEARISH' %}{% set verdict_color = '#e74c3c' %}{% set verdict_icon = '🔴' %}
                                         {% else %}{% set verdict = 'NEUTRAL' %}{% set verdict_color = '#f39c12' %}{% set verdict_icon = '🟡' %}{% endif %}
