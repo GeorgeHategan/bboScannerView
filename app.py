@@ -3173,6 +3173,9 @@ async def focus_list_page(request: Request):
                 
                 # Add fundamental quality
                 item['fund_quality'] = fund_quality_dict.get(sym)
+                
+                # Add news sentiment pressure
+                item['news_sentiment'] = news_sentiment_dict.get(sym)
                     
         except Exception as e:
             print(f"Error enriching focus list items: {e}")
@@ -3191,6 +3194,7 @@ async def focus_list_page(request: Request):
                 item.setdefault('options_walls', None)
                 item.setdefault('oms', None)
                 item.setdefault('fund_quality', None)
+                item.setdefault('news_sentiment', None)
     
     # Group items by added date (day only)
     from collections import OrderedDict
