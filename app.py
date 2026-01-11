@@ -2884,7 +2884,7 @@ async def focus_list_page(request: Request):
         
         # Fetch metadata for all symbols
         try:
-            conn = get_db_connection(DUCKDB_PATH)
+            conn = get_db_connection(SCANNER_DATA_PATH)
             
             # Get fundamental cache data (earnings_date not in this table)
             placeholders = ','.join(['?' for _ in symbols])
@@ -3071,7 +3071,7 @@ async def focus_list_page(request: Request):
             
             # Fetch fundamental quality scores
             try:
-                fund_conn = get_db_connection(DUCKDB_PATH)
+                fund_conn = get_db_connection(SCANNER_DATA_PATH)
                 if fund_conn:
                     placeholders = ','.join(['?' for _ in symbols])
                     fund_query = f'''
@@ -3109,6 +3109,36 @@ async def focus_list_page(request: Request):
                     fund_conn.close()
             except Exception as e:
                 print(f"Error fetching fundamental quality for focus list: {e}")
+            
+            # Fetch news sentiment pressure scores
+            news_sentiment_dict = {}
+            try:
+                news_conn = get_db_connection(SCANNER_DATA_PATH)
+                if news_conn:
+                    placeholders = ','.join(['?' for _ in symbols])
+                    news_query = f"""
+                        SELECT symbol, news_sentiment_score, bar_blocks, bar_direction,
+                               cluster_level, article_count_5d, article_count_2d
+                        FROM scanner_data.main.news_sentiment_pressure_scores
+                        WHERE symbol IN ({placeholders})
+                    """
+                    news_results = news_conn.execute(news_query, symbols).fetchall()
+                    
+                    for row in news_results:
+                        sym = row[0]
+                        news_sentiment_dict[sym] = {
+                            'score': row[1],
+                            'bar_blocks': row[2],
+                            'direction': row[3],
+                            'cluster_level': row[4],
+                            'article_count_5d': row[5],
+                            'article_count_2d': row[6]
+                        }
+                    
+                    news_conn.close()
+                    print(f"Focus list: Loaded news sentiment for {len(news_sentiment_dict)} symbols")
+            except Exception as e:
+                print(f"Error fetching news sentiment for focus list: {e}")
             
             # Enrich each item
             for item in items:
