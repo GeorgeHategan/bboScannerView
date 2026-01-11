@@ -452,54 +452,44 @@
                     return;
                 }
                 
-                // Create color array based on directions (use proper rgba format)
-                const colors = data.directions.map(dir => {
-                    // If multiple directions on same day (e.g., "NEUTRAL,BEARISH"), show neutral
-                    const hasMultiple = dir.includes(',');
-                    const hasNeutral = dir.includes('NEUTRAL');
-                    const hasBullish = dir.includes('BUY') || dir.includes('BULLISH');
-                    const hasBearish = dir.includes('SELL') || dir.includes('BEARISH');
-                    
-                    // Mixed signals = neutral color
-                    if (hasMultiple || hasNeutral) return 'rgba(155, 89, 182, 0.6)';
-                    if (hasBullish) return 'rgba(39, 174, 96, 0.6)';
-                    if (hasBearish) return 'rgba(231, 76, 60, 0.6)';
-                    return 'rgba(155, 89, 182, 0.6)';
-                });
-                
-                // Solid colors for borders
-                const borderColors = data.directions.map(dir => {
-                    // If multiple directions on same day (e.g., "NEUTRAL,BEARISH"), show neutral
-                    const hasMultiple = dir.includes(',');
-                    const hasNeutral = dir.includes('NEUTRAL');
-                    const hasBullish = dir.includes('BUY') || dir.includes('BULLISH');
-                    const hasBearish = dir.includes('SELL') || dir.includes('BEARISH');
-                    
-                    // Mixed signals = neutral color
-                    if (hasMultiple || hasNeutral) return 'rgba(155, 89, 182, 1)';
-                    if (hasBullish) return 'rgba(39, 174, 96, 1)';
-                    if (hasBearish) return 'rgba(231, 76, 60, 1)';
-                    return 'rgba(155, 89, 182, 1)';
-                });
-                
                 const ctx = document.getElementById('darkpoolChart');
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: data.dates,
                         datasets: [
-                            // Dark pool notional bars with transparency
+                            // Bullish dark pool premium (green)
                             {
-                                label: 'Dark Pool Notional ($)',
-                                data: data.premiums,
+                                label: 'Bullish DP',
+                                data: data.bullish_premiums,
                                 type: 'bar',
-                                backgroundColor: colors,
-                                borderColor: borderColors,
-                                borderWidth: 2,
-                                barThickness: 'flex',
-                                maxBarThickness: 40,
+                                backgroundColor: 'rgba(39, 174, 96, 0.7)',
+                                borderWidth: 0,
+                                stack: 'dp',
                                 yAxisID: 'y',
-                                order: 2
+                                order: 3
+                            },
+                            // Bearish dark pool premium (red)
+                            {
+                                label: 'Bearish DP',
+                                data: data.bearish_premiums,
+                                type: 'bar',
+                                backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                                borderWidth: 0,
+                                stack: 'dp',
+                                yAxisID: 'y',
+                                order: 3
+                            },
+                            // Neutral dark pool premium (purple)
+                            {
+                                label: 'Neutral DP',
+                                data: data.neutral_premiums,
+                                type: 'bar',
+                                backgroundColor: 'rgba(155, 89, 182, 0.7)',
+                                borderWidth: 0,
+                                stack: 'dp',
+                                yAxisID: 'y',
+                                order: 3
                             },
                             // Stock price line (foreground)
                             {
@@ -535,6 +525,7 @@
                                 display: true,
                                 position: 'left',
                                 beginAtZero: true,
+                                stacked: true,
                                 title: {
                                     display: true,
                                     text: 'Dark Pool Notional ($)',
@@ -582,6 +573,7 @@
                                 }
                             },
                             x: {
+                                stacked: true,
                                 title: {
                                     display: true,
                                     text: 'Date',

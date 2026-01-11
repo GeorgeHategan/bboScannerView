@@ -4019,37 +4019,58 @@ async def darkpool_chart_data(symbol: str):
         query = """
             SELECT 
                 signal_date,
+                direction,
                 SUM(dp_volume) as total_volume,
                 SUM(dp_premium) as total_premium,
                 COUNT(*) as trade_count,
-                MAX(confidence_score) as max_confidence,
-                STRING_AGG(DISTINCT direction, ',') as directions
+                MAX(confidence_score) as max_confidence
             FROM darkpool_signals
             WHERE ticker = ?
                 AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
-            GROUP BY signal_date
+            GROUP BY signal_date, direction
             ORDER BY signal_date
         """
         
         results = conn.execute(query, [symbol.upper()]).fetchall()
         conn.close()
         
-        # Create darkpool map
+        # Create darkpool map with separate premiums by direction
         darkpool_map = {}
         for row in results:
             date_str = str(row[0])
-            darkpool_map[date_str] = {
-                'volume': int(row[1]) if row[1] else 0,
-                'premium': float(row[2]) if row[2] else 0,
-                'trade_count': int(row[3]) if row[3] else 0,
-                'confidence': float(row[4]) if row[4] else 0,
-                'direction': str(row[5]) if row[5] else ''
-            }
+            direction = str(row[1]).upper() if row[1] else 'NEUTRAL'
+            volume = int(row[2]) if row[2] else 0
+            premium = float(row[3]) if row[3] else 0
+            trade_count = int(row[4]) if row[4] else 0
+            confidence = float(row[5]) if row[5] else 0
+            
+            if date_str not in darkpool_map:
+                darkpool_map[date_str] = {
+                    'bullish_premium': 0,
+                    'bearish_premium': 0,
+                    'neutral_premium': 0,
+                    'volume': 0,
+                    'trade_count': 0,
+                    'confidence': 0
+                }
+            
+            # Aggregate by direction
+            if direction in ('BUY', 'BULLISH'):
+                darkpool_map[date_str]['bullish_premium'] += premium
+            elif direction in ('SELL', 'BEARISH'):
+                darkpool_map[date_str]['bearish_premium'] += premium
+            else:
+                darkpool_map[date_str]['neutral_premium'] += premium
+            
+            darkpool_map[date_str]['volume'] += volume
+            darkpool_map[date_str]['trade_count'] += trade_count
+            darkpool_map[date_str]['confidence'] = max(darkpool_map[date_str]['confidence'], confidence)
         
         # Build detailed data for individual chart (with full date strings)
         dates = []
-        premiums = []
-        directions = []
+        bullish_premiums = []
+        bearish_premiums = []
+        neutral_premiums = []
         volumes = []
         trade_counts = []
         confidences = []
@@ -4061,25 +4082,28 @@ async def darkpool_chart_data(symbol: str):
             # Add darkpool data if exists
             if date in darkpool_map:
                 dp = darkpool_map[date]
-                premiums.append(dp['premium'])
-                directions.append(dp['direction'])
+                bullish_premiums.append(dp['bullish_premium'])
+                bearish_premiums.append(dp['bearish_premium'])
+                neutral_premiums.append(dp['neutral_premium'])
                 volumes.append(dp['volume'])
                 trade_counts.append(dp['trade_count'])
                 confidences.append(dp['confidence'])
             else:
-                premiums.append(0)
-                directions.append('N/A')
+                bullish_premiums.append(0)
+                bearish_premiums.append(0)
+                neutral_premiums.append(0)
                 volumes.append(0)
                 trade_counts.append(0)
-                confidences.append('N/A')
+                confidences.append(0)
             
             # Add price if available
             prices.append(price_map.get(date))
         
         return {
             'dates': dates,
-            'premiums': premiums,
-            'directions': directions,
+            'bullish_premiums': bullish_premiums,
+            'bearish_premiums': bearish_premiums,
+            'neutral_premiums': neutral_premiums,
             'volumes': volumes,
             'trade_counts': trade_counts,
             'confidences': confidences,
@@ -4150,33 +4174,43 @@ async def darkpool_chart_data_bulk(symbols: str):
             SELECT 
                 ticker,
                 signal_date,
-                SUM(dp_premium) as total_premium,
-                STRING_AGG(DISTINCT direction, ',') as directions
+                direction,
+                SUM(dp_premium) as total_premium
             FROM darkpool_signals
             WHERE ticker IN ({placeholders})
                 AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
-            GROUP BY ticker, signal_date
+            GROUP BY ticker, signal_date, direction
             ORDER BY ticker, signal_date
         """
         
         results = conn.execute(query, symbol_list).fetchall()
         conn.close()
         
-        # Organize raw data by symbol and date
+        # Organize raw data by symbol, date, and direction
         raw_data = {}
         for row in results:
             ticker = row[0]
             date_str = str(row[1])
-            premium = float(row[2]) if row[2] else 0
-            direction = str(row[3]) if row[3] else ''
+            direction = str(row[2]).upper() if row[2] else 'NEUTRAL'
+            premium = float(row[3]) if row[3] else 0
             
             if ticker not in raw_data:
                 raw_data[ticker] = {}
             
-            raw_data[ticker][date_str] = {
-                'premium': premium,
-                'direction': direction
-            }
+            if date_str not in raw_data[ticker]:
+                raw_data[ticker][date_str] = {
+                    'bullish_premium': 0,
+                    'bearish_premium': 0,
+                    'neutral_premium': 0
+                }
+            
+            # Aggregate by direction
+            if direction in ('BUY', 'BULLISH'):
+                raw_data[ticker][date_str]['bullish_premium'] += premium
+            elif direction in ('SELL', 'BEARISH'):
+                raw_data[ticker][date_str]['bearish_premium'] += premium
+            else:
+                raw_data[ticker][date_str]['neutral_premium'] += premium
         
         # Build complete 60-day data for each symbol
         symbol_data = {}
@@ -4191,31 +4225,19 @@ async def darkpool_chart_data_bulk(symbols: str):
                 # Get data for this date or use zeros
                 if ticker in raw_data and date in raw_data[ticker]:
                     data_point = raw_data[ticker][date]
-                    premium = data_point['premium']
-                    direction = data_point['direction'].upper()
-                    
-                    # Determine color - mixed signals or NEUTRAL = purple
-                    has_multiple = ',' in direction
-                    has_neutral = 'NEUTRAL' in direction
-                    has_bullish = 'BUY' in direction or 'BULLISH' in direction
-                    has_bearish = 'SELL' in direction or 'BEARISH' in direction
-                    
-                    if has_multiple or has_neutral:
-                        color = 'rgba(155, 89, 182, 0.7)'  # Purple for neutral/mixed
-                    elif has_bullish:
-                        color = 'rgba(39, 174, 96, 0.7)'
-                    elif has_bearish:
-                        color = 'rgba(231, 76, 60, 0.7)'
-                    else:
-                        color = 'rgba(155, 89, 182, 0.7)'  # Default to purple
+                    bullish_premium = data_point['bullish_premium']
+                    bearish_premium = data_point['bearish_premium']
+                    neutral_premium = data_point['neutral_premium']
                 else:
-                    premium = 0
-                    color = 'rgba(189, 195, 199, 0.3)'  # Gray for no data
+                    bullish_premium = 0
+                    bearish_premium = 0
+                    neutral_premium = 0
                 
                 symbol_data[ticker].append({
                     'label': label,
-                    'premium': premium,
-                    'color': color
+                    'bullish_premium': bullish_premium,
+                    'bearish_premium': bearish_premium,
+                    'neutral_premium': neutral_premium
                 })
         
         return symbol_data

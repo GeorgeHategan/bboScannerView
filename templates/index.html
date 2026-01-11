@@ -1651,12 +1651,11 @@
                         type: 'bar',
                         data: {
                             labels: data.map(d => d.label),
-                            datasets: [{
-                                label: 'DP Notional',
-                                data: data.map(d => d.premium),
-                                backgroundColor: data.map(d => d.color),
-                                borderWidth: 0
-                            }]
+                            datasets: [
+                                { label: 'Bullish', data: data.map(d => d.bullish_premium), backgroundColor: 'rgba(39, 174, 96, 0.7)', borderWidth: 0, stack: 'dp' },
+                                { label: 'Bearish', data: data.map(d => d.bearish_premium), backgroundColor: 'rgba(231, 76, 60, 0.7)', borderWidth: 0, stack: 'dp' },
+                                { label: 'Neutral', data: data.map(d => d.neutral_premium), backgroundColor: 'rgba(155, 89, 182, 0.7)', borderWidth: 0, stack: 'dp' }
+                            ]
                         },
                         options: {
                             responsive: true,
@@ -1666,7 +1665,7 @@
                                 tooltip: {
                                     callbacks: {
                                         label: function(context) {
-                                            return '$' + (context.parsed.y / 1000000).toFixed(1) + 'M';
+                                            return context.dataset.label + ': $' + (context.parsed.y / 1000000).toFixed(1) + 'M';
                                         }
                                     }
                                 }
@@ -1674,6 +1673,7 @@
                             scales: {
                                 y: {
                                     beginAtZero: true,
+                                    stacked: true,
                                     ticks: {
                                         callback: function(value) {
                                             return '$' + (value / 1000000).toFixed(0) + 'M';
@@ -1682,6 +1682,7 @@
                                     }
                                 },
                                 x: {
+                                    stacked: true,
                                     ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 }
                                 }
                             }
