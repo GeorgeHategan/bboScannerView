@@ -3019,8 +3019,18 @@ async def focus_list_page(request: Request):
         print(f"Focus list: Got {len(items)} items from database")
         
         # Enrich items with stock metadata from the database
+        symbols = []
         if items:
             symbols = list(set(item['symbol'] for item in items))
+        
+        if not symbols:
+            # No items, return empty page
+            from collections import OrderedDict
+            return templates.TemplateResponse('focus_list.html', {
+                'request': request,
+                'grouped_items': OrderedDict(),
+                'total_count': 0
+            })
         
         # Fetch metadata for all symbols
         try:
