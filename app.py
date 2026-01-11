@@ -6892,6 +6892,41 @@ async def index(
                 print(f'Fundamental quality query failed: {e}')
                 fund_quality_dict = {}
         
+        # Fetch news sentiment pressure scores for each symbol
+        news_sentiment_dict = {}
+        if symbols_list:
+            try:
+                news_conn = get_db_connection(DUCKDB_PATH)
+                if news_conn:
+                    placeholders = ','.join(['?' for _ in symbols_list])
+                    news_query = f'''
+                        SELECT symbol, news_sentiment_score, bar_blocks, bar_direction,
+                               cluster_level, article_count_5d, article_count_2d,
+                               norm_score, computed_at
+                        FROM scanner_data.main.news_sentiment_pressure_scores
+                        WHERE symbol IN ({placeholders})
+                    '''
+                    news_results = news_conn.execute(news_query, symbols_list).fetchall()
+                    
+                    for row in news_results:
+                        sym = row[0]
+                        news_sentiment_dict[sym] = {
+                            'news_score': row[1],
+                            'bar_blocks': row[2],
+                            'bar_direction': row[3],  # 'positive' or 'negative'
+                            'cluster_level': row[4],  # 'high', 'medium', 'low'
+                            'article_count_5d': row[5],
+                            'article_count_2d': row[6],
+                            'norm_score': row[7],
+                            'computed_at': str(row[8]) if row[8] else None
+                        }
+                    
+                    news_conn.close()
+                    print(f'Loaded news sentiment scores for {len(news_sentiment_dict)} symbols')
+            except Exception as e:
+                print(f'News sentiment query failed: {e}')
+                news_sentiment_dict = {}
+        
         for symbol in symbols_list:
             # Check if symbol has scanner results
             if symbol in scanner_dict:
@@ -7099,6 +7134,12 @@ async def index(
                             stocks[symbol]['fund_quality'] = fund_quality_dict[symbol]
                         else:
                             stocks[symbol]['fund_quality'] = None
+                        
+                        # Add news sentiment pressure scores
+                        if symbol in news_sentiment_dict:
+                            stocks[symbol]['news_sentiment'] = news_sentiment_dict[symbol]
+                        else:
+                            stocks[symbol]['news_sentiment'] = None
                         
                         # Skip external API calls - too slow for Render
                         stocks[symbol][f'{pattern}_earnings_date'] = None

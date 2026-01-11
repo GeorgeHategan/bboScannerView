@@ -186,6 +186,81 @@
             visibility: visible;
             opacity: 1;
         }
+        /* News Sentiment Pressure Indicator */
+        .news-sentiment {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            position: relative;
+            cursor: help;
+            vertical-align: middle;
+        }
+        .news-bar {
+            display: inline-flex;
+            gap: 2px;
+            align-items: center;
+        }
+        .news-block {
+            width: 7px;
+            height: 11px;
+            border-radius: 1px;
+        }
+        .news-block.empty {
+            background-color: #3A3A3A;
+        }
+        .news-block.positive { background-color: #66BB6A; }
+        .news-block.negative { background-color: #C62828; }
+        .news-arrow {
+            font-size: 10px;
+            margin-left: 2px;
+        }
+        .news-arrow.positive { color: #66BB6A; }
+        .news-arrow.negative { color: #C62828; }
+        .news-arrow.neutral { color: #888888; }
+        .news-cluster {
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-left: 3px;
+            font-weight: 600;
+        }
+        .news-cluster.high { background-color: #FFE082; color: #5D4037; }
+        .news-cluster.medium { background-color: #E0E0E0; color: #424242; }
+        .news-cluster.low { background-color: #F5F5F5; color: #757575; }
+        .news-tooltip {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 9999;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 11px;
+            line-height: 1.5;
+            font-weight: normal;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .news-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .news-sentiment:hover .news-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
         .chart-container {
             background: white;
             padding: 20px;
@@ -852,6 +927,33 @@
                                     Profit Margin: {% if fq.profit_margin is not none %}{{ "%.1f"|format(fq.profit_margin * 100) }}%{% else %}—{% endif %}<br>
                                     Q EPS Growth: {% if fq.quarterly_earnings_growth is not none %}{{ "%.1f"|format(fq.quarterly_earnings_growth * 100) }}%{% else %}—{% endif %}<br>
                                     P/E Ratio: {% if fq.pe_ratio is not none %}{{ "%.1f"|format(fq.pe_ratio) }}{% else %}—{% endif %}
+                                </span>
+                            </span>
+                            {% else %}
+                            <span style="color:#999;">N/A</span>
+                            {% endif %}
+                            &nbsp;|&nbsp;
+                            <strong>News:</strong>
+                            {% if stocks[stock]['news_sentiment'] %}
+                            {% set ns = stocks[stock]['news_sentiment'] %}
+                            <span class="news-sentiment">
+                                <span class="news-bar">
+                                    {% for i in range(5) %}
+                                    <span class="news-block {% if i < ns.bar_blocks %}{{ ns.bar_direction }}{% else %}empty{% endif %}"></span>
+                                    {% endfor %}
+                                </span>
+                                <span class="news-arrow {{ ns.bar_direction }}">{% if ns.bar_direction == 'positive' %}▲{% elif ns.bar_direction == 'negative' %}▼{% else %}—{% endif %}</span>
+                                <span class="news-cluster {{ ns.cluster_level }}">{{ ns.article_count_5d }}</span>
+                                <span class="news-tooltip">
+                                    <strong>News Sentiment: {{ ns.news_score }}/100</strong><br>
+                                    Direction: <span style="color: {% if ns.bar_direction == 'positive' %}#66BB6A{% else %}#C62828{% endif %};">{{ ns.bar_direction|capitalize }}</span><br>
+                                    {% if ns.computed_at %}
+                                    Updated: {{ ns.computed_at[:10] }}<br>
+                                    {% endif %}
+                                    <hr style="border-color: #555; margin: 6px 0;">
+                                    Articles (5d): {{ ns.article_count_5d }}<br>
+                                    Articles (2d): {{ ns.article_count_2d }}<br>
+                                    Activity: {{ ns.cluster_level|capitalize }}
                                 </span>
                             </span>
                             {% else %}

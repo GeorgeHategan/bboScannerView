@@ -29,8 +29,12 @@ data_conn.execute("""
         win_rate DOUBLE,
         best_symbol VARCHAR,
         best_gain DOUBLE,
+        best_pick_date VARCHAR,
+        best_entry_price DOUBLE,
         worst_symbol VARCHAR,
         worst_drawdown DOUBLE,
+        worst_pick_date VARCHAR,
+        worst_entry_price DOUBLE,
         calculated_at TIMESTAMP
     )
 """)
@@ -67,7 +71,11 @@ for (scanner_name,) in scanners:
     drawdowns = []
     current_pnls = []
     best_pick = None
+    best_pick_date = None
+    best_pick_entry = 0
     worst_pick = None
+    worst_pick_date = None
+    worst_pick_entry = 0
     max_best_gain = -999999
     max_worst_dd = 0
     
@@ -109,10 +117,14 @@ for (scanner_name,) in scanners:
         if max_gain > max_best_gain:
             max_best_gain = max_gain
             best_pick = symbol
+            best_pick_date = str(scan_date)
+            best_pick_entry = entry_price
         
         if max_dd < max_worst_dd:
             max_worst_dd = max_dd
             worst_pick = symbol
+            worst_pick_date = str(scan_date)
+            worst_pick_entry = entry_price
     
     if not gains:
         print(f"    No valid performance data")
@@ -129,7 +141,7 @@ for (scanner_name,) in scanners:
     
     # Insert into performance_tracking table in scanner_data
     data_conn.execute("""
-        INSERT OR REPLACE INTO performance_tracking VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT OR REPLACE INTO performance_tracking VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     """, [
         scanner_name,
         total_picks,
@@ -139,8 +151,12 @@ for (scanner_name,) in scanners:
         win_rate,
         best_pick,
         max_best_gain,
+        best_pick_date,
+        best_pick_entry,
         worst_pick,
-        max_worst_dd
+        max_worst_dd,
+        worst_pick_date,
+        worst_pick_entry
     ])
 
 results_conn.close()

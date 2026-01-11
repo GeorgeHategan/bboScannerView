@@ -1,0 +1,180 @@
+# BBO Scanner View - Architecture Diagram
+# Import this CSV into Miro as a mind map or diagram
+
+Component,Type,Description,Dependencies,Technology
+BBO Scanner View,Application,Stock scanner web application with OAuth authentication,FastAPI + DuckDB + MotherDuck,Python/FastAPI
+,,,, 
+Frontend Layer,Layer,User interface and visualization,,,
+├── Templates,UI Components,Jinja2 HTML templates,FastAPI Templating,Jinja2
+│   ├── index.html,Page,Main scanner dashboard with charts,Chart.js,HTML/JS
+│   ├── login.html,Page,Google OAuth login page,OAuth,HTML/JS
+│   ├── admin.html,Page,User management dashboard,Session,HTML/JS
+│   ├── focus_list.html,Page,Watchlist management,API,HTML/JS
+│   ├── options_signals.html,Page,Options flow analysis,Chart.js,HTML/JS
+│   ├── darkpool_signals.html,Page,Dark pool activity tracking,Chart.js,HTML/JS
+│   ├── vix_chart.html,Page,VIX volatility charting,Chart.js,HTML/JS
+│   ├── scanner_docs.html,Page,Scanner documentation,None,HTML
+│   └── Other Pages,Pages,"discovery, ticker_search, stats, etc",Various,HTML/JS
+└── Static Files,Assets,Images and static resources,None,PNG/ICO
+,,,, 
+Backend Layer,Layer,Application logic and routing,,,
+├── FastAPI App,Web Framework,Async web server with routing,Uvicorn,FastAPI
+│   ├── Authentication,Module,Google OAuth 2.0 integration,Authlib,OAuth
+│   │   ├── /login,Endpoint,Login page with charts,None,GET
+│   │   ├── /auth/google,Endpoint,Initiate OAuth flow,Google,GET
+│   │   ├── /auth/google/callback,Endpoint,OAuth callback handler,Google,GET
+│   │   └── /logout,Endpoint,Clear session,None,GET
+│   ├── Admin Routes,Module,User management for admins,SQLite,Protected
+│   │   ├── /admin,Endpoint,Admin dashboard,Require Admin,GET
+│   │   ├── /admin/add-user,Endpoint,Add allowed user,Require Admin,POST
+│   │   ├── /admin/remove-user,Endpoint,Remove user,Require Admin,POST
+│   │   ├── /admin/toggle-user,Endpoint,Enable/disable user,Require Admin,POST
+│   │   └── /admin/cache-stats,Endpoint,View cache statistics,Require Admin,GET
+│   ├── Scanner Routes,Module,Main scanner functionality,MotherDuck,Public
+│   │   ├── /,Endpoint,Main scanner dashboard,Require Login,GET
+│   │   ├── /scanner-detail,Endpoint,Individual scanner details,Require Login,GET
+│   │   ├── /scanner-performance,Endpoint,Scanner accuracy metrics,Require Login,GET
+│   │   └── /scanner-docs,Endpoint,Scanner documentation,Require Login,GET
+│   ├── Options Routes,Module,Options flow analysis,MotherDuck,Public
+│   │   ├── /options-signals,Endpoint,Options signals page,Require Login,GET
+│   │   └── /api/options-chart-data,Endpoint,Options chart API,Require Login,GET
+│   ├── Dark Pool Routes,Module,Dark pool tracking,MotherDuck,Public
+│   │   ├── /darkpool-signals,Endpoint,Dark pool signals page,Require Login,GET
+│   │   └── /api/darkpool-chart-data,Endpoint,Dark pool chart API,Require Login,GET
+│   ├── VIX Routes,Module,Volatility index tracking,SQLite + MotherDuck,Public
+│   │   ├── /vix-chart,Endpoint,VIX chart page,Require Login,GET
+│   │   ├── /api/vix,Endpoint,Get latest VIX data,None,GET
+│   │   ├── /api/vix/history,Endpoint,Get VIX history,None,GET
+│   │   ├── /webhook/tradingview,Endpoint,TradingView webhook,Secret,POST
+│   │   └── /api/vix/sync,Endpoint,Sync SQLite to MotherDuck,None,POST
+│   ├── Focus List Routes,Module,Watchlist management,MotherDuck,Public
+│   │   ├── /focus-list,Endpoint,Focus list page,Require Login,GET
+│   │   ├── /api/focus-list,Endpoint,Get focus list data,Require Login,GET
+│   │   ├── /api/focus-list/add,Endpoint,Add to focus list,Require Login,POST
+│   │   ├── /api/focus-list/remove,Endpoint,Remove from focus list,Require Login,POST
+│   │   └── /api/focus-list/analyze,Endpoint,AI analysis (OpenAI),Require Login,POST
+│   ├── Discovery Routes,Module,Stock discovery tools,MotherDuck,Public
+│   │   ├── /discovery,Endpoint,Stock discovery page,Require Login,GET
+│   │   ├── /universe,Endpoint,Stock universe view,Require Login,GET
+│   │   ├── /ranked,Endpoint,Ranked stocks page,Require Login,GET
+│   │   ├── /stats,Endpoint,Statistics page,Require Login,GET
+│   │   └── /ticker-search,Endpoint,Ticker search page,Require Login,GET
+│   └── Utility Routes,Module,Health checks and debugging,None,Public
+│       ├── /health,Endpoint,Health check endpoint,None,GET
+│       ├── /debug,Endpoint,Debug information,None,GET
+│       └── /favicon.ico,Endpoint,Favicon file,None,GET
+├── Middleware,Components,Request/response processing,,,
+│   ├── SessionMiddleware,Middleware,Session management,Starlette,Cookie-based
+│   └── AuthMiddleware,Middleware,Authentication enforcement,Custom,Session check
+└── Background Tasks,Workers,Async background jobs,,,
+    └── VIX Sync Task,Task,Hourly SQLite to MotherDuck sync,asyncio,Async
+,,,, 
+Data Layer,Layer,Database connections and caching,,,
+├── Connection Pool,System,Thread-safe connection management,Threading,Singleton
+│   ├── MotherDuck Connections,Connections,Cloud DuckDB connections (no pool),DuckDB,Per-request
+│   └── Local DuckDB Connections,Connections,Local DuckDB file pooling,DuckDB,Pooled
+├── TTL Cache,System,In-memory caching with TTL,Threading,Singleton
+│   ├── maxsize,Config,100 items max,None,LRU eviction
+│   ├── TTL,Config,2 minutes default,None,Time-based
+│   └── Cached Functions,Functions,"latest_scan_date, ticker_list, metadata, scanner_results",Decorator,@cached
+└── Databases,Storage,Data persistence layer,,,
+    ├── MotherDuck (scanner_results),Database,Scanner results cloud DB,DuckDB Cloud,Cloud
+    │   └── scanner_results table,Table,Pre-calculated scanner signals,SQL,Main data
+    ├── MotherDuck (scanner_data),Database,Scanner data cloud DB,DuckDB Cloud,Cloud
+    │   ├── daily_cache table,Table,Daily price/volume data,SQL,Market data
+    │   └── fundamental_cache table,Table,Company fundamentals,SQL,Metadata
+    ├── MotherDuck (options_data),Database,Options and dark pool DB,DuckDB Cloud,Cloud
+    │   ├── accumulation_signals table,Table,Options flow signals,SQL,Options data
+    │   ├── darkpool_signals table,Table,Dark pool transactions,SQL,Dark pool data
+    │   ├── options_walls table,Table,Options OI walls,SQL,Options levels
+    │   └── focus_list table,Table,User watchlists,SQL,User data
+    ├── SQLite (users.db),Database,Local user management,SQLite,File-based
+    │   ├── allowed_users table,Table,Whitelisted users,SQL,Access control
+    │   └── login_logs table,Table,Login attempt tracking,SQL,Audit logs
+    └── SQLite (vix_webhook.db),Database,VIX data buffer,SQLite,File-based
+        └── vix_data table,Table,VIX readings from TradingView,SQL,Temp storage
+,,,, 
+External Services,Layer,Third-party integrations,,,
+├── Google OAuth,Service,User authentication,Authlib,OAuth 2.0
+├── TradingView,Service,VIX webhook source,Webhook,HTTP POST
+├── OpenAI,Service,Stock analysis (optional),OpenAI SDK,GPT API
+├── IP Geolocation,Service,Visitor location tracking,ipapi.co,REST API
+└── MotherDuck Cloud,Service,Cloud DuckDB hosting,DuckDB,Cloud DB
+,,,, 
+Configuration,Layer,Environment and settings,,,
+├── Environment Variables,Config,Secrets and configuration,.env file,dotenv
+│   ├── GOOGLE_CLIENT_ID,Secret,OAuth client ID,Google Cloud,String
+│   ├── GOOGLE_CLIENT_SECRET,Secret,OAuth client secret,Google Cloud,String
+│   ├── SECRET_KEY,Secret,Session encryption key,Random,String
+│   ├── motherduck_token,Secret,Scanner DB token,MotherDuck,String
+│   └── options_motherduck_token,Secret,Options DB token,MotherDuck,String
+├── Scanner Colors,Mapping,Visual color scheme,Hardcoded,Dictionary
+│   └── 14 Scanner Types,Scanners,"accumulation, breakout, candlestick, etc",Hex colors,Color codes
+└── Pattern Weights,Mapping,Candlestick pattern scoring,Hardcoded,Dictionary
+    └── 30+ Patterns,Patterns,TA-Lib candlestick patterns,Weighted 1-10,Scoring
+,,,, 
+Deployment,Layer,Production hosting,,,
+├── Render.com,Platform,Cloud hosting platform,render.yaml,PaaS
+│   ├── Web Service,Service,Uvicorn server,Procfile,HTTP
+│   ├── Environment,Config,Environment variables,Render UI,Secrets
+│   └── Resources,Limits,512MB RAM / 25 results max,Free tier,Limited
+├── Procfile,Config,Service startup command,Render,Shell
+│   └── uvicorn app:app,Command,FastAPI server with 1 worker,Uvicorn,ASGI
+├── requirements.txt,Config,Python dependencies,pip,Packages
+└── runtime.txt,Config,Python version specification,Render,Version
+,,,, 
+Data Flow,Process,Key data flows,,,
+├── User Authentication,Flow,OAuth login process,,,
+│   ├── 1. User visits /login,Step,Shows login page with charts,GET,Client
+│   ├── 2. Click Google Sign In,Step,Redirects to /auth/google,GET,Client
+│   ├── 3. OAuth redirect,Step,Google OAuth consent screen,OAuth,Google
+│   ├── 4. Callback to /auth/google/callback,Step,Receive OAuth token,GET,Server
+│   ├── 5. Verify email in allowed_users,Step,Check whitelist,SQL,Server
+│   ├── 6. Create session,Step,Set session cookie,Cookie,Server
+│   └── 7. Redirect to dashboard,Step,Main scanner page,GET,Client
+├── Scanner Dashboard,Flow,Main page load process,,,
+│   ├── 1. Request /,Step,User visits main page,GET,Client
+│   ├── 2. Check session,Step,AuthMiddleware validates,Middleware,Server
+│   ├── 3. Get latest scan date,Step,Query MotherDuck (cached),SQL,Server
+│   ├── 4. Load scanner results,Step,Top 25 by strength (LIMIT),SQL,Server
+│   ├── 5. Batch load volume data,Step,Single query for all symbols,SQL,Server
+│   ├── 6. Load options/dark pool,Step,Parallel queries,SQL,Server
+│   ├── 7. Render template,Step,Jinja2 with data,Template,Server
+│   └── 8. Return HTML,Step,Send to client,HTTP,Client
+├── Focus List Addition,Flow,Add stock to watchlist,,,
+│   ├── 1. Click "focus +" button,Step,JavaScript event,Click,Client
+│   ├── 2. Button turns green,Step,Immediate visual feedback,CSS,Client
+│   ├── 3. POST /api/focus-list/add,Step,Send symbol + scanner,POST,Client
+│   ├── 4. Insert to focus_list table,Step,Save to MotherDuck,SQL,Server
+│   ├── 5. Return success,Step,JSON response,JSON,Server
+│   ├── 6. Button turns orange,Step,Confirm added,CSS,Client
+│   └── 7. Re-enable button,Step,Allow further clicks,JS,Client
+└── VIX Data Collection,Flow,Volatility index tracking,,,
+    ├── 1. TradingView webhook,Step,POST /webhook/tradingview,POST,External
+    ├── 2. Validate secret,Step,Check authorization,Header,Server
+    ├── 3. Insert to SQLite,Step,Save to vix_webhook.db,SQL,Server
+    ├── 4. Background sync task,Step,Hourly sync to MotherDuck,Async,Server
+    └── 5. Display on /vix-chart,Step,Chart.js visualization,GET,Client
+,,,, 
+Performance Optimizations,Layer,Speed and memory improvements,,,
+├── Memory Management,Strategy,Stay within 512MB limit,,,
+│   ├── Result Limiting,Optimization,LIMIT 25 top signals,SQL,Query
+│   ├── Cache Size,Optimization,Max 100 cached items,TTL,LRU eviction
+│   └── Cache TTL,Optimization,2 minute expiration,TTL,Fast release
+├── Query Optimizations,Strategy,Reduce database load,,,
+│   ├── Bulk Queries,Optimization,Single query for N symbols,IN clause,SQL
+│   ├── Pre-calculated Data,Optimization,scanner_results table,Materialized,DB
+│   └── Indexed Queries,Optimization,Date + symbol indexes,INDEX,DB
+└── Caching Strategy,Strategy,Reduce redundant queries,,,
+    ├── Latest Scan Date,Cache,Cached for all users,TTL,2 min
+    ├── Ticker List,Cache,Autocomplete data,TTL,2 min
+    ├── Symbol Metadata,Cache,Company info,TTL,2 min
+    └── Scanner Results,Cache,Per pattern + date,TTL,2 min
+,,,, 
+Security,Layer,Authentication and authorization,,,
+├── OAuth 2.0,Authentication,Google Sign-In,Authlib,Industry standard
+├── Session Management,Security,Server-side sessions,Secret key,Encrypted
+├── Middleware Protection,Security,All routes protected,AuthMiddleware,Enforced
+├── Admin-Only Routes,Authorization,/admin/* restricted,Email check,Role-based
+├── Webhook Secret,Security,TradingView validation,Header,Pre-shared key
+└── IP Logging,Audit,Track all visitors,ipapi.co,Monitoring
