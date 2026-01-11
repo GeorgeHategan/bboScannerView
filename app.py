@@ -3073,6 +3073,7 @@ async def focus_list_page(request: Request):
             }
             
             conn.close()
+            print("Focus list: Loaded metadata and volume data")
             
             # Get confirmations from scanner_results database (separate connection)
             confirmations_dict = {}
@@ -3097,6 +3098,8 @@ async def focus_list_page(request: Request):
                 results_conn.close()
             except Exception as e:
                 print(f"Error fetching confirmations for focus list: {e}")
+            
+            print("Focus list: Loaded confirmations")
             
             # Fetch options signals for all symbols
             options_signals_dict = {}
