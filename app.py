@@ -3291,6 +3291,7 @@ async def focus_list_page(request: Request):
                             'return_on_equity': raw_inputs.get('return_on_equity'),
                             'profit_margin': raw_inputs.get('profit_margin'),
                             'quarterly_earnings_growth': raw_inputs.get('quarterly_earnings_growth'),
+                            'yoy_eps_growth': raw_inputs.get('yoy_eps_growth'),
                             'pe_ratio': raw_inputs.get('pe_ratio')
                         }
                     
@@ -7213,6 +7214,7 @@ async def index(
                             'return_on_equity': raw_inputs.get('return_on_equity'),
                             'profit_margin': raw_inputs.get('profit_margin'),
                             'quarterly_earnings_growth': raw_inputs.get('quarterly_earnings_growth'),
+                            'yoy_eps_growth': raw_inputs.get('yoy_eps_growth'),
                             'pe_ratio': raw_inputs.get('pe_ratio')
                         }
                     
