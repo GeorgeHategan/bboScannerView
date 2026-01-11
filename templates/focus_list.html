@@ -724,14 +724,14 @@
     {% for item in items %}
     {% if item.darkpool_signals %}
     dpData['{{ item.symbol }}'] = [
-        {% for dp in item.darkpool_signals[:30] %}
+        {% for dp in item.darkpool_signals[:60] %}
         { label: '{{ dp.date[5:] if dp.date else "" }}', value: {{ dp.dp_premium or 0 }}, color: '{{ "#27ae60" if dp.direction in ["BUY", "BULLISH"] else "#e74c3c" if dp.direction in ["SELL", "BEARISH"] else "#f39c12" }}' },
         {% endfor %}
     ].reverse();
     {% endif %}
     {% if item.options_signals %}
     optData['{{ item.symbol }}'] = [
-        {% for opt in item.options_signals[:30] %}
+        {% for opt in item.options_signals[:60] %}
         { label: '{{ opt.date[5:] if opt.date else "" }}', bullish_premium: {{ opt.premium if opt.direction in ['BULLISH', 'BUY'] else 0 }}, bearish_premium: {{ opt.premium if opt.direction in ['BEARISH', 'SELL'] else 0 }} },
         {% endfor %}
     ].reverse();
