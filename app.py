@@ -1935,15 +1935,25 @@ Price Action (Last {len(prices)} days):
         call_walls = [w for w in walls['call_walls'] if w['strike']]
         put_walls = [w for w in walls['put_walls'] if w['strike']]
         
-        gamma_flip_str = f"${walls['gamma_flip']:.2f}" if walls['gamma_flip'] else 'N/A'
-        pcr_str = f"{walls['put_call_ratio']:.2f}" if walls['put_call_ratio'] else 'N/A'
+        # Convert to float safely for formatting
+        stock_price = float(walls['stock_price']) if walls['stock_price'] else 0
+        gamma_flip = float(walls['gamma_flip']) if walls['gamma_flip'] else None
+        pcr = float(walls['put_call_ratio']) if walls['put_call_ratio'] else None
+        
+        gamma_flip_str = f"${gamma_flip:.2f}" if gamma_flip else 'N/A'
+        pcr_str = f"{pcr:.2f}" if pcr else 'N/A'
+        
+        def format_wall(w):
+            strike = float(w['strike']) if w['strike'] else 0
+            oi = int(w['oi']) if w['oi'] else 0
+            return f"${strike:.0f} ({oi:,} OI)"
         
         walls_summary = f"""
 Options Walls (Key Levels):
-- Stock Price: ${walls['stock_price']:.2f}
+- Stock Price: ${stock_price:.2f}
 - Gamma Flip (resistance/support pivot): {gamma_flip_str}
-- Call Walls (resistance): {', '.join([f"${w['strike']:.0f} ({w['oi']:,} OI)" for w in call_walls[:3]])}
-- Put Walls (support): {', '.join([f"${w['strike']:.0f} ({w['oi']:,} OI)" for w in put_walls[:3]])}
+- Call Walls (resistance): {', '.join([format_wall(w) for w in call_walls[:3]])}
+- Put Walls (support): {', '.join([format_wall(w) for w in put_walls[:3]])}
 - Put/Call Ratio: {pcr_str}
 """
     
@@ -2004,11 +2014,18 @@ Technical Indicators:
     fund_summary = ""
     if data['fundamentals']:
         f = data['fundamentals']
-        mkt_cap_str = f"${f['market_cap']:,.0f}" if f.get('market_cap') else 'N/A'
-        pe_str = f"{f['pe_ratio']:.1f}" if f.get('pe_ratio') else 'N/A'
-        roe_str = f"{f['return_on_equity']:.1f}%" if f.get('return_on_equity') else 'N/A'
-        margin_str = f"{f['profit_margin']:.1f}%" if f.get('profit_margin') else 'N/A'
-        growth_str = f"{f['quarterly_earnings_growth']:.1f}%" if f.get('quarterly_earnings_growth') else 'N/A'
+        # Convert to appropriate types safely
+        mkt_cap = float(f['market_cap']) if f.get('market_cap') else None
+        pe = float(f['pe_ratio']) if f.get('pe_ratio') else None
+        roe = float(f['return_on_equity']) if f.get('return_on_equity') else None
+        margin = float(f['profit_margin']) if f.get('profit_margin') else None
+        growth = float(f['quarterly_earnings_growth']) if f.get('quarterly_earnings_growth') else None
+        
+        mkt_cap_str = f"${mkt_cap:,.0f}" if mkt_cap else 'N/A'
+        pe_str = f"{pe:.1f}" if pe else 'N/A'
+        roe_str = f"{roe:.1f}%" if roe else 'N/A'
+        margin_str = f"{margin:.1f}%" if margin else 'N/A'
+        growth_str = f"{growth:.1f}%" if growth else 'N/A'
         
         fund_summary = f"""
 Fundamentals:
