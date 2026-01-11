@@ -105,6 +105,9 @@
         .strength-high { color: #27ae60; font-weight: bold; }
         .strength-medium { color: #f39c12; font-weight: bold; }
         .strength-low { color: #e74c3c; font-weight: bold; }
+        .pnl-positive { color: #27ae60; }
+        .pnl-negative { color: #e74c3c; }
+        .pnl-cell { font-size: 11px; line-height: 1.3; }
         .quality-badge {
             display: inline-block;
             padding: 3px 8px;
@@ -436,6 +439,17 @@
                     <td style="width: 80px;">
                         {% if item.entry_price %}${{ "%.2f"|format(item.entry_price) }}{% else %}-{% endif %}
                     </td>
+                    <td class="pnl-cell" style="width: 110px;">
+                        {% if item.pnl %}
+                        <div><strong class="{% if item.pnl.current_pnl >= 0 %}pnl-positive{% else %}pnl-negative{% endif %}">
+                            ${{ "%.2f"|format(item.pnl.current_price) }} ({% if item.pnl.current_pnl >= 0 %}+{% endif %}{{ item.pnl.current_pnl }}%)
+                        </strong></div>
+                        <div style="color: #666;">
+                            <span class="pnl-positive">▲{{ item.pnl.max_gain }}%</span>
+                            <span class="pnl-negative">▼{{ item.pnl.max_drawdown }}%</span>
+                        </div>
+                        {% else %}-{% endif %}
+                    </td>
                     <td style="width: 80px;">
                         {% if item.strength %}
                             {% if item.strength >= 80 %}<span class="strength-high">{{ item.strength }}</span>
@@ -453,7 +467,7 @@
                 </tr>
                 
                 <tr>
-                    <td colspan="6" style="padding: 0;">
+                    <td colspan="7" style="padding: 0;">
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
                                 <td style="width: 63%; vertical-align: top; padding-right: 10px;">
@@ -682,7 +696,7 @@
                 
                 {% if item.ai_analysis %}
                 <tr>
-                    <td colspan="6" style="padding: 10px 10px 15px 10px;">
+                    <td colspan="7" style="padding: 10px 10px 15px 10px;">
                         <div class="ai-analysis">
                             <div class="ai-analysis-header">Analysis & Trade Plan</div>
                             <div class="ai-analysis-content">

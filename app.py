@@ -3282,6 +3282,58 @@ async def focus_list_page(request: Request):
             except Exception as e:
                 print(f"Error fetching news sentiment for focus list: {e}")
             
+            # Calculate PnL for each item from daily_cache (same logic as performance tracking)
+            pnl_dict = {}
+            try:
+                pnl_conn = get_db_connection(SCANNER_DATA_PATH)
+                if pnl_conn:
+                    for item in items:
+                        sym = item['symbol']
+                        entry_price = item.get('entry_price')
+                        scan_date = item.get('scan_date')
+                        
+                        if not entry_price or entry_price <= 0 or not scan_date:
+                            continue
+                        
+                        # Get price history since scan_date
+                        prices = pnl_conn.execute("""
+                            SELECT close, high, low
+                            FROM scanner_data.main.daily_cache
+                            WHERE symbol = ?
+                            AND date > ?
+                            ORDER BY date
+                        """, [sym, scan_date]).fetchall()
+                        
+                        if not prices:
+                            continue
+                        
+                        # Calculate metrics (same as calculate_scanner_performance.py)
+                        current_price = prices[-1][0]
+                        max_gain = max(((p[1] - entry_price) / entry_price * 100) for p in prices)
+                        
+                        # Calculate max drawdown from peak
+                        peak = entry_price
+                        max_dd = 0
+                        for close, high, low in prices:
+                            peak = max(peak, high)
+                            if peak > entry_price:
+                                dd = ((low - peak) / peak * 100)
+                                max_dd = min(max_dd, dd)
+                        
+                        current_pnl = ((current_price - entry_price) / entry_price * 100)
+                        
+                        pnl_dict[sym] = {
+                            'current_price': current_price,
+                            'current_pnl': round(current_pnl, 1),
+                            'max_gain': round(max_gain, 1),
+                            'max_drawdown': round(max_dd, 1)
+                        }
+                    
+                    pnl_conn.close()
+                    print(f"Focus list: Calculated PnL for {len(pnl_dict)} symbols")
+            except Exception as e:
+                print(f"Error calculating PnL for focus list: {e}")
+            
             # Enrich each item
             for item in items:
                 sym = item['symbol']
@@ -3348,6 +3400,10 @@ async def focus_list_page(request: Request):
                 
                 # Add news sentiment pressure
                 item['news_sentiment'] = news_sentiment_dict.get(sym)
+                
+                # Add PnL data
+                if sym in pnl_dict:
+                    item['pnl'] = pnl_dict[sym]
                     
         except Exception as e:
             print(f"Error enriching focus list items: {e}")
