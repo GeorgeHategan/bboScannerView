@@ -1855,7 +1855,7 @@ Price Action (Last {len(prices)} days):
 - Current Price: ${latest['close']}
 - 30-Day Range: ${low_30d} - ${high_30d}
 - 30-Day Change: {price_change:+.1f}%
-- Recent OHLC: {json.dumps(prices[-5:], indent=2)}
+- Recent OHLC: {json.dumps(prices, indent=2)}
 """
     
     # Build options walls summary
