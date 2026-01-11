@@ -796,7 +796,7 @@
                         if (!data || data.length === 0) return;
                         new Chart(canvas, {
                             type: 'bar',
-                            data: { labels: data.map(d => d.label), datasets: [{ label: 'Bullish', data: data.map(d => d.bullish), backgroundColor: 'rgba(39, 174, 96, 0.7)', borderWidth: 0, stack: 'premium' }, { label: 'Bearish', data: data.map(d => d.bearish), backgroundColor: 'rgba(231, 76, 60, 0.7)', borderWidth: 0, stack: 'premium' }] },
+                            data: { labels: data.map(d => d.label), datasets: [{ label: 'Bullish', data: data.map(d => d.bullish_premium), backgroundColor: 'rgba(39, 174, 96, 0.7)', borderWidth: 0, stack: 'premium' }, { label: 'Bearish', data: data.map(d => d.bearish_premium), backgroundColor: 'rgba(231, 76, 60, 0.7)', borderWidth: 0, stack: 'premium' }] },
                             options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + (ctx.parsed.y / 1000).toFixed(0) + 'K' } } }, scales: { y: { beginAtZero: true, stacked: true, ticks: { callback: v => '$' + (v / 1000).toFixed(0) + 'K', font: { size: 9 } } }, x: { stacked: true, ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 } } } }
                         });
                     });
