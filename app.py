@@ -1792,7 +1792,7 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
             FROM scanner_data.main.daily_cache
             WHERE symbol = ?
             ORDER BY date DESC
-            LIMIT 20
+            LIMIT 30
         """, [symbol]).fetchall()
         
         for row in price_results:
@@ -1847,14 +1847,14 @@ def analyze_stock_with_openai(symbol: str, scanner_name: str = None) -> str:
         
         if latest and oldest:
             price_change = ((latest['close'] - oldest['close']) / oldest['close'] * 100) if oldest['close'] else 0
-            high_20d = max(p['high'] for p in prices if p['high'])
-            low_20d = min(p['low'] for p in prices if p['low'])
+            high_30d = max(p['high'] for p in prices if p['high'])
+            low_30d = min(p['low'] for p in prices if p['low'])
             
             price_summary = f"""
 Price Action (Last {len(prices)} days):
 - Current Price: ${latest['close']}
-- 20-Day Range: ${low_20d} - ${high_20d}
-- 20-Day Change: {price_change:+.1f}%
+- 30-Day Range: ${low_30d} - ${high_30d}
+- 30-Day Change: {price_change:+.1f}%
 - Recent OHLC: {json.dumps(prices[-5:], indent=2)}
 """
     
