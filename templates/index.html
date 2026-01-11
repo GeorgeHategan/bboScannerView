@@ -931,7 +931,6 @@
                                     ROE: {% if fq.return_on_equity is not none %}{{ "%.1f"|format(fq.return_on_equity * 100) }}%{% else %}—{% endif %}<br>
                                     Profit Margin: {% if fq.profit_margin is not none %}{{ "%.1f"|format(fq.profit_margin * 100) }}%{% else %}—{% endif %}<br>
                                     Q EPS Growth: {% if fq.quarterly_earnings_growth is not none %}{{ "%.1f"|format(fq.quarterly_earnings_growth * 100) }}%{% else %}—{% endif %}<br>
-                                    Q Revenue Growth (YoY): {% if fq.quarterly_revenue_growth is not none %}{{ "%.1f"|format(fq.quarterly_revenue_growth * 100) }}%{% else %}—{% endif %}<br>
                                     P/E Ratio: {% if fq.pe_ratio is not none %}{{ "%.1f"|format(fq.pe_ratio) }}{% else %}—{% endif %}
                                 </span>
                             </span>
