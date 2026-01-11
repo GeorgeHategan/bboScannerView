@@ -1168,11 +1168,11 @@
                         {% else %}
                             {% set bull_pct = 50 %}
                         {% endif %}
-                        {% if bull_pct >= 65 %}
+                        {% if bull_pct >= 60 %}
                             {% set verdict = 'BULLISH' %}
                             {% set verdict_color = '#27ae60' %}
                             {% set verdict_icon = '🟢' %}
-                        {% elif bull_pct <= 35 %}
+                        {% elif bull_pct <= 40 %}
                             {% set verdict = 'BEARISH' %}
                             {% set verdict_color = '#e74c3c' %}
                             {% set verdict_icon = '🔴' %}
@@ -1218,11 +1218,11 @@
                         {% else %}
                             {% set opt_bull_pct = 50 %}
                         {% endif %}
-                        {% if opt_bull_pct >= 65 %}
+                        {% if opt_bull_pct >= 60 %}
                             {% set opt_verdict = 'BULLISH' %}
                             {% set opt_verdict_color = '#27ae60' %}
                             {% set opt_verdict_icon = '🟢' %}
-                        {% elif opt_bull_pct <= 35 %}
+                        {% elif opt_bull_pct <= 40 %}
                             {% set opt_verdict = 'BEARISH' %}
                             {% set opt_verdict_color = '#e74c3c' %}
                             {% set opt_verdict_icon = '🔴' %}
