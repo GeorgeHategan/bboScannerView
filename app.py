@@ -3282,58 +3282,6 @@ async def focus_list_page(request: Request):
             except Exception as e:
                 print(f"Error fetching news sentiment for focus list: {e}")
             
-            # Fetch price data for PnL calculations (current, min, max since added)
-            price_data_dict = {}
-            try:
-                price_conn = get_db_connection(SCANNER_DATA_PATH)
-                if price_conn:
-                    # Build a dict of symbol -> added_date for per-item filtering
-                    symbol_added_dates = {}
-                    for item in items:
-                        sym = item['symbol']
-                        added_date = item.get('added_date', '')[:10] if item.get('added_date') else None
-                        if added_date and (sym not in symbol_added_dates or added_date < symbol_added_dates[sym]):
-                            symbol_added_dates[sym] = added_date
-                    
-                    placeholders = ','.join(['?' for _ in symbols])
-                    
-                    # Get current price (most recent close) for all symbols
-                    current_query = f'''
-                        SELECT dc.symbol, dc.close, dc.date
-                        FROM scanner_data.main.daily_cache dc
-                        INNER JOIN (
-                            SELECT symbol, MAX(date) as max_date
-                            FROM scanner_data.main.daily_cache
-                            WHERE symbol IN ({placeholders})
-                            GROUP BY symbol
-                        ) latest ON dc.symbol = latest.symbol AND dc.date = latest.max_date
-                    '''
-                    current_results = price_conn.execute(current_query, symbols).fetchall()
-                    for row in current_results:
-                        sym = row[0]
-                        price_data_dict[sym] = {
-                            'current_price': row[1],
-                            'price_date': str(row[2])[:10] if row[2] else None
-                        }
-                    
-                    # Get min/max prices since added_date for each symbol
-                    for sym, added_date in symbol_added_dates.items():
-                        if added_date:
-                            minmax_query = '''
-                                SELECT MIN(low), MAX(high)
-                                FROM scanner_data.main.daily_cache
-                                WHERE symbol = ? AND date >= ?
-                            '''
-                            minmax_result = price_conn.execute(minmax_query, [sym, added_date]).fetchone()
-                            if minmax_result and sym in price_data_dict:
-                                price_data_dict[sym]['min_price'] = minmax_result[0]
-                                price_data_dict[sym]['max_price'] = minmax_result[1]
-                    
-                    price_conn.close()
-                    print(f"Focus list: Loaded price data for {len(price_data_dict)} symbols")
-            except Exception as e:
-                print(f"Error fetching price data for focus list: {e}")
-            
             # Enrich each item
             for item in items:
                 sym = item['symbol']
@@ -3400,24 +3348,6 @@ async def focus_list_page(request: Request):
                 
                 # Add news sentiment pressure
                 item['news_sentiment'] = news_sentiment_dict.get(sym)
-                
-                # Add PnL data (current price, min/max since added)
-                if sym in price_data_dict:
-                    price_info = price_data_dict[sym]
-                    item['current_price'] = price_info.get('current_price')
-                    item['price_date'] = price_info.get('price_date')
-                    item['min_price'] = price_info.get('min_price')
-                    item['max_price'] = price_info.get('max_price')
-                    
-                    # Calculate PnL percentages if we have entry price
-                    if item.get('entry_price') and item['entry_price'] > 0:
-                        entry = item['entry_price']
-                        if item['current_price']:
-                            item['pnl_current'] = round(((item['current_price'] - entry) / entry) * 100, 2)
-                        if item['min_price']:
-                            item['pnl_min'] = round(((item['min_price'] - entry) / entry) * 100, 2)
-                        if item['max_price']:
-                            item['pnl_max'] = round(((item['max_price'] - entry) / entry) * 100, 2)
                     
         except Exception as e:
             print(f"Error enriching focus list items: {e}")
@@ -3437,13 +3367,6 @@ async def focus_list_page(request: Request):
                 item.setdefault('oms', None)
                 item.setdefault('fund_quality', None)
                 item.setdefault('news_sentiment', None)
-                item.setdefault('current_price', None)
-                item.setdefault('price_date', None)
-                item.setdefault('min_price', None)
-                item.setdefault('max_price', None)
-                item.setdefault('pnl_current', None)
-                item.setdefault('pnl_min', None)
-                item.setdefault('pnl_max', None)
     
     # Group items by added date (day only)
     from collections import OrderedDict

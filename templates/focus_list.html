@@ -105,22 +105,6 @@
         .strength-high { color: #27ae60; font-weight: bold; }
         .strength-medium { color: #f39c12; font-weight: bold; }
         .strength-low { color: #e74c3c; font-weight: bold; }
-        .pnl-positive { color: #27ae60; font-weight: bold; }
-        .pnl-negative { color: #e74c3c; font-weight: bold; }
-        .pnl-neutral { color: #666; }
-        .pnl-cell {
-            font-size: 12px;
-            line-height: 1.4;
-        }
-        .pnl-current {
-            font-weight: bold;
-            font-size: 13px;
-        }
-        .pnl-range {
-            font-size: 11px;
-            color: #666;
-            margin-top: 2px;
-        }
         .quality-badge {
             display: inline-block;
             padding: 3px 8px;
@@ -452,24 +436,6 @@
                     <td style="width: 80px;">
                         {% if item.entry_price %}${{ "%.2f"|format(item.entry_price) }}{% else %}-{% endif %}
                     </td>
-                    <td class="pnl-cell" style="width: 140px;">
-                        {% if item.current_price %}
-                        <div class="pnl-current">
-                            ${{ "%.2f"|format(item.current_price) }}
-                            {% if item.pnl_current is not none %}
-                            <span class="{% if item.pnl_current > 0 %}pnl-positive{% elif item.pnl_current < 0 %}pnl-negative{% else %}pnl-neutral{% endif %}">
-                                ({% if item.pnl_current > 0 %}+{% endif %}{{ "%.1f"|format(item.pnl_current) }}%)
-                            </span>
-                            {% endif %}
-                        </div>
-                        {% if item.pnl_min is not none and item.pnl_max is not none %}
-                        <div class="pnl-range">
-                            <span class="pnl-negative">▼{{ "%.1f"|format(item.pnl_min) }}%</span> / 
-                            <span class="pnl-positive">▲{{ "%.1f"|format(item.pnl_max) }}%</span>
-                        </div>
-                        {% endif %}
-                        {% else %}-{% endif %}
-                    </td>
                     <td style="width: 80px;">
                         {% if item.strength %}
                             {% if item.strength >= 80 %}<span class="strength-high">{{ item.strength }}</span>
@@ -487,7 +453,7 @@
                 </tr>
                 
                 <tr>
-                    <td colspan="7" style="padding: 0;">
+                    <td colspan="6" style="padding: 0;">
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
                                 <td style="width: 63%; vertical-align: top; padding-right: 10px;">
@@ -716,7 +682,7 @@
                 
                 {% if item.ai_analysis %}
                 <tr>
-                    <td colspan="7" style="padding: 10px 10px 15px 10px;">
+                    <td colspan="6" style="padding: 10px 10px 15px 10px;">
                         <div class="ai-analysis">
                             <div class="ai-analysis-header">Analysis & Trade Plan</div>
                             <div class="ai-analysis-content">
