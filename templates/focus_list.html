@@ -761,11 +761,11 @@
         }
     }
     
-    // Collect all symbols for bulk API calls
-    const dpSymbols = [...document.querySelectorAll('.dp-chart')].map(c => c.getAttribute('data-symbol')).filter(s => s);
-    const optSymbols = [...document.querySelectorAll('.opt-chart')].map(c => c.getAttribute('data-symbol')).filter(s => s);
-    
     document.addEventListener('DOMContentLoaded', function() {
+        // Collect all symbols for bulk API calls (must be inside DOMContentLoaded)
+        const dpSymbols = [...document.querySelectorAll('.dp-chart')].map(c => c.getAttribute('data-symbol')).filter(s => s);
+        const optSymbols = [...document.querySelectorAll('.opt-chart')].map(c => c.getAttribute('data-symbol')).filter(s => s);
+
         // Load dark pool charts via bulk API (same as scanner page)
         if (dpSymbols.length > 0) {
             fetch('/api/darkpool-chart-data-bulk?symbols=' + [...new Set(dpSymbols)].join(','))
