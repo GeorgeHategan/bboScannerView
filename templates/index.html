@@ -1144,31 +1144,13 @@
                         {# Dark Pool Signals Section - FIRST (above Options) #}
                         {% if stocks[stock].get(pattern + '_darkpool_signals') and stocks[stock][pattern + '_darkpool_signals']|length > 0 %}
                         <br>
-                        {# Calculate Dark Pool Bias Score - Last 5 days only #}
+                        {# Calculate Dark Pool Bias Score - Most recent 10 signals #}
                         {% set dp_signals = stocks[stock][pattern + '_darkpool_signals'] %}
-                        {% set today = None %}
-                        {% set bias = namespace(bull_score=0, bear_score=0, recent_count=0) %}
+                        {% set bias = namespace(bull_score=0, bear_score=0, count=0) %}
                         {% for dp in dp_signals %}
-                            {# Only count signals from last 5 days (check if date is recent) #}
-                            {% set signal_date = dp.date %}
-                            {% set is_recent = true %}
-                            {# Simple check: signals are sorted by date DESC, so first ~5 unique dates are recent #}
-                            {% set date_parts = signal_date.split('-') if signal_date else [] %}
-                            {% if date_parts|length == 3 %}
-                                {% set sig_day = date_parts[2]|int %}
-                                {% set sig_month = date_parts[1]|int %}
-                                {# Approximate: if December 2025, days 1-7 are recent (within 5 days of Dec 7) #}
-                                {% if sig_month == 12 and sig_day >= 2 %}
-                                    {% set is_recent = true %}
-                                {% elif sig_month == 11 and sig_day >= 28 %}
-                                    {% set is_recent = true %}
-                                {% else %}
-                                    {% set is_recent = false %}
-                                {% endif %}
-                            {% endif %}
-                            
-                            {% if is_recent %}
-                                {% set bias.recent_count = bias.recent_count + 1 %}
+                            {# Only count first 10 signals (sorted by date DESC, so these are most recent) #}
+                            {% if bias.count < 10 %}
+                                {% set bias.count = bias.count + 1 %}
                                 {% set weight = 1 %}
                                 {% if dp.strength == 'EXTREME' %}{% set weight = 3 %}{% elif dp.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
                                 {% if dp.direction == 'BUY' or dp.direction == 'BULLISH' %}
@@ -1200,7 +1182,7 @@
                         
                         <strong>🌑 Dark Pool Signals ({{ dp_signals|length }}): 
                             <span style="color: {{ verdict_color }}; font-weight: bold;">{{ verdict_icon }} {{ verdict }}</span>
-                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish, last 5 days)</span>
+                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ bull_pct }}% bullish, last {{ bias.count }} signals)</span>
                         </strong><br>
                         <div style="margin-top: 10px; border: 1px solid #8e44ad; padding: 12px; border-radius: 4px; background: white; width: 700px; box-sizing: border-box;">
                             <canvas class="dp-chart" data-symbol="{{ stock }}" id="dpChart_{{ stock }}_{{ pattern }}" style="max-height: 120px;"></canvas>
@@ -1211,27 +1193,12 @@
                         {# Options Flow Signals Section - SECOND (just above Walls) #}
                         {% if stocks[stock].get(pattern + '_options_signals') and stocks[stock][pattern + '_options_signals']|length > 0 %}
                         {% set opt_signals = stocks[stock][pattern + '_options_signals'] %}
-                        {# Calculate options flow bias from last 5 days #}
-                        {% set opt_bias = namespace(bull_score=0, bear_score=0, recent_count=0) %}
+                        {# Calculate options flow bias from most recent 10 signals #}
+                        {% set opt_bias = namespace(bull_score=0, bear_score=0, count=0) %}
                         {% for opt in opt_signals %}
-                            {# Check if signal is from last 5 days #}
-                            {% set sig_date = opt.date %}
-                            {% if sig_date and sig_date|length >= 10 %}
-                                {% set date_parts = sig_date.split('-') %}
-                                {% set sig_day = date_parts[2]|int %}
-                                {% set sig_month = date_parts[1]|int %}
-                                {# Approximate: if December 2025, days 1-7 are recent (within 5 days of Dec 7) #}
-                                {% if sig_month == 12 and sig_day >= 2 %}
-                                    {% set is_recent = true %}
-                                {% elif sig_month == 11 and sig_day >= 28 %}
-                                    {% set is_recent = true %}
-                                {% else %}
-                                    {% set is_recent = false %}
-                                {% endif %}
-                            {% endif %}
-                            
-                            {% if is_recent %}
-                                {% set opt_bias.recent_count = opt_bias.recent_count + 1 %}
+                            {# Only count first 10 signals (sorted by date DESC) #}
+                            {% if opt_bias.count < 10 %}
+                                {% set opt_bias.count = opt_bias.count + 1 %}
                                 {% set weight = 1 %}
                                 {% if opt.strength == 'EXTREME' %}{% set weight = 3 %}{% elif opt.strength == 'VERY_HIGH' %}{% set weight = 2 %}{% endif %}
                                 {% if opt.direction == 'BULLISH' or opt.direction == 'BUY' %}
@@ -1264,7 +1231,7 @@
                         <br>
                         <strong>📈 Options Flow Signals ({{ opt_signals|length }}): 
                             <span style="color: {{ opt_verdict_color }}; font-weight: bold;">{{ opt_verdict_icon }} {{ opt_verdict }}</span>
-                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ opt_bull_pct }}% bullish, last 5 days)</span>
+                            <span style="font-size: 11px; color: #666; font-weight: normal;">({{ opt_bull_pct }}% bullish, last {{ opt_bias.count }} signals)</span>
                         </strong><br>
                         <div style="margin-top: 10px; border: 1px solid #f39c12; padding: 12px; border-radius: 4px; background: white; width: 700px; box-sizing: border-box;">
                             <canvas class="opt-chart" data-symbol="{{ stock }}" id="optChart_{{ stock }}_{{ pattern }}" style="max-height: 120px;"></canvas>
