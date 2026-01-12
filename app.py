@@ -1847,7 +1847,7 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
             fund_quality = fund_conn.execute("""
                 SELECT fund_score, bar_blocks, bar_bucket, dot_state, score_components
                 FROM scanner_data.main.fundamental_quality_scores
-                WHERE symbol = ? AND score_version = 'fq_v2'
+                WHERE symbol = ? AND score_version = 'fq_v1'
             """, [symbol]).fetchone()
             
             if fund_basic or fund_quality:
@@ -3266,7 +3266,7 @@ async def focus_list_page(request: Request):
                         SELECT symbol, fund_score, bar_blocks, bar_bucket, dot_state,
                                score_components, computed_at
                         FROM scanner_data.main.fundamental_quality_scores
-                        WHERE symbol IN ({placeholders}) AND score_version = 'fq_v2'
+                        WHERE symbol IN ({placeholders}) AND score_version = 'fq_v1'
                     '''
                     fund_results = fund_conn.execute(fund_query, symbols).fetchall()
                     
@@ -3291,7 +3291,6 @@ async def focus_list_page(request: Request):
                             'return_on_equity': raw_inputs.get('return_on_equity'),
                             'profit_margin': raw_inputs.get('profit_margin'),
                             'quarterly_earnings_growth': raw_inputs.get('quarterly_earnings_growth'),
-                            'yoy_eps_growth': raw_inputs.get('yoy_eps_growth'),
                             'pe_ratio': raw_inputs.get('pe_ratio')
                         }
                     
@@ -7188,7 +7187,7 @@ async def index(
                         SELECT symbol, fund_score, bar_blocks, bar_bucket, dot_state,
                                score_components, computed_at
                         FROM scanner_data.main.fundamental_quality_scores
-                        WHERE symbol IN ({placeholders}) AND score_version = 'fq_v2'
+                        WHERE symbol IN ({placeholders}) AND score_version = 'fq_v1'
                     '''
                     fund_results = fund_conn.execute(fund_query, symbols_list).fetchall()
                     
@@ -7214,7 +7213,6 @@ async def index(
                             'return_on_equity': raw_inputs.get('return_on_equity'),
                             'profit_margin': raw_inputs.get('profit_margin'),
                             'quarterly_earnings_growth': raw_inputs.get('quarterly_earnings_growth'),
-                            'yoy_eps_growth': raw_inputs.get('yoy_eps_growth'),
                             'pe_ratio': raw_inputs.get('pe_ratio')
                         }
                     
