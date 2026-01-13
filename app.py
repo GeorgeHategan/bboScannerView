@@ -851,7 +851,8 @@ def get_cached_symbol_metadata():
                    COALESCE(f.company_name, d.symbol) as company,
                    f.market_cap,
                    f.sector,
-                   f.industry
+                   f.industry,
+                   f.beta
             FROM main.daily_cache d
             LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
             ORDER BY d.symbol
@@ -860,12 +861,13 @@ def get_cached_symbol_metadata():
         
         metadata = {}
         for row in result:
-            symbol, company, market_cap, sector, industry = row[:5]
+            symbol, company, market_cap, sector, industry, beta = row[:6]
             metadata[symbol] = {
                 'company': company,
                 'market_cap': market_cap,
                 'sector': sector,
-                'industry': industry
+                'industry': industry,
+                'beta': beta
             }
         
         _query_cache.set(cache_key, metadata, 600)  # 10 minute cache (reduced from 30)
@@ -1836,9 +1838,9 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
     try:
         fund_conn = get_db_connection(SCANNER_DATA_PATH)
         if fund_conn:
-            # Get basic fundamentals (sector, industry, market cap)
+            # Get basic fundamentals (sector, industry, market cap, beta)
             fund_basic = fund_conn.execute("""
-                SELECT company_name, market_cap, sector, industry
+                SELECT company_name, market_cap, sector, industry, beta
                 FROM scanner_data.main.fundamental_cache
                 WHERE symbol = ?
             """, [symbol]).fetchone()
@@ -1853,6 +1855,7 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
             if fund_basic or fund_quality:
                 data['fundamentals'] = {
                     'company_name': fund_basic[0] if fund_basic else None,
+                    'beta': fund_basic[4] if fund_basic and len(fund_basic) > 4 else None,
                     'market_cap': fund_basic[1] if fund_basic else None,
                     'sector': fund_basic[2] if fund_basic else None,
                     'industry': fund_basic[3] if fund_basic else None
@@ -3069,7 +3072,7 @@ async def focus_list_page(request: Request):
             # Get fundamental cache data (earnings_date not in this table)
             placeholders = ','.join(['?' for _ in symbols])
             metadata_query = f'''
-                SELECT symbol, company_name, market_cap, sector, industry
+                SELECT symbol, company_name, market_cap, sector, industry, beta
                 FROM scanner_data.main.fundamental_cache
                 WHERE symbol IN ({placeholders})
             '''
@@ -3079,7 +3082,8 @@ async def focus_list_page(request: Request):
                     'company': row[1] or '',
                     'market_cap': format_market_cap(row[2]) or '',
                     'sector': row[3] or '',
-                    'industry': row[4] or ''
+                    'industry': row[4] or '',
+                    'beta': row[5] if len(row) > 5 else None
                 } for row in metadata_results
             }
             
@@ -6774,7 +6778,8 @@ async def index(
             'company': meta.get('company', symbol),
             'market_cap': format_market_cap(meta.get('market_cap')),
             'sector': meta.get('sector'),
-            'industry': meta.get('industry')
+            'industry': meta.get('industry'),
+            'beta': meta.get('beta')
         }
 
     if pattern:
@@ -7291,7 +7296,8 @@ async def index(
                                     'company': symbol,
                                     'market_cap': None,
                                     'sector': None,
-                                    'industry': None
+                                    'industry': None,
+                                    'beta': None
                                 }
                         
                         # Get pre-fetched volume data if available
