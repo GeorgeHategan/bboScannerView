@@ -479,7 +479,7 @@
                                             &nbsp;|&nbsp;
                                             <strong>Mkt Cap:</strong> {% if item.market_cap %}<span style="font-weight:700; color:#0066cc;">${{ item.market_cap }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
                                             &nbsp;|&nbsp;
-                                            <strong title="Correlation to S&P 500: 1.0=moves with market, >1.0=amplified moves, <1.0=dampened moves, <0=opposite direction">Beta:</strong> {% if item.beta %}<span style="font-weight:600; color:#666;" title="Correlation to S&P 500: 1.0=moves with market, >1.0=amplified moves, <1.0=dampened moves, <0=opposite direction">{{ "%.2f"|format(item.beta) }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                                            <span title="Correlation to S&P 500: 1.0=moves with market, >1.0=amplified moves, <1.0=dampened moves, <0=opposite direction"><strong>Beta:</strong> {% if item.beta %}<span style="font-weight:600; color:#666;">{{ "%.2f"|format(item.beta) }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}</span>
                                             &nbsp;|&nbsp;
                                             <strong>Fund:</strong>
                                             {% if item.fund_quality %}
