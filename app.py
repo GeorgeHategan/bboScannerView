@@ -6809,7 +6809,7 @@ async def index(
                    news_published,
                    news_url,
                    metadata
-            FROM scanner_results
+            FROM scanner_results.scanner_results
             WHERE scanner_name = ?
         '''
         query_params = [pattern]
@@ -6897,7 +6897,7 @@ async def index(
                 placeholders = ','.join(['?' for _ in symbols_list])
                 all_scanners_query = f'''
                     SELECT symbol, scanner_name
-                    FROM scanner_results
+                    FROM scanner_results.scanner_results
                     WHERE symbol IN ({placeholders})
                     AND scan_date >= CAST(? AS TIMESTAMP)
                     AND scan_date < CAST((CAST(? AS TIMESTAMP) + INTERVAL 1 DAY) AS TIMESTAMP)
@@ -6927,7 +6927,7 @@ async def index(
                 # MEMORY FIX: Limit to last 30 days and max 5 confirmations per symbol
                 confirmations_query = f'''
                     SELECT symbol, scanner_name, scan_date, signal_strength
-                    FROM scanner_results
+                    FROM scanner_results.scanner_results
                     WHERE symbol IN ({placeholders})
                     AND scanner_name != ?
                     AND scan_date >= CURRENT_DATE - INTERVAL 30 DAY
