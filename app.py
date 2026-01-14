@@ -6935,7 +6935,9 @@ async def index(
                     LIMIT 200
                 '''
                 params = symbols_list + [pattern]
+                print(f'Fetching confirmations for {len(symbols_list)} symbols, excluding scanner: {pattern}')
                 conf_results = conn.execute(confirmations_query, params).fetchall()
+                print(f'Got {len(conf_results)} confirmation rows from database')
                 
                 for row in conf_results:
                     sym = row[0]
@@ -6953,8 +6955,12 @@ async def index(
                 
                 print(f'Loaded scanner confirmations for {len(confirmations_dict)} symbols')
             except Exception as e:
-                print(f'Confirmations query failed: {e}')
+                print(f'ERROR: Confirmations query failed: {e}')
+                import traceback
+                traceback.print_exc()
                 confirmations_dict = {}
+        else:
+            print('WARNING: No symbols_list for confirmations query')
         
         # Fetch options signals for each symbol (from options_data database)
         options_signals_dict = {}
