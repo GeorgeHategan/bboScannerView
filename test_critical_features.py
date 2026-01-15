@@ -5,12 +5,12 @@ Tests key functionality to catch regressions like missing confirmations, dark po
 import pytest
 import sys
 from app import app, get_db_connection, DUCKDB_PATH, SCANNER_DATA_PATH
+from fastapi.testclient import TestClient
 import duckdb
 
-@pytest.fixture
 def client():
     """Create test client"""
-    app.config['TESTING'] = True
+    return TestClient(app)
     with app.test_client() as client:
         yield client
 
@@ -32,7 +32,7 @@ class TestCriticalFeatures:
         """Verify homepage loads successfully"""
         response = client.get('/')
         assert response.status_code == 200
-        assert b'Scanner' in response.data or b'scanner' in response.data
+        assert b'Scanner' in response.content or b'scanner' in response.content
     
     def test_scanner_results_load(self, client):
         """Verify scanner results page loads"""
@@ -40,7 +40,7 @@ class TestCriticalFeatures:
         response = client.get('/?scanner=supertrend')
         assert response.status_code == 200
         # Should have results table or empty state message
-        assert b'Vol:' in response.data or b'No results' in response.data
+        assert b'Vol:' in response.content or b'No results' in response.content
     
     def test_confirmations_data_available(self, db):
         """Verify confirmations query works and returns data"""
@@ -94,7 +94,7 @@ class TestCriticalFeatures:
             assert response.status_code == 200
             
             # Check for confirmations block
-            assert b'Confirmed by other scanners' in response.data, \
+            assert b'Confirmed by other scanners' in response.content, \
                 f"Confirmations block missing for {symbol} in {scanner}"
             print(f"✓ Confirmations block present for {symbol}")
         else:
@@ -104,13 +104,13 @@ class TestCriticalFeatures:
         """Verify dark pool signals load"""
         response = client.get('/darkpool-signals')
         assert response.status_code == 200
-        assert b'Dark Pool' in response.data
+        assert b'Dark Pool' in response.content
     
     def test_options_signals_data(self, client):
         """Verify options signals load"""
         response = client.get('/options-signals')
         assert response.status_code == 200
-        assert b'Options' in response.data
+        assert b'Options' in response.content
     
     def test_fundamental_data_loads(self, scanner_db):
         """Verify fundamental data (Beta, sector, industry) is accessible"""
@@ -155,7 +155,7 @@ class TestCriticalFeatures:
     def test_news_sentiment_scores_exist(self, scanner_db):
         """Verify news sentiment scores are available"""
         result = scanner_db.execute("""
-            SELECT symbol, news_score, bar_direction, article_count_5d
+            SELECT symbol, news_sentiment_score, bar_direction, article_count_5d
             FROM scanner_data.main.news_sentiment_pressure_scores
             WHERE score_version = 'nsp_v1'
             LIMIT 5
@@ -168,7 +168,7 @@ class TestCriticalFeatures:
         """Verify focus list page loads"""
         response = client.get('/focus-list')
         assert response.status_code == 200
-        assert b'Focus List' in response.data or b'focus' in response.data
+        assert b'Focus List' in response.content or b'focus' in response.content
     
     def test_scanner_stats_accessible(self, db):
         """Verify scanner stats are calculable"""
