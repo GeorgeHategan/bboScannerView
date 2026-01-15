@@ -12,3 +12,8 @@ gspread==6.1.4
 google-auth==2.38.0
 openai>=1.0.0
 psycopg2-binary==2.9.10
+
+# Testing dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+playwright>=1.40.0
