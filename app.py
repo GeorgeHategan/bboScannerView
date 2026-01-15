@@ -6924,21 +6924,25 @@ async def index(
         if symbols_list:
             try:
                 placeholders = ','.join(['?' for _ in symbols_list])
-                # MEMORY FIX: Limit to last 60 days from selected_scan_date (or CURRENT_DATE if none selected)
+                # MEMORY FIX: Limit to 15 confirmations per symbol using window function
                 # Use selected_scan_date to show confirmations for historical results
                 date_anchor = f"CAST('{selected_scan_date}' AS DATE)" if selected_scan_date else "CURRENT_DATE"
                 confirmations_query = f'''
                     SELECT symbol, scanner_name, scan_date, signal_strength
-                    FROM scanner_results.scanner_results
-                    WHERE symbol IN ({placeholders})
-                    AND scanner_name != ?
-                    AND scan_date >= {date_anchor} - INTERVAL 60 DAY
-                    AND scan_date <= {date_anchor} + INTERVAL 7 DAY
+                    FROM (
+                        SELECT symbol, scanner_name, scan_date, signal_strength,
+                               ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY scan_date DESC) as rn
+                        FROM scanner_results.scanner_results
+                        WHERE symbol IN ({placeholders})
+                        AND scanner_name != ?
+                        AND scan_date >= {date_anchor} - INTERVAL 60 DAY
+                        AND scan_date <= {date_anchor} + INTERVAL 7 DAY
+                    ) ranked
+                    WHERE rn <= 15
                     ORDER BY symbol, scan_date DESC, scanner_name
-                    LIMIT 200
                 '''
                 params = symbols_list + [pattern]
-                print(f'Fetching confirmations for {len(symbols_list)} symbols, excluding scanner: {pattern}, date anchor: {selected_scan_date or "CURRENT_DATE"}')
+                print(f'Fetching confirmations for {len(symbols_list)} symbols (max 15 per symbol), excluding scanner: {pattern}, date anchor: {selected_scan_date or "CURRENT_DATE"}')
                 conf_results = conn.execute(confirmations_query, params).fetchall()
                 print(f'Got {len(conf_results)} confirmation rows from database')
                 
