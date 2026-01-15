@@ -8,11 +8,10 @@ from app import app, get_db_connection, DUCKDB_PATH, SCANNER_DATA_PATH
 from fastapi.testclient import TestClient
 import duckdb
 
+@pytest.fixture
 def client():
     """Create test client"""
     return TestClient(app)
-    with app.test_client() as client:
-        yield client
 
 @pytest.fixture
 def db():
