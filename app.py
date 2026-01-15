@@ -6919,12 +6919,12 @@ async def index(
                 print(f'All scanners query failed: {e}')
                 all_scanners_dict = {}
         
-        # Fetch recent scanner confirmations for each symbol (limit to last 30 days to save memory)
+        # Fetch recent scanner confirmations for each symbol (limit to last 60 days to save memory)
         confirmations_dict = {}
         if symbols_list:
             try:
                 placeholders = ','.join(['?' for _ in symbols_list])
-                # MEMORY FIX: Limit to last 30 days from selected_scan_date (or CURRENT_DATE if none selected)
+                # MEMORY FIX: Limit to last 60 days from selected_scan_date (or CURRENT_DATE if none selected)
                 # Use selected_scan_date to show confirmations for historical results
                 date_anchor = f"CAST('{selected_scan_date}' AS DATE)" if selected_scan_date else "CURRENT_DATE"
                 confirmations_query = f'''
@@ -6932,7 +6932,7 @@ async def index(
                     FROM scanner_results.scanner_results
                     WHERE symbol IN ({placeholders})
                     AND scanner_name != ?
-                    AND scan_date >= {date_anchor} - INTERVAL 30 DAY
+                    AND scan_date >= {date_anchor} - INTERVAL 60 DAY
                     AND scan_date <= {date_anchor} + INTERVAL 7 DAY
                     ORDER BY symbol, scan_date DESC, scanner_name
                     LIMIT 200
