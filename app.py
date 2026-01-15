@@ -6924,18 +6924,21 @@ async def index(
         if symbols_list:
             try:
                 placeholders = ','.join(['?' for _ in symbols_list])
-                # MEMORY FIX: Limit to last 30 days and max 5 confirmations per symbol
+                # MEMORY FIX: Limit to last 30 days from selected_scan_date (or CURRENT_DATE if none selected)
+                # Use selected_scan_date to show confirmations for historical results
+                date_anchor = f"CAST('{selected_scan_date}' AS DATE)" if selected_scan_date else "CURRENT_DATE"
                 confirmations_query = f'''
                     SELECT symbol, scanner_name, scan_date, signal_strength
                     FROM scanner_results.scanner_results
                     WHERE symbol IN ({placeholders})
                     AND scanner_name != ?
-                    AND scan_date >= CURRENT_DATE - INTERVAL 30 DAY
+                    AND scan_date >= {date_anchor} - INTERVAL 30 DAY
+                    AND scan_date <= {date_anchor} + INTERVAL 7 DAY
                     ORDER BY symbol, scan_date DESC, scanner_name
                     LIMIT 200
                 '''
                 params = symbols_list + [pattern]
-                print(f'Fetching confirmations for {len(symbols_list)} symbols, excluding scanner: {pattern}')
+                print(f'Fetching confirmations for {len(symbols_list)} symbols, excluding scanner: {pattern}, date anchor: {selected_scan_date or "CURRENT_DATE"}')
                 conf_results = conn.execute(confirmations_query, params).fetchall()
                 print(f'Got {len(conf_results)} confirmation rows from database')
                 
