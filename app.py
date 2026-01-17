@@ -872,17 +872,20 @@ def get_cached_symbol_metadata():
         for row in result:
             symbol, company, market_cap, sector, industry, beta, rs_momentum, rs_ratio, quadrant = row
             
-            metadata[symbol] = {
-                'company': company,
-                'market_cap': market_cap,
-                'sector': sector,
-                'industry': industry,
-                'beta': beta,
-                'industry_momentum': float(rs_momentum - 100) if rs_momentum is not None else 0.0,
-                'rs_momentum': float(rs_momentum) if rs_momentum is not None else 100.0,
-                'rs_ratio': float(rs_ratio) if rs_ratio is not None else 100.0,
-                'momentum_quadrant': quadrant if quadrant else 'Unknown'
-            }
+            # Only add to cache if we have fundamental data (company is not just the symbol fallback)
+            if company and sector:  # Has real fundamental data
+                metadata[symbol] = {
+                    'company': company,
+                    'market_cap': market_cap,
+                    'sector': sector,
+                    'industry': industry,
+                    'beta': beta,
+                    'industry_momentum': float(rs_momentum - 100) if rs_momentum is not None else 0.0,
+                    'rs_momentum': float(rs_momentum) if rs_momentum is not None else 100.0,
+                    'rs_ratio': float(rs_ratio) if rs_ratio is not None else 100.0,
+                    'momentum_quadrant': quadrant if quadrant else 'Unknown'
+                }
+            # Don't add symbols without fundamental data to cache - let batch fetch handle them
         
         _query_cache.set(cache_key, metadata, 600)  # 10 minute cache (reduced from 30)
         return metadata
