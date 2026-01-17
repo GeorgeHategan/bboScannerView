@@ -7736,6 +7736,11 @@ async def index(
             if sector:
                 sector_counts[sector] = sector_counts.get(sector, 0) + 1
         
+        # Debug: log sector counts
+        print(f'DEBUG: Total stocks: {len(stocks)}')
+        print(f'DEBUG: Sector counts: {sector_counts}')
+        print(f'DEBUG: Sample stock data: {list(stocks.items())[:2] if stocks else "no stocks"}')
+        
         # Build sector list with counts: [('TECHNOLOGY', 150), ('ENERGY', 45), ...]
         available_sectors = []
         for sector in sorted(sectors_set):

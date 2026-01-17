@@ -400,9 +400,9 @@
     <!-- Info Box -->
     <div class="info-box">
         <h3>📚 What is RRG (Relative Rotation Graph)?</h3>
-        <p><strong>RRG is a tool to visualize sector/industry rotation vs a benchmark (SPY).</strong></p>
+        <p><strong>RRG is a tool to visualize sector/industry rotation vs a benchmark (Market Index).</strong></p>
         <ul style="margin: 10px 0; padding-left: 20px;">
-            <li><strong>RS Ratio (X-axis):</strong> Relative strength vs SPY. Above 100 = outperforming, below 100 = underperforming</li>
+            <li><strong>RS Ratio (X-axis):</strong> Relative strength vs Market. Above 100 = outperforming, below 100 = underperforming</li>
             <li><strong>RS Momentum (Y-axis):</strong> Rate of change in RS Ratio. Above 100 = accelerating, below 100 = decelerating</li>
             <li><strong>Quadrants:</strong> Leading → Weakening → Lagging → Improving (clockwise rotation)</li>
             <li><strong>Tails:</strong> Show the path each group has traveled over the selected time period</li>
@@ -523,7 +523,7 @@
         const layout = {
             title: 'Relative Rotation Graph - {{ view|title }} View',
             xaxis: {
-                title: 'RS Ratio (Relative Strength vs SPY)',
+                title: 'RS Ratio (Relative Strength vs Market)',
                 zeroline: false,
                 gridcolor: '#ddd',
                 range: [95, 110],  // Zoomed in for better detail
