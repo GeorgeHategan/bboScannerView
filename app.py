@@ -2837,6 +2837,115 @@ async def download_vix_csv():
 
 
 # ============================================
+# Sector Rotation / RRG Analysis
+# ============================================
+
+@app.get("/sector-rotation", response_class=HTMLResponse)
+async def sector_rotation(
+    request: Request,
+    view: Optional[str] = Query('sector'),  # 'sector' or 'industry'
+    days: Optional[int] = Query(30)
+):
+    """Display Relative Rotation Graph (RRG) analysis for sectors and industries."""
+    
+    try:
+        scanner_conn = get_db_connection(SCANNER_DATA_PATH)
+        if not scanner_conn:
+            raise Exception("Could not connect to scanner_data database")
+        
+        # Clamp days to reasonable range
+        days = max(5, min(days, 60))
+        
+        # Get latest snapshot from pre-built view
+        latest_query = """
+            SELECT 
+                group_name,
+                members_count,
+                rs_ratio,
+                rs_momentum,
+                quadrant,
+                rs_ratio_5d,
+                rs_momentum_5d
+            FROM v_rrg_latest
+            WHERE group_type = ?
+            ORDER BY rs_ratio DESC
+        """
+        latest_data = scanner_conn.execute(latest_query, [view]).fetchall()
+        
+        # Get historical tail data for the scatter plot
+        tail_view = 'v_rrg_sector_tail' if view == 'sector' else 'v_rrg_industry_tail'
+        tail_query = f"""
+            SELECT 
+                group_name,
+                date,
+                rs_ratio,
+                rs_momentum
+            FROM {tail_view}
+            WHERE date >= CURRENT_DATE - INTERVAL '{days} days'
+            ORDER BY group_name, date ASC
+        """
+        tail_data = scanner_conn.execute(tail_query).fetchall()
+        
+        # Organize tail data by group
+        tail_by_group = {}
+        for row in tail_data:
+            group = row[0]
+            if group not in tail_by_group:
+                tail_by_group[group] = []
+            tail_by_group[group].append({
+                'date': str(row[1]),
+                'rs_ratio': float(row[2]) if row[2] is not None else 100.0,
+                'rs_momentum': float(row[3]) if row[3] is not None else 100.0
+            })
+        
+        # Build latest snapshot with quadrant info
+        snapshot = []
+        for row in latest_data:
+            snapshot.append({
+                'name': row[0],
+                'members': row[1],
+                'rs_ratio': float(row[2]) if row[2] is not None else 100.0,
+                'rs_momentum': float(row[3]) if row[3] is not None else 100.0,
+                'quadrant': row[4],
+                'rs_ratio_5d': float(row[5]) if row[5] is not None else 0.0,
+                'rs_momentum_5d': float(row[6]) if row[6] is not None else 0.0,
+                'tail': tail_by_group.get(row[0], [])
+            })
+        
+        # Get date range for display
+        date_range = scanner_conn.execute(f"""
+            SELECT MIN(date), MAX(date)
+            FROM {tail_view}
+        """).fetchone()
+        
+        scanner_conn.close()
+        
+        return templates.TemplateResponse('sector_rotation.html', {
+            'request': request,
+            'view': view,
+            'days': days,
+            'snapshot': snapshot,
+            'date_range': {
+                'start': str(date_range[0]) if date_range[0] else '',
+                'end': str(date_range[1]) if date_range[1] else ''
+            },
+            'error': None
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse('sector_rotation.html', {
+            'request': request,
+            'view': view or 'sector',
+            'days': days or 30,
+            'snapshot': [],
+            'date_range': {'start': '', 'end': ''},
+            'error': f'Error loading sector rotation data: {str(e)}'
+        })
+
+
+# ============================================
 # Focus List Endpoints
 # ============================================
 

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sector & Industry Rotation (RRG)</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png?v=2">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0;
+            padding-top: 200px;
+            background: #f5f5f5;
+        }
+        .sticky-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            z-index: 1000;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .sticky-header-content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: normal;
+            border: 1px solid #ddd;
+            background: #e8f4f8;
+            color: #2c5f7a;
+        }
+        .nav-links a:hover {
+            background: #d0e5ed;
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .controls label {
+            font-weight: bold;
+            color: #555;
+        }
+        .controls select, .controls input {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .controls button {
+            padding: 6px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .controls button:hover {
+            background: #5568d3;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 20px;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 4px;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #1565c0;
+        }
+        .quadrant-legend {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px;
+        }
+        .quadrant-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid;
+        }
+        .quadrant-card.leading { border-left-color: #27ae60; }
+        .quadrant-card.weakening { border-left-color: #f39c12; }
+        .quadrant-card.lagging { border-left-color: #e74c3c; }
+        .quadrant-card.improving { border-left-color: #3498db; }
+        .quadrant-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+        }
+        .quadrant-card.leading h4 { color: #27ae60; }
+        .quadrant-card.weakening h4 { color: #f39c12; }
+        .quadrant-card.lagging h4 { color: #e74c3c; }
+        .quadrant-card.improving h4 { color: #3498db; }
+        .quadrant-card p {
+            margin: 5px 0;
+            font-size: 13px;
+            color: #666;
+        }
+        .quadrant-card ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+        }
+        .quadrant-card li {
+            font-size: 13px;
+            color: #333;
+            margin: 3px 0;
+        }
+        .stats-row {
+            display: flex;
+            gap: 15px;
+            margin: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-card h4 {
+            margin: 0 0 10px 0;
+            color: #666;
+            font-size: 14px;
+            font-weight: normal;
+        }
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        .error-msg {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .quadrant-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .quadrant-badge.leading { background: #27ae60; }
+        .quadrant-badge.weakening { background: #f39c12; }
+        .quadrant-badge.lagging { background: #e74c3c; }
+        .quadrant-badge.improving { background: #3498db; }
+        .positive { color: #27ae60; font-weight: bold; }
+        .negative { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="sticky-header">
+        <div class="sticky-header-content">
+            <div class="header-top">
+                <div>
+                    <h1 style="margin: 0 0 5px 0;">🔄 Sector & Industry Rotation (RRG)</h1>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                        Relative Rotation Graph - Track leadership changes in real-time
+                    </p>
+                </div>
+                <div class="nav-links">
+                    <a href="/focus-list">🎯 Focus List</a>
+                    <a href="/">🔍 Scanners</a>
+                    <a href="/options-signals">📈 Options Flows</a>
+                    <a href="/darkpool-signals">🌑 Dark Pools</a>
+                    <a href="/vix-chart">📊 VIX Chart</a>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <label>View:</label>
+                <select id="viewSelect" onchange="updateView()">
+                    <option value="sector" {% if view == 'sector' %}selected{% endif %}>Sectors (11 groups)</option>
+                    <option value="industry" {% if view == 'industry' %}selected{% endif %}>Industries (102 groups)</option>
+                </select>
+                
+                <label>Tail Length:</label>
+                <select id="daysSelect" onchange="updateView()">
+                    <option value="5" {% if days == 5 %}selected{% endif %}>5 days</option>
+                    <option value="10" {% if days == 10 %}selected{% endif %}>10 days</option>
+                    <option value="20" {% if days == 20 %}selected{% endif %}>20 days</option>
+                    <option value="30" {% if days == 30 %}selected{% endif %}>30 days</option>
+                    <option value="60" {% if days == 60 %}selected{% endif %}>60 days</option>
+                </select>
+                
+                <button onclick="updateView()">Refresh</button>
+                
+                <span style="margin-left: auto; color: #666; font-size: 13px;">
+                    Data: {{ date_range.start }} to {{ date_range.end }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="error-msg">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if not error and snapshot %}
+    
+    <!-- RRG Chart -->
+    <div class="chart-container">
+        <h3 style="margin-top: 0;">Relative Rotation Graph</h3>
+        <div id="rrgChart" style="width: 100%; height: 600px;"></div>
+        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+            💡 <strong>How to read:</strong> Chart shows relative strength (horizontal) vs momentum (vertical). 
+            Tails show movement over the last {{ days }} days. Groups moving clockwise are strengthening.
+        </p>
+    </div>
+
+    <!-- Quadrant Legend -->
+    <div class="quadrant-legend">
+        <div class="quadrant-card leading">
+            <h4>🚀 Leading</h4>
+            <p>RS Ratio > 100 | RS Momentum > 100</p>
+            <p><strong>Characteristics:</strong> Outperforming benchmark AND accelerating</p>
+            {% set leading = snapshot | selectattr('quadrant', 'equalto', 'Leading') | list %}
+            {% if leading %}
+            <ul>
+                {% for item in leading %}
+                <li>{{ item.name }} ({{ item.members }} stocks)</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        
+        <div class="quadrant-card weakening">
+            <h4>⚠️ Weakening</h4>
+            <p>RS Ratio > 100 | RS Momentum < 100</p>
+            <p><strong>Characteristics:</strong> Still outperforming BUT losing momentum</p>
+            {% set weakening = snapshot | selectattr('quadrant', 'equalto', 'Weakening') | list %}
+            {% if weakening %}
+            <ul>
+                {% for item in weakening %}
+                <li>{{ item.name }} ({{ item.members }} stocks)</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        
+        <div class="quadrant-card improving">
+            <h4>💪 Improving</h4>
+            <p>RS Ratio < 100 | RS Momentum > 100</p>
+            <p><strong>Characteristics:</strong> Underperforming BUT gaining momentum</p>
+            {% set improving = snapshot | selectattr('quadrant', 'equalto', 'Improving') | list %}
+            {% if improving %}
+            <ul>
+                {% for item in improving %}
+                <li>{{ item.name }} ({{ item.members }} stocks)</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        
+        <div class="quadrant-card lagging">
+            <h4>❌ Lagging</h4>
+            <p>RS Ratio < 100 | RS Momentum < 100</p>
+            <p><strong>Characteristics:</strong> Underperforming AND decelerating</p>
+            {% set lagging = snapshot | selectattr('quadrant', 'equalto', 'Lagging') | list %}
+            {% if lagging %}
+            <ul>
+                {% for item in lagging %}
+                <li>{{ item.name }} ({{ item.members }} stocks)</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="stats-row">
+        {% set leading_count = snapshot | selectattr('quadrant', 'equalto', 'Leading') | list | length %}
+        {% set weakening_count = snapshot | selectattr('quadrant', 'equalto', 'Weakening') | list | length %}
+        {% set improving_count = snapshot | selectattr('quadrant', 'equalto', 'Improving') | list | length %}
+        {% set lagging_count = snapshot | selectattr('quadrant', 'equalto', 'Lagging') | list | length %}
+        
+        <div class="stat-card">
+            <h4>🚀 Leading</h4>
+            <div class="value" style="color: #27ae60;">{{ leading_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h4>⚠️ Weakening</h4>
+            <div class="value" style="color: #f39c12;">{{ weakening_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h4>💪 Improving</h4>
+            <div class="value" style="color: #3498db;">{{ improving_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h4>❌ Lagging</h4>
+            <div class="value" style="color: #e74c3c;">{{ lagging_count }}</div>
+        </div>
+    </div>
+
+    <!-- Detailed Table -->
+    <div class="chart-container">
+        <h3>Detailed Breakdown</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Group</th>
+                    <th>Quadrant</th>
+                    <th>Members</th>
+                    <th>RS Ratio</th>
+                    <th>RS Momentum</th>
+                    <th>5D Δ Ratio</th>
+                    <th>5D Δ Momentum</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in snapshot %}
+                <tr>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>
+                        <span class="quadrant-badge {{ item.quadrant.lower() }}">
+                            {{ item.quadrant }}
+                        </span>
+                    </td>
+                    <td>{{ item.members }}</td>
+                    <td>{{ "%.2f"|format(item.rs_ratio) }}</td>
+                    <td>{{ "%.2f"|format(item.rs_momentum) }}</td>
+                    <td class="{% if item.rs_ratio_5d > 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%+.2f"|format(item.rs_ratio_5d) }}
+                    </td>
+                    <td class="{% if item.rs_momentum_5d > 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%+.2f"|format(item.rs_momentum_5d) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Info Box -->
+    <div class="info-box">
+        <h3>📚 What is RRG (Relative Rotation Graph)?</h3>
+        <p><strong>RRG is a tool to visualize sector/industry rotation vs a benchmark (SPY).</strong></p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+            <li><strong>RS Ratio (X-axis):</strong> Relative strength vs SPY. Above 100 = outperforming, below 100 = underperforming</li>
+            <li><strong>RS Momentum (Y-axis):</strong> Rate of change in RS Ratio. Above 100 = accelerating, below 100 = decelerating</li>
+            <li><strong>Quadrants:</strong> Leading → Weakening → Lagging → Improving (clockwise rotation)</li>
+            <li><strong>Tails:</strong> Show the path each group has traveled over the selected time period</li>
+            <li><strong>Ideal Setup:</strong> Look for groups rotating from Improving → Leading (gaining strength)</li>
+            <li><strong>Warning Signs:</strong> Groups in Weakening quadrant may rotate to Lagging next</li>
+        </ul>
+        <p style="margin-top: 15px;">
+            <strong>💡 Trading Strategy:</strong> Focus on stocks within Leading sectors/industries. 
+            Avoid Lagging groups. Watch Improving groups for early entry opportunities.
+        </p>
+    </div>
+
+    {% endif %}
+
+    <script>
+        function updateView() {
+            const view = document.getElementById('viewSelect').value;
+            const days = document.getElementById('daysSelect').value;
+            window.location.href = `/sector-rotation?view=${view}&days=${days}`;
+        }
+
+        {% if snapshot %}
+        // Prepare data for Plotly RRG chart
+        const snapshot = {{ snapshot | tojson }};
+        
+        // Color mapping for quadrants
+        const quadrantColors = {
+            'Leading': '#27ae60',
+            'Weakening': '#f39c12',
+            'Lagging': '#e74c3c',
+            'Improving': '#3498db'
+        };
+
+        // Create traces for each group with tail
+        const traces = [];
+        
+        snapshot.forEach(item => {
+            const color = quadrantColors[item.quadrant] || '#999';
+            
+            // Tail trace (line showing historical movement)
+            if (item.tail && item.tail.length > 0) {
+                const tailX = item.tail.map(t => t.rs_ratio);
+                const tailY = item.tail.map(t => t.rs_momentum);
+                
+                traces.push({
+                    x: tailX,
+                    y: tailY,
+                    mode: 'lines',
+                    line: {
+                        color: color,
+                        width: 2
+                    },
+                    name: item.name + ' (tail)',
+                    showlegend: false,
+                    hoverinfo: 'skip'
+                });
+            }
+            
+            // Current position (scatter point)
+            traces.push({
+                x: [item.rs_ratio],
+                y: [item.rs_momentum],
+                mode: 'markers+text',
+                marker: {
+                    size: 12 + (item.members / 10),  // Size based on member count
+                    color: color,
+                    line: {
+                        color: 'white',
+                        width: 2
+                    }
+                },
+                text: [item.name],
+                textposition: 'top center',
+                textfont: {
+                    size: 10,
+                    color: color,
+                    family: 'Arial, sans-serif'
+                },
+                name: item.name,
+                hovertemplate: 
+                    '<b>%{text}</b><br>' +
+                    'RS Ratio: %{x:.2f}<br>' +
+                    'RS Momentum: %{y:.2f}<br>' +
+                    'Quadrant: ' + item.quadrant + '<br>' +
+                    'Members: ' + item.members +
+                    '<extra></extra>'
+            });
+        });
+
+        // Add quadrant divider lines
+        traces.push({
+            x: [100, 100],
+            y: [80, 120],
+            mode: 'lines',
+            line: {
+                color: 'rgba(0,0,0,0.2)',
+                width: 1,
+                dash: 'dash'
+            },
+            showlegend: false,
+            hoverinfo: 'skip'
+        });
+        
+        traces.push({
+            x: [80, 120],
+            y: [100, 100],
+            mode: 'lines',
+            line: {
+                color: 'rgba(0,0,0,0.2)',
+                width: 1,
+                dash: 'dash'
+            },
+            showlegend: false,
+            hoverinfo: 'skip'
+        });
+
+        const layout = {
+            title: 'Relative Rotation Graph - {{ view|title }} View',
+            xaxis: {
+                title: 'RS Ratio (Relative Strength vs SPY)',
+                zeroline: false,
+                gridcolor: '#eee',
+                range: [85, 115]
+            },
+            yaxis: {
+                title: 'RS Momentum (Rate of Change)',
+                zeroline: false,
+                gridcolor: '#eee',
+                range: [85, 115]
+            },
+            hovermode: 'closest',
+            showlegend: false,
+            plot_bgcolor: 'white',
+            annotations: [
+                {
+                    x: 107.5,
+                    y: 107.5,
+                    text: '🚀 LEADING',
+                    showarrow: false,
+                    font: {
+                        size: 14,
+                        color: '#27ae60'
+                    },
+                    bgcolor: 'rgba(39, 174, 96, 0.1)',
+                    borderpad: 4
+                },
+                {
+                    x: 107.5,
+                    y: 92.5,
+                    text: '⚠️ WEAKENING',
+                    showarrow: false,
+                    font: {
+                        size: 14,
+                        color: '#f39c12'
+                    },
+                    bgcolor: 'rgba(243, 156, 18, 0.1)',
+                    borderpad: 4
+                },
+                {
+                    x: 92.5,
+                    y: 92.5,
+                    text: '❌ LAGGING',
+                    showarrow: false,
+                    font: {
+                        size: 14,
+                        color: '#e74c3c'
+                    },
+                    bgcolor: 'rgba(231, 76, 60, 0.1)',
+                    borderpad: 4
+                },
+                {
+                    x: 92.5,
+                    y: 107.5,
+                    text: '💪 IMPROVING',
+                    showarrow: false,
+                    font: {
+                        size: 14,
+                        color: '#3498db'
+                    },
+                    bgcolor: 'rgba(52, 152, 219, 0.1)',
+                    borderpad: 4
+                }
+            ],
+            margin: { t: 50, r: 50, b: 50, l: 60 }
+        };
+
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false
+        };
+
+        Plotly.newPlot('rrgChart', traces, layout, config);
+        {% endif %}
+    </script>
+</body>
+</html>
