@@ -422,10 +422,20 @@
 
     <!-- Additional Charts -->
     <div class="chart-container">
+        <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px;">
+            Relative Strength Ranking (vs Benchmark)
+            <span style="cursor: help; color: #666; font-size: 18px;" 
+                  title="RS Ratio measures WHERE each group currently stands relative to VTI benchmark.&#10;&#10;Calculation: (Group Price / VTI Price) × 100&#10;&#10;100+ = Outperforming VTI&#10;100- = Underperforming VTI&#10;&#10;This shows POSITION (current strength level)">ⓘ</span>
+        </h3>
         <div id="rsRatioChart"></div>
     </div>
 
     <div class="chart-container">
+        <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px;">
+            Momentum Ranking (vs Benchmark)
+            <span style="cursor: help; color: #666; font-size: 18px;" 
+                  title="RS Momentum measures HOW FAST the RS Ratio is changing (acceleration/deceleration).&#10;&#10;Calculation: Rate of change in RS Ratio over time&#10;&#10;100+ = RS improving (accelerating)&#10;100- = RS deteriorating (decelerating)&#10;&#10;This shows TREND (direction of movement)&#10;&#10;KEY DIFFERENCE: RS Ratio = where you are, RS Momentum = where you're going">ⓘ</span>
+        </h3>
         <div id="rsMomentumChart"></div>
     </div>
 
@@ -690,7 +700,6 @@
         };
         
         Plotly.newPlot('rsRatioChart', [rsRatioTrace], {
-            title: 'Relative Strength Ranking (vs Benchmark)',
             xaxis: { 
                 title: 'Deviation from Benchmark (0 = Market Pace)',
                 gridcolor: '#ddd',
@@ -701,7 +710,7 @@
             },
             yaxis: { title: '' },
             height: 400,
-            margin: { l: 150, r: 50, t: 50, b: 50 }
+            margin: { l: 150, r: 50, t: 30, b: 50 }
         }, config);
         
         const rsMomentumTrace = {
@@ -731,7 +740,6 @@
         };
         
         Plotly.newPlot('rsMomentumChart', [rsMomentumTrace], {
-            title: 'Momentum Ranking (vs Benchmark)',
             xaxis: { 
                 title: 'Deviation from Benchmark (0 = Market Pace)',
                 gridcolor: '#ddd',
@@ -742,7 +750,7 @@
             },
             yaxis: { title: '' },
             height: 400,
-            margin: { l: 150, r: 50, t: 50, b: 50 }
+            margin: { l: 150, r: 50, t: 30, b: 50 }
         }, config);
         
         // 3. Sector Size (Members Count) Bar Chart
