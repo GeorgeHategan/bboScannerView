@@ -6892,6 +6892,9 @@ async def index(
             'beta': meta.get('beta')
         }
 
+    # Initialize scanner_dict (populated later if pattern selected)
+    scanner_dict = {}
+
     if pattern:
         # Use pattern name directly as scanner name
         print(f"Loading scanner results for: {pattern}")
@@ -7728,8 +7731,7 @@ async def index(
         cached_metadata = get_cached_symbol_metadata()
         sectors_set = set()
         
-        # Count sectors from ALL stocks (before filtering)
-        # Use all_stocks dict which contains unfiltered symbols
+        # Count sectors from ALL scanner results (before filtering)
         for symbol in scanner_dict.keys():
             if symbol in cached_metadata:
                 meta = cached_metadata[symbol]
@@ -7744,9 +7746,13 @@ async def index(
             count = sector_counts.get(sector, 0)
             available_sectors.append((sector, count))
         
-        print(f'Sector counts for {pattern}: {sector_counts}')
+        print(f'Sector counts for scanner "{pattern}": {len(scanner_dict)} results, {len(sector_counts)} sectors')
+        if sector_counts:
+            print(f'  Breakdown: {sector_counts}')
     except Exception as e:
-        print(f'Could not get sectors: {e}')
+        print(f'ERROR getting sector counts: {e}')
+        import traceback
+        traceback.print_exc()
     
     # Get available pre-calculated scanners from database (cached)
     available_scanners = get_cached_available_scanners(selected_scan_date)
