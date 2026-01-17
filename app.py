@@ -7479,17 +7479,81 @@ async def index(
                             if symbol in symbol_metadata:
                                 stocks[symbol] = symbol_metadata[symbol].copy()
                             else:
-                                stocks[symbol] = {
-                                    'company': symbol,
-                                    'market_cap': None,
-                                    'sector': None,
-                                    'industry': None,
-                                    'beta': None,
-                                    'industry_momentum': 0.0,
-                                    'rs_momentum': 100.0,
-                                    'rs_ratio': 100.0,
-                                    'momentum_quadrant': 'Unknown'
-                                }
+                                # Symbol not in cache, fetch from database
+                                try:
+                                    scanner_conn_temp = get_db_connection(SCANNER_DATA_PATH)
+                                    meta_result = scanner_conn_temp.execute('''
+                                        SELECT COALESCE(company_name, ?) as company,
+                                               market_cap,
+                                               sector,
+                                               industry,
+                                               beta
+                                        FROM main.fundamental_cache
+                                        WHERE symbol = ?
+                                        LIMIT 1
+                                    ''', [symbol, symbol]).fetchone()
+                                    
+                                    if meta_result:
+                                        company, market_cap, sector, industry, beta = meta_result
+                                        
+                                        # Get industry momentum for this industry
+                                        momentum_result = scanner_conn_temp.execute('''
+                                            SELECT rs_momentum, rs_ratio, quadrant
+                                            FROM v_rrg_latest
+                                            WHERE view_type = 'industry' AND industry_group = ?
+                                            LIMIT 1
+                                        ''', [industry]).fetchone()
+                                        
+                                        if momentum_result:
+                                            rs_momentum, rs_ratio, quadrant = momentum_result
+                                            industry_momentum = float(rs_momentum - 100) if rs_momentum else 0.0
+                                            rs_momentum_val = float(rs_momentum) if rs_momentum else 100.0
+                                            rs_ratio_val = float(rs_ratio) if rs_ratio else 100.0
+                                            quadrant_val = quadrant or 'Unknown'
+                                        else:
+                                            industry_momentum = 0.0
+                                            rs_momentum_val = 100.0
+                                            rs_ratio_val = 100.0
+                                            quadrant_val = 'Unknown'
+                                        
+                                        stocks[symbol] = {
+                                            'company': company,
+                                            'market_cap': format_market_cap(market_cap),
+                                            'sector': sector,
+                                            'industry': industry,
+                                            'beta': beta,
+                                            'industry_momentum': industry_momentum,
+                                            'rs_momentum': rs_momentum_val,
+                                            'rs_ratio': rs_ratio_val,
+                                            'momentum_quadrant': quadrant_val
+                                        }
+                                    else:
+                                        # No data found in database
+                                        stocks[symbol] = {
+                                            'company': symbol,
+                                            'market_cap': None,
+                                            'sector': None,
+                                            'industry': None,
+                                            'beta': None,
+                                            'industry_momentum': 0.0,
+                                            'rs_momentum': 100.0,
+                                            'rs_ratio': 100.0,
+                                            'momentum_quadrant': 'Unknown'
+                                        }
+                                    scanner_conn_temp.close()
+                                except Exception as e:
+                                    print(f"Failed to fetch metadata for {symbol}: {e}")
+                                    stocks[symbol] = {
+                                        'company': symbol,
+                                        'market_cap': None,
+                                        'sector': None,
+                                        'industry': None,
+                                        'beta': None,
+                                        'industry_momentum': 0.0,
+                                        'rs_momentum': 100.0,
+                                        'rs_ratio': 100.0,
+                                        'momentum_quadrant': 'Unknown'
+                                    }
                         
                         # Get pre-fetched volume data if available
                         if symbol in volume_data_dict:
@@ -7725,17 +7789,81 @@ async def index(
                 if selected_ticker in symbol_metadata:
                     stocks[selected_ticker] = symbol_metadata[selected_ticker].copy()
                 else:
-                    stocks[selected_ticker] = {
-                        'company': selected_ticker,
-                        'market_cap': None,
-                        'sector': None,
-                        'industry': None,
-                        'beta': None,
-                        'industry_momentum': 0.0,
-                        'rs_momentum': 100.0,
-                        'rs_ratio': 100.0,
-                        'momentum_quadrant': 'Unknown'
-                    }
+                    # Symbol not in cache, fetch from database
+                    try:
+                        scanner_conn_temp = get_db_connection(SCANNER_DATA_PATH)
+                        meta_result = scanner_conn_temp.execute('''
+                            SELECT COALESCE(company_name, ?) as company,
+                                   market_cap,
+                                   sector,
+                                   industry,
+                                   beta
+                            FROM main.fundamental_cache
+                            WHERE symbol = ?
+                            LIMIT 1
+                        ''', [selected_ticker, selected_ticker]).fetchone()
+                        
+                        if meta_result:
+                            company, market_cap, sector, industry, beta = meta_result
+                            
+                            # Get industry momentum for this industry
+                            momentum_result = scanner_conn_temp.execute('''
+                                SELECT rs_momentum, rs_ratio, quadrant
+                                FROM v_rrg_latest
+                                WHERE view_type = 'industry' AND industry_group = ?
+                                LIMIT 1
+                            ''', [industry]).fetchone()
+                            
+                            if momentum_result:
+                                rs_momentum, rs_ratio, quadrant = momentum_result
+                                industry_momentum = float(rs_momentum - 100) if rs_momentum else 0.0
+                                rs_momentum_val = float(rs_momentum) if rs_momentum else 100.0
+                                rs_ratio_val = float(rs_ratio) if rs_ratio else 100.0
+                                quadrant_val = quadrant or 'Unknown'
+                            else:
+                                industry_momentum = 0.0
+                                rs_momentum_val = 100.0
+                                rs_ratio_val = 100.0
+                                quadrant_val = 'Unknown'
+                            
+                            stocks[selected_ticker] = {
+                                'company': company,
+                                'market_cap': format_market_cap(market_cap),
+                                'sector': sector,
+                                'industry': industry,
+                                'beta': beta,
+                                'industry_momentum': industry_momentum,
+                                'rs_momentum': rs_momentum_val,
+                                'rs_ratio': rs_ratio_val,
+                                'momentum_quadrant': quadrant_val
+                            }
+                        else:
+                            # No data found in database
+                            stocks[selected_ticker] = {
+                                'company': selected_ticker,
+                                'market_cap': None,
+                                'sector': None,
+                                'industry': None,
+                                'beta': None,
+                                'industry_momentum': 0.0,
+                                'rs_momentum': 100.0,
+                                'rs_ratio': 100.0,
+                                'momentum_quadrant': 'Unknown'
+                            }
+                        scanner_conn_temp.close()
+                    except Exception as e:
+                        print(f"Failed to fetch metadata for {selected_ticker}: {e}")
+                        stocks[selected_ticker] = {
+                            'company': selected_ticker,
+                            'market_cap': None,
+                            'sector': None,
+                            'industry': None,
+                            'beta': None,
+                            'industry_momentum': 0.0,
+                            'rs_momentum': 100.0,
+                            'rs_ratio': 100.0,
+                            'momentum_quadrant': 'Unknown'
+                        }
                 
                 # Add each scanner as a separate "pattern"
                 for row in ticker_results:
