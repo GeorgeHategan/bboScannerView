@@ -7749,16 +7749,20 @@ async def index(
         elif selected_scan_date:
             # No scanner but date selected - count ALL scanners for that date
             try:
-                conn = get_db_connection(DUCKDB_PATH)
+                temp_conn = get_db_connection(DUCKDB_PATH)
                 date_obj = datetime.strptime(selected_scan_date, '%Y-%m-%d')
                 next_day = (date_obj + timedelta(days=1)).strftime('%Y-%m-%d')
                 
-                all_results = conn.execute('''
+                print(f'DEBUG: Querying all scanner results for date {selected_scan_date}')
+                
+                all_results = temp_conn.execute('''
                     SELECT DISTINCT symbol
                     FROM scanner_results.scanner_results
                     WHERE scan_date >= CAST(? AS TIMESTAMP)
                     AND scan_date < CAST(? AS TIMESTAMP)
                 ''', [selected_scan_date, next_day]).fetchall()
+                
+                print(f'DEBUG: Found {len(all_results)} unique symbols across all scanners')
                 
                 for row in all_results:
                     symbol = row[0]
@@ -7766,10 +7770,15 @@ async def index(
                         sector = all_symbol_metadata[symbol].get('sector')
                         if sector:
                             sector_counts[sector] = sector_counts.get(sector, 0) + 1
+                    else:
+                        print(f'DEBUG: Symbol {symbol} not in all_symbol_metadata')
                 
+                temp_conn.close()
                 print(f'Sector counts for all scanners on {selected_scan_date}: {len(all_results)} results, {len(sector_counts)} sectors')
             except Exception as e:
-                print(f'Failed to get sector counts for date: {e}')
+                print(f'ERROR: Failed to get sector counts for date: {e}')
+                import traceback
+                traceback.print_exc()
         
         # Build sector list with counts: [('TECHNOLOGY', 150), ('ENERGY', 45), ...]
         available_sectors = []
