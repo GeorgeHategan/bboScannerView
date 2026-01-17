@@ -639,61 +639,97 @@
         
         // Additional Charts
         
-        // 1. RS Ratio Ranking Bar Chart
+        // 1. RS Ratio Ranking Bar Chart (Diverging from 100)
         const rsRatioData = snapshot.map(item => ({
             name: item.name,
             rsRatio: item.rs_ratio,
+            rsDelta: item.rs_ratio - 100, // Deviation from benchmark
             quadrant: item.quadrant
-        })).sort((a, b) => b.rsRatio - a.rsRatio);
+        })).sort((a, b) => b.rsDelta - a.rsDelta); // Sort by deviation
         
         const rsRatioTrace = {
             y: rsRatioData.map(d => d.name),
-            x: rsRatioData.map(d => d.rsRatio),
+            x: rsRatioData.map(d => d.rsDelta),
             type: 'bar',
             orientation: 'h',
             marker: {
                 color: rsRatioData.map(d => {
-                    const colors = sectorColors[d.name.toUpperCase()] || '#999';
-                    return colors;
-                })
+                    const baseColor = sectorColors[d.name.toUpperCase()] || '#999';
+                    // Dim color for negative (underperforming)
+                    return d.rsDelta >= 0 ? baseColor : baseColor + '80';
+                }),
+                line: {
+                    color: rsRatioData.map(d => d.rsDelta >= 0 ? '#fff' : '#000'),
+                    width: 1
+                }
             },
-            text: rsRatioData.map(d => d.rsRatio.toFixed(2)),
-            textposition: 'outside'
+            text: rsRatioData.map(d => (d.rsDelta >= 0 ? '+' : '') + d.rsDelta.toFixed(2)),
+            textposition: 'outside',
+            hovertemplate: 
+                '<b>%{y}</b><br>' +
+                'Delta: %{x:.2f}<br>' +
+                'RS Ratio: %{customdata:.2f}' +
+                '<extra></extra>',
+            customdata: rsRatioData.map(d => d.rsRatio)
         };
         
         Plotly.newPlot('rsRatioChart', [rsRatioTrace], {
-            title: 'Relative Strength Ranking (RS Ratio)',
-            xaxis: { title: 'RS Ratio (100 = Benchmark)', gridcolor: '#ddd' },
+            title: 'Relative Strength Ranking (vs Benchmark)',
+            xaxis: { 
+                title: 'Deviation from Benchmark (0 = Market Pace)',
+                gridcolor: '#ddd',
+                zeroline: true,
+                zerolinecolor: '#000',
+                zerolinewidth: 2
+            },
             yaxis: { title: '' },
             height: 400,
             margin: { l: 150, r: 50, t: 50, b: 50 }
         }, config);
         
-        // 2. RS Momentum Ranking Bar Chart
+        // 2. RS Momentum Ranking Bar Chart (Diverging from 100)
         const rsMomentumData = snapshot.map(item => ({
             name: item.name,
             rsMomentum: item.rs_momentum,
+            momentumDelta: item.rs_momentum - 100, // Deviation from benchmark
             quadrant: item.quadrant
-        })).sort((a, b) => b.rsMomentum - a.rsMomentum);
+        })).sort((a, b) => b.momentumDelta - a.momentumDelta); // Sort by deviation
         
         const rsMomentumTrace = {
             y: rsMomentumData.map(d => d.name),
-            x: rsMomentumData.map(d => d.rsMomentum),
+            x: rsMomentumData.map(d => d.momentumDelta),
             type: 'bar',
             orientation: 'h',
             marker: {
                 color: rsMomentumData.map(d => {
-                    const colors = sectorColors[d.name.toUpperCase()] || '#999';
-                    return colors;
-                })
+                    const baseColor = sectorColors[d.name.toUpperCase()] || '#999';
+                    // Dim color for negative (decelerating)
+                    return d.momentumDelta >= 0 ? baseColor : baseColor + '80';
+                }),
+                line: {
+                    color: rsMomentumData.map(d => d.momentumDelta >= 0 ? '#fff' : '#000'),
+                    width: 1
+                }
             },
-            text: rsMomentumData.map(d => d.rsMomentum.toFixed(2)),
-            textposition: 'outside'
+            text: rsMomentumData.map(d => (d.momentumDelta >= 0 ? '+' : '') + d.momentumDelta.toFixed(2)),
+            textposition: 'outside',
+            hovertemplate: 
+                '<b>%{y}</b><br>' +
+                'Delta: %{x:.2f}<br>' +
+                'RS Momentum: %{customdata:.2f}' +
+                '<extra></extra>',
+            customdata: rsMomentumData.map(d => d.rsMomentum)
         };
         
         Plotly.newPlot('rsMomentumChart', [rsMomentumTrace], {
-            title: 'Momentum Ranking (Acceleration/Deceleration)',
-            xaxis: { title: 'RS Momentum (100 = Benchmark)', gridcolor: '#ddd' },
+            title: 'Momentum Ranking (vs Benchmark)',
+            xaxis: { 
+                title: 'Deviation from Benchmark (0 = Market Pace)',
+                gridcolor: '#ddd',
+                zeroline: true,
+                zerolinecolor: '#000',
+                zerolinewidth: 2
+            },
             yaxis: { title: '' },
             height: 400,
             margin: { l: 150, r: 50, t: 50, b: 50 }
