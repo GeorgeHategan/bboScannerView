@@ -264,6 +264,11 @@
 
     {% if not error and snapshot %}
     
+    <!-- Industries by Sector Grouped Bar Chart (MOVED TO TOP) -->
+    <div class="chart-container">
+        <div id="industriesBySectorChart"></div>
+    </div>
+    
     <!-- RRG Chart -->
     <div class="chart-container">
         <h3 style="margin-top: 0;">Relative Rotation Graph</h3>
@@ -431,11 +436,6 @@
         <div class="chart-container">
             <div id="quadrantDistChart"></div>
         </div>
-    </div>
-
-    <!-- Industries by Sector Grouped Bar Chart -->
-    <div class="chart-container">
-        <div id="industriesBySectorChart"></div>
     </div>
 
     {% endif %}
