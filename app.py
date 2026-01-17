@@ -7755,14 +7755,15 @@ async def index(
                 
                 print(f'DEBUG: Querying all scanner results for date {selected_scan_date}')
                 
+                # Count ALL scanner results (not DISTINCT) to match total setup count
                 all_results = temp_conn.execute('''
-                    SELECT DISTINCT symbol
+                    SELECT symbol
                     FROM scanner_results.scanner_results
                     WHERE scan_date >= CAST(? AS TIMESTAMP)
                     AND scan_date < CAST(? AS TIMESTAMP)
                 ''', [selected_scan_date, next_day]).fetchall()
                 
-                print(f'DEBUG: Found {len(all_results)} unique symbols across all scanners')
+                print(f'DEBUG: Found {len(all_results)} total scanner results (including duplicates)')
                 
                 for row in all_results:
                     symbol = row[0]
