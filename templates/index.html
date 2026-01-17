@@ -1006,10 +1006,8 @@
                             &nbsp;|&nbsp;
                             <strong>Industry:</strong> {% if stocks[stock]['industry'] %}{{ stocks[stock]['industry'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                             &nbsp;|&nbsp;
-                            <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
-                            &nbsp;|&nbsp;
                             <strong>Ind Mom:</strong>
-                            {% if stocks[stock]['industry_momentum'] is not none %}
+                            {% if stocks[stock]['industry_momentum'] is not none and stocks[stock]['industry_momentum'] != 0.0 %}
                             <span class="momentum-bar-container">
                                 {% set momentum_val = stocks[stock]['industry_momentum'] %}
                                 {% set bar_width = (momentum_val|abs * 3)|int %}
@@ -1031,6 +1029,8 @@
                                 </span>
                             </span>
                             {% else %}<span style="color:#999;">N/A</span>{% endif %}
+                            &nbsp;|&nbsp;
+                            <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
                             &nbsp;|&nbsp;
                             <strong>Beta:</strong>
                             {% if stocks[stock]['beta'] %}
