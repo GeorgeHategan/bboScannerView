@@ -303,6 +303,61 @@
             visibility: visible;
             opacity: 1;
         }
+        /* Industry Momentum Bar */
+        .momentum-bar-container {
+            display: inline-flex;
+            align-items: center;
+            position: relative;
+            cursor: help;
+            vertical-align: middle;
+            margin-right: 3px;
+        }
+        .momentum-bar {
+            height: 14px;
+            border-radius: 2px;
+            min-width: 2px;
+            transition: width 0.3s ease;
+        }
+        .momentum-bar.positive {
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+        }
+        .momentum-bar.negative {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+        .momentum-tooltip {
+            visibility: hidden;
+            width: 280px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 9999;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -140px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 11px;
+            line-height: 1.5;
+            font-weight: normal;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .momentum-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .momentum-bar-container:hover .momentum-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
         .chart-container {
             background: white;
             padding: 20px;
@@ -952,6 +1007,30 @@
                             <strong>Industry:</strong> {% if stocks[stock]['industry'] %}{{ stocks[stock]['industry'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                             &nbsp;|&nbsp;
                             <strong>Mkt Cap:</strong> {% if stocks[stock]['market_cap'] %}<span style="font-weight:700; color:#0066cc;">${{ stocks[stock]['market_cap'] }}</span>{% else %}<span style="color:#999;">N/A</span>{% endif %}
+                            &nbsp;|&nbsp;
+                            <strong>Ind Mom:</strong>
+                            {% if stocks[stock]['industry_momentum'] is not none %}
+                            <span class="momentum-bar-container">
+                                {% set momentum_val = stocks[stock]['industry_momentum'] %}
+                                {% set bar_width = (momentum_val|abs * 3)|int %}
+                                {% if bar_width > 50 %}{% set bar_width = 50 %}{% endif %}
+                                {% if bar_width < 2 %}{% set bar_width = 2 %}{% endif %}
+                                <span class="momentum-bar {% if momentum_val >= 0 %}positive{% else %}negative{% endif %}" 
+                                      style="width: {{ bar_width }}px;"></span>
+                                <span style="font-weight:600; color:#666; margin-left: 4px;">{{ "%+.1f"|format(momentum_val) }}</span>
+                                <span class="momentum-tooltip">
+                                    <strong>Industry Momentum: {{ "%+.1f"|format(momentum_val) }}</strong><br>
+                                    Industry: {{ stocks[stock]['industry'] }}<br>
+                                    <hr style="border-color: #555; margin: 6px 0;">
+                                    RS Momentum: {{ "%.1f"|format(stocks[stock]['rs_momentum']) }}<br>
+                                    RS Ratio: {{ "%.1f"|format(stocks[stock]['rs_ratio']) }}<br>
+                                    Quadrant: {{ stocks[stock]['momentum_quadrant'] }}<br>
+                                    <hr style="border-color: #555; margin: 6px 0;">
+                                    Positive = Outperforming VTI<br>
+                                    Negative = Underperforming VTI
+                                </span>
+                            </span>
+                            {% else %}<span style="color:#999;">N/A</span>{% endif %}
                             &nbsp;|&nbsp;
                             <strong>Beta:</strong>
                             {% if stocks[stock]['beta'] %}

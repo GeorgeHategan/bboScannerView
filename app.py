@@ -836,6 +836,39 @@ def get_cached_ticker_list():
         return []
 
 
+def get_cached_industry_momentum():
+    """Get industry momentum data from rotation_metrics with 10-minute cache."""
+    cache_key = "industry_momentum"
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    try:
+        conn = get_db_connection(SCANNER_DATA_PATH)
+        # Get latest industry momentum data
+        result = conn.execute('''
+            SELECT industry_group, rs_momentum, rs_ratio, quadrant
+            FROM v_rrg_latest
+            WHERE view_type = 'industry'
+        ''').fetchall()
+        
+        momentum_data = {}
+        for row in result:
+            industry, rs_momentum, rs_ratio, quadrant = row
+            momentum_data[industry] = {
+                'rs_momentum': float(rs_momentum) if rs_momentum is not None else 100.0,
+                'rs_ratio': float(rs_ratio) if rs_ratio is not None else 100.0,
+                'momentum_delta': float(rs_momentum - 100) if rs_momentum is not None else 0.0,
+                'quadrant': quadrant
+            }
+        
+        _query_cache.set(cache_key, momentum_data, 600)  # 10 minute cache
+        return momentum_data
+    except Exception as e:
+        print(f"Could not fetch industry momentum: {e}")
+        return {}
+
+
 def get_cached_symbol_metadata():
     """Get symbol metadata (company, market_cap, sector) with 10-minute cache (reduced for memory)."""
     cache_key = "symbol_metadata"
@@ -859,15 +892,26 @@ def get_cached_symbol_metadata():
             LIMIT 2000
         ''').fetchall()
         
+        # Get industry momentum data
+        industry_momentum = get_cached_industry_momentum()
+        
         metadata = {}
         for row in result:
             symbol, company, market_cap, sector, industry, beta = row[:6]
+            
+            # Get momentum data for this symbol's industry
+            momentum_info = industry_momentum.get(industry, {})
+            
             metadata[symbol] = {
                 'company': company,
                 'market_cap': market_cap,
                 'sector': sector,
                 'industry': industry,
-                'beta': beta
+                'beta': beta,
+                'industry_momentum': momentum_info.get('momentum_delta', 0.0),
+                'rs_momentum': momentum_info.get('rs_momentum', 100.0),
+                'rs_ratio': momentum_info.get('rs_ratio', 100.0),
+                'momentum_quadrant': momentum_info.get('quadrant', 'Unknown')
             }
         
         _query_cache.set(cache_key, metadata, 600)  # 10 minute cache (reduced from 30)
@@ -6930,7 +6974,11 @@ async def index(
             'market_cap': format_market_cap(meta.get('market_cap')),
             'sector': meta.get('sector'),
             'industry': meta.get('industry'),
-            'beta': meta.get('beta')
+            'beta': meta.get('beta'),
+            'industry_momentum': meta.get('industry_momentum', 0.0),
+            'rs_momentum': meta.get('rs_momentum', 100.0),
+            'rs_ratio': meta.get('rs_ratio', 100.0),
+            'momentum_quadrant': meta.get('momentum_quadrant', 'Unknown')
         }
 
     # Initialize scanner_dict (populated later if pattern selected)
