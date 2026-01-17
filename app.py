@@ -7484,7 +7484,11 @@ async def index(
                                     'market_cap': None,
                                     'sector': None,
                                     'industry': None,
-                                    'beta': None
+                                    'beta': None,
+                                    'industry_momentum': 0.0,
+                                    'rs_momentum': 100.0,
+                                    'rs_ratio': 100.0,
+                                    'momentum_quadrant': 'Unknown'
                                 }
                         
                         # Get pre-fetched volume data if available
@@ -7725,7 +7729,12 @@ async def index(
                         'company': selected_ticker,
                         'market_cap': None,
                         'sector': None,
-                        'industry': None
+                        'industry': None,
+                        'beta': None,
+                        'industry_momentum': 0.0,
+                        'rs_momentum': 100.0,
+                        'rs_ratio': 100.0,
+                        'momentum_quadrant': 'Unknown'
                     }
                 
                 # Add each scanner as a separate "pattern"
