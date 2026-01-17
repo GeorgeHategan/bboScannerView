@@ -116,18 +116,18 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             border-left: 4px solid;
         }
-        .quadrant-card.leading { border-left-color: #27ae60; }
-        .quadrant-card.weakening { border-left-color: #f39c12; }
-        .quadrant-card.lagging { border-left-color: #e74c3c; }
-        .quadrant-card.improving { border-left-color: #3498db; }
+        .quadrant-card.leading { border-left-color: #00c853; }
+        .quadrant-card.weakening { border-left-color: #ff6f00; }
+        .quadrant-card.lagging { border-left-color: #d50000; }
+        .quadrant-card.improving { border-left-color: #2962ff; }
         .quadrant-card h4 {
             margin: 0 0 8px 0;
             font-size: 16px;
         }
-        .quadrant-card.leading h4 { color: #27ae60; }
-        .quadrant-card.weakening h4 { color: #f39c12; }
-        .quadrant-card.lagging h4 { color: #e74c3c; }
-        .quadrant-card.improving h4 { color: #3498db; }
+        .quadrant-card.leading h4 { color: #00c853; }
+        .quadrant-card.weakening h4 { color: #ff6f00; }
+        .quadrant-card.lagging h4 { color: #d50000; }
+        .quadrant-card.improving h4 { color: #2962ff; }
         .quadrant-card p {
             margin: 5px 0;
             font-size: 13px;
@@ -203,11 +203,12 @@
             font-weight: bold;
             color: white;
         }
-        .quadrant-badge.leading { background: #27ae60; }
-        .quadrant-badge.weakening { background: #f39c12; }
-        .quadrant-badge.lagging { background: #e74c3c; }
-        .quadrant-badge.improving { background: #3498db; }
-        .positive { color: #27ae60; font-weight: bold; }
+        .quadrant-badge.leading { background: #00c853; }
+        .quadrant-badge.weakening { background: #ff6f00; }
+        .quadrant-badge.lagging { background: #d50000; }
+        .quadrant-badge.improving { background: #2962ff; }
+        .positive { color: #00c853; font-weight: bold; }
+        .negative { color: #d50000; font-weight: bold; }
         .negative { color: #e74c3c; font-weight: bold; }
     </style>
 </head>
@@ -341,19 +342,19 @@
         
         <div class="stat-card">
             <h4>🚀 Leading</h4>
-            <div class="value" style="color: #27ae60;">{{ leading_count }}</div>
+            <div class="value" style="color: #00c853;">{{ leading_count }}</div>
         </div>
         <div class="stat-card">
             <h4>⚠️ Weakening</h4>
-            <div class="value" style="color: #f39c12;">{{ weakening_count }}</div>
+            <div class="value" style="color: #ff6f00;">{{ weakening_count }}</div>
         </div>
         <div class="stat-card">
             <h4>💪 Improving</h4>
-            <div class="value" style="color: #3498db;">{{ improving_count }}</div>
+            <div class="value" style="color: #2962ff;">{{ improving_count }}</div>
         </div>
         <div class="stat-card">
             <h4>❌ Lagging</h4>
-            <div class="value" style="color: #e74c3c;">{{ lagging_count }}</div>
+            <div class="value" style="color: #d50000;">{{ lagging_count }}</div>
         </div>
     </div>
 
@@ -427,12 +428,12 @@
         // Prepare data for Plotly RRG chart
         const snapshot = {{ snapshot | tojson }};
         
-        // Color mapping for quadrants
+        // Color mapping for quadrants - vibrant distinct colors
         const quadrantColors = {
-            'Leading': '#27ae60',
-            'Weakening': '#f39c12',
-            'Lagging': '#e74c3c',
-            'Improving': '#3498db'
+            'Leading': '#00c853',      // Bright green
+            'Weakening': '#ff6f00',    // Bright orange
+            'Lagging': '#d50000',      // Bright red
+            'Improving': '#2962ff'     // Bright blue
         };
 
         // Create traces for each group with tail
@@ -452,7 +453,7 @@
                     mode: 'lines',
                     line: {
                         color: color,
-                        width: 2
+                        width: 3
                     },
                     name: item.name + ' (tail)',
                     showlegend: false,
@@ -466,19 +467,20 @@
                 y: [item.rs_momentum],
                 mode: 'markers+text',
                 marker: {
-                    size: 12 + (item.members / 10),  // Size based on member count
+                    size: 16 + (item.members / 8),  // Larger base size
                     color: color,
                     line: {
                         color: 'white',
-                        width: 2
+                        width: 3
                     }
                 },
                 text: [item.name],
                 textposition: 'top center',
                 textfont: {
-                    size: 10,
-                    color: color,
-                    family: 'Arial, sans-serif'
+                    size: 11,
+                    color: '#000',  // Black text for better readability
+                    family: 'Arial, sans-serif',
+                    weight: 'bold'
                 },
                 name: item.name,
                 hovertemplate: 
@@ -494,11 +496,11 @@
         // Add quadrant divider lines
         traces.push({
             x: [100, 100],
-            y: [80, 120],
+            y: [95, 110],
             mode: 'lines',
             line: {
-                color: 'rgba(0,0,0,0.2)',
-                width: 1,
+                color: 'rgba(0,0,0,0.4)',
+                width: 2,
                 dash: 'dash'
             },
             showlegend: false,
@@ -506,12 +508,12 @@
         });
         
         traces.push({
-            x: [80, 120],
+            x: [95, 110],
             y: [100, 100],
             mode: 'lines',
             line: {
-                color: 'rgba(0,0,0,0.2)',
-                width: 1,
+                color: 'rgba(0,0,0,0.4)',
+                width: 2,
                 dash: 'dash'
             },
             showlegend: false,
@@ -523,66 +525,72 @@
             xaxis: {
                 title: 'RS Ratio (Relative Strength vs SPY)',
                 zeroline: false,
-                gridcolor: '#eee',
-                range: [85, 115]
+                gridcolor: '#ddd',
+                range: [95, 110],  // Zoomed in for better detail
+                tickfont: { size: 12 }
             },
             yaxis: {
                 title: 'RS Momentum (Rate of Change)',
                 zeroline: false,
-                gridcolor: '#eee',
-                range: [85, 115]
+                gridcolor: '#ddd',
+                range: [95, 110],  // Zoomed in for better detail
+                tickfont: { size: 12 }
             },
             hovermode: 'closest',
             showlegend: false,
             plot_bgcolor: 'white',
             annotations: [
                 {
-                    x: 107.5,
-                    y: 107.5,
+                    x: 105,
+                    y: 105,
                     text: '🚀 LEADING',
                     showarrow: false,
                     font: {
-                        size: 14,
-                        color: '#27ae60'
+                        size: 15,
+                        color: '#00c853',
+                        weight: 'bold'
                     },
-                    bgcolor: 'rgba(39, 174, 96, 0.1)',
-                    borderpad: 4
+                    bgcolor: 'rgba(0, 200, 83, 0.15)',
+                    borderpad: 6
                 },
                 {
-                    x: 107.5,
-                    y: 92.5,
+                    x: 105,
+                    y: 97.5,
                     text: '⚠️ WEAKENING',
                     showarrow: false,
                     font: {
-                        size: 14,
-                        color: '#f39c12'
+                        size: 15,
+                        color: '#ff6f00',
+                        weight: 'bold'
                     },
-                    bgcolor: 'rgba(243, 156, 18, 0.1)',
-                    borderpad: 4
+                    bgcolor: 'rgba(255, 111, 0, 0.15)',
+                    borderpad: 6
                 },
                 {
-                    x: 92.5,
-                    y: 92.5,
+                    x: 97.5,
+                    y: 97.5,
                     text: '❌ LAGGING',
                     showarrow: false,
                     font: {
-                        size: 14,
-                        color: '#e74c3c'
+                        size: 15,
+                        color: '#d50000',
+                        weight: 'bold'
                     },
-                    bgcolor: 'rgba(231, 76, 60, 0.1)',
-                    borderpad: 4
+                    bgcolor: 'rgba(213, 0, 0, 0.15)',
+                    borderpad: 6
                 },
                 {
-                    x: 92.5,
-                    y: 107.5,
+                    x: 97.5,
+                    y: 105,
                     text: '💪 IMPROVING',
                     showarrow: false,
                     font: {
-                        size: 14,
-                        color: '#3498db'
+                        size: 15,
+                        color: '#2962ff',
+                        weight: 'bold'
                     },
-                    bgcolor: 'rgba(52, 152, 219, 0.1)',
-                    borderpad: 4
+                    bgcolor: 'rgba(41, 98, 255, 0.15)',
+                    borderpad: 6
                 }
             ],
             margin: { t: 50, r: 50, b: 50, l: 60 }
