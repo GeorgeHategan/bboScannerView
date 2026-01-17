@@ -7723,8 +7723,9 @@ async def index(
         stocks = filtered_stocks
         print(f'Filtered to {len(stocks)} stocks confirmed by other scanners')
     
-    # Get available sectors for dropdown with counts (cached)
-    # Count from scanner_dict using UNFILTERED metadata to show true distribution
+    # Get available sectors for dropdown with counts
+    # When a scanner is selected: count from that scanner's results
+    # When no scanner selected: count from ALL scanners for the selected date
     available_sectors = []
     sector_counts = {}
     try:
@@ -7736,12 +7737,39 @@ async def index(
             if meta.get('sector'):
                 sectors_set.add(meta['sector'])
         
-        # Count sectors from scanner_dict (before sector filtering)
-        for symbol in scanner_dict.keys():
-            if symbol in all_symbol_metadata:
-                sector = all_symbol_metadata[symbol].get('sector')
-                if sector:
-                    sector_counts[sector] = sector_counts.get(sector, 0) + 1
+        # Count sectors based on what's selected
+        if pattern and scanner_dict:
+            # Scanner selected - count from scanner_dict
+            for symbol in scanner_dict.keys():
+                if symbol in all_symbol_metadata:
+                    sector = all_symbol_metadata[symbol].get('sector')
+                    if sector:
+                        sector_counts[sector] = sector_counts.get(sector, 0) + 1
+            print(f'Sector counts for "{pattern}": {len(scanner_dict)} results, {len(sector_counts)} sectors')
+        elif selected_scan_date:
+            # No scanner but date selected - count ALL scanners for that date
+            try:
+                conn = get_db_connection(DUCKDB_PATH)
+                date_obj = datetime.strptime(selected_scan_date, '%Y-%m-%d')
+                next_day = (date_obj + timedelta(days=1)).strftime('%Y-%m-%d')
+                
+                all_results = conn.execute('''
+                    SELECT DISTINCT symbol
+                    FROM scanner_results.scanner_results
+                    WHERE scan_date >= CAST(? AS TIMESTAMP)
+                    AND scan_date < CAST(? AS TIMESTAMP)
+                ''', [selected_scan_date, next_day]).fetchall()
+                
+                for row in all_results:
+                    symbol = row[0]
+                    if symbol in all_symbol_metadata:
+                        sector = all_symbol_metadata[symbol].get('sector')
+                        if sector:
+                            sector_counts[sector] = sector_counts.get(sector, 0) + 1
+                
+                print(f'Sector counts for all scanners on {selected_scan_date}: {len(all_results)} results, {len(sector_counts)} sectors')
+            except Exception as e:
+                print(f'Failed to get sector counts for date: {e}')
         
         # Build sector list with counts: [('TECHNOLOGY', 150), ('ENERGY', 45), ...]
         available_sectors = []
@@ -7749,7 +7777,6 @@ async def index(
             count = sector_counts.get(sector, 0)
             available_sectors.append((sector, count))
         
-        print(f'Sector counts: {len(scanner_dict)} scanner results, {len(sector_counts)} sectors with counts')
         if sector_counts:
             print(f'  Breakdown: {sector_counts}')
     except Exception as e:
