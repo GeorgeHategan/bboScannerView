@@ -1007,9 +1007,9 @@
                             <strong>Industry:</strong> {% if stocks[stock]['industry'] %}{{ stocks[stock]['industry'] }}{% else %}<span style="color:#999;">N/A</span>{% endif %}
                             &nbsp;|&nbsp;
                             <strong>Ind Mom:</strong>
-                            {% if stocks[stock]['industry_momentum'] is not none and stocks[stock]['industry_momentum'] != 0.0 %}
+                            {% if stocks[stock].get('industry_momentum') is not none and stocks[stock].get('industry_momentum', 0.0) != 0.0 %}
                             <span class="momentum-bar-container">
-                                {% set momentum_val = stocks[stock]['industry_momentum'] %}
+                                {% set momentum_val = stocks[stock].get('industry_momentum', 0.0) %}
                                 {% set bar_width = (momentum_val|abs * 3)|int %}
                                 {% if bar_width > 50 %}{% set bar_width = 50 %}{% endif %}
                                 {% if bar_width < 2 %}{% set bar_width = 2 %}{% endif %}
@@ -1020,9 +1020,9 @@
                                     <strong>Industry Momentum: {{ "%+.1f"|format(momentum_val) }}</strong><br>
                                     Industry: {{ stocks[stock]['industry'] }}<br>
                                     <hr style="border-color: #555; margin: 6px 0;">
-                                    RS Momentum: {{ "%.1f"|format(stocks[stock]['rs_momentum']) }}<br>
-                                    RS Ratio: {{ "%.1f"|format(stocks[stock]['rs_ratio']) }}<br>
-                                    Quadrant: {{ stocks[stock]['momentum_quadrant'] }}<br>
+                                    RS Momentum: {{ "%.1f"|format(stocks[stock].get('rs_momentum', 100.0)) }}<br>
+                                    RS Ratio: {{ "%.1f"|format(stocks[stock].get('rs_ratio', 100.0)) }}<br>
+                                    Quadrant: {{ stocks[stock].get('momentum_quadrant', 'Unknown') }}<br>
                                     <hr style="border-color: #555; margin: 6px 0;">
                                     Positive = Outperforming VTI<br>
                                     Negative = Underperforming VTI
