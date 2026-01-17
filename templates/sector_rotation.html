@@ -428,19 +428,29 @@
         // Prepare data for Plotly RRG chart
         const snapshot = {{ snapshot | tojson }};
         
-        // Color mapping for quadrants - ULTRA vibrant colors
-        const quadrantColors = {
-            'Leading': '#00FF41',      // Neon green
-            'Weakening': '#FF9100',    // Vivid orange
-            'Lagging': '#FF1744',      // Bright red
-            'Improving': '#2979FF'     // Electric blue
+        // Color mapping for each sector/industry - distinct vibrant colors
+        const sectorColors = {
+            'TECHNOLOGY': '#00FF41',           // Neon green
+            'HEALTHCARE': '#FF1744',           // Bright red
+            'FINANCIALS': '#2979FF',           // Electric blue
+            'FINANCIAL SERVICES': '#2979FF',   // Electric blue (same as FINANCIALS)
+            'CONSUMER CYCLICAL': '#FF9100',    // Vivid orange
+            'CONSUMER DEFENSIVE': '#9C27B0',   // Purple
+            'INDUSTRIALS': '#795548',          // Brown
+            'ENERGY': '#FFD600',               // Bright yellow
+            'UTILITIES': '#00BCD4',            // Cyan
+            'REAL ESTATE': '#E91E63',          // Pink
+            'BASIC MATERIALS': '#4CAF50',      // Green
+            'COMMUNICATION SERVICES': '#FF5722', // Deep orange
+            'NONE': '#9E9E9E'                  // Gray
         };
 
         // Create traces for each group with tail
         const traces = [];
         
         snapshot.forEach(item => {
-            const color = quadrantColors[item.quadrant] || '#999';
+            // Use sector-specific color instead of quadrant color
+            const color = sectorColors[item.name.toUpperCase()] || '#999';
             
             // Tail trace (line showing historical movement)
             if (item.tail && item.tail.length > 0) {
