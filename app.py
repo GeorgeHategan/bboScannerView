@@ -7721,31 +7721,30 @@ async def index(
         print(f'Filtered to {len(stocks)} stocks confirmed by other scanners')
     
     # Get available sectors for dropdown with counts (cached)
+    # Count from ALL scanner results, not filtered stocks, to show true sector distribution
     available_sectors = []
     sector_counts = {}
     try:
         cached_metadata = get_cached_symbol_metadata()
         sectors_set = set()
-        for meta in cached_metadata.values():
-            if meta.get('sector'):
-                sectors_set.add(meta['sector'])
         
-        # Count setups by sector from current filtered stocks
-        for symbol, data in stocks.items():
-            sector = data.get('sector')
-            if sector:
-                sector_counts[sector] = sector_counts.get(sector, 0) + 1
-        
-        # Debug: log sector counts
-        print(f'DEBUG: Total stocks: {len(stocks)}')
-        print(f'DEBUG: Sector counts: {sector_counts}')
-        print(f'DEBUG: Sample stock data: {list(stocks.items())[:2] if stocks else "no stocks"}')
+        # Count sectors from ALL stocks (before filtering)
+        # Use all_stocks dict which contains unfiltered symbols
+        for symbol in scanner_dict.keys():
+            if symbol in cached_metadata:
+                meta = cached_metadata[symbol]
+                sector = meta.get('sector')
+                if sector:
+                    sectors_set.add(sector)
+                    sector_counts[sector] = sector_counts.get(sector, 0) + 1
         
         # Build sector list with counts: [('TECHNOLOGY', 150), ('ENERGY', 45), ...]
         available_sectors = []
         for sector in sorted(sectors_set):
             count = sector_counts.get(sector, 0)
             available_sectors.append((sector, count))
+        
+        print(f'Sector counts for {pattern}: {sector_counts}')
     except Exception as e:
         print(f'Could not get sectors: {e}')
     
