@@ -2919,36 +2919,44 @@ async def sector_rotation(
         """).fetchone()
         
         # Get industry data with sector grouping for grouped bar chart
+        # Query from rotation_metrics directly to get sector info
         industry_sector_query = """
-            SELECT 
+            SELECT DISTINCT
                 i.group_name as industry,
-                d.sector,
+                COALESCE(
+                    (SELECT sector FROM scanner_data.main.fundamental_cache 
+                     WHERE industry = i.group_name LIMIT 1),
+                    'OTHER'
+                ) as sector,
                 i.rs_ratio,
                 i.rs_momentum,
                 i.members_count,
                 i.quadrant
             FROM v_rrg_latest i
-            JOIN scanner_data.main.daily_cache d ON i.group_name = d.industry
             WHERE i.group_type = 'industry'
-            GROUP BY i.group_name, d.sector, i.rs_ratio, i.rs_momentum, i.members_count, i.quadrant
-            ORDER BY d.sector, i.rs_momentum DESC
+            ORDER BY sector, i.rs_momentum DESC
         """
-        industry_sector_data = scanner_conn.execute(industry_sector_query).fetchall()
         
-        # Organize industries by sector
-        industries_by_sector = {}
-        for row in industry_sector_data:
-            industry = row[0]
-            sector = row[1]
-            if sector not in industries_by_sector:
-                industries_by_sector[sector] = []
-            industries_by_sector[sector].append({
-                'industry': industry,
-                'rs_ratio': float(row[2]) if row[2] is not None else 100.0,
-                'rs_momentum': float(row[3]) if row[3] is not None else 100.0,
-                'members': row[4],
-                'quadrant': row[5]
-            })
+        try:
+            industry_sector_data = scanner_conn.execute(industry_sector_query).fetchall()
+            
+            # Organize industries by sector
+            industries_by_sector = {}
+            for row in industry_sector_data:
+                industry = row[0]
+                sector = row[1] or 'OTHER'
+                if sector not in industries_by_sector:
+                    industries_by_sector[sector] = []
+                industries_by_sector[sector].append({
+                    'industry': industry,
+                    'rs_ratio': float(row[2]) if row[2] is not None else 100.0,
+                    'rs_momentum': float(row[3]) if row[3] is not None else 100.0,
+                    'members': row[4],
+                    'quadrant': row[5]
+                })
+        except Exception as e:
+            print(f'Failed to load industries by sector: {e}')
+            industries_by_sector = {}
         
         scanner_conn.close()
         
