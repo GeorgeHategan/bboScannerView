@@ -415,6 +415,24 @@
         </p>
     </div>
 
+    <!-- Additional Charts -->
+    <div class="chart-container">
+        <div id="rsRatioChart"></div>
+    </div>
+
+    <div class="chart-container">
+        <div id="rsMomentumChart"></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px;">
+        <div class="chart-container">
+            <div id="sectorSizeChart"></div>
+        </div>
+        <div class="chart-container">
+            <div id="quadrantDistChart"></div>
+        </div>
+    </div>
+
     {% endif %}
 
     <script>
@@ -613,6 +631,128 @@
         };
 
         Plotly.newPlot('rrgChart', traces, layout, config);
+        
+        // Additional Charts
+        
+        // 1. RS Ratio Ranking Bar Chart
+        const rsRatioData = snapshot.map(item => ({
+            name: item.name,
+            rsRatio: item.rs_ratio,
+            quadrant: item.quadrant
+        })).sort((a, b) => b.rsRatio - a.rsRatio);
+        
+        const rsRatioTrace = {
+            y: rsRatioData.map(d => d.name),
+            x: rsRatioData.map(d => d.rsRatio),
+            type: 'bar',
+            orientation: 'h',
+            marker: {
+                color: rsRatioData.map(d => {
+                    const colors = sectorColors[d.name.toUpperCase()] || '#999';
+                    return colors;
+                })
+            },
+            text: rsRatioData.map(d => d.rsRatio.toFixed(2)),
+            textposition: 'outside'
+        };
+        
+        Plotly.newPlot('rsRatioChart', [rsRatioTrace], {
+            title: 'Relative Strength Ranking (RS Ratio)',
+            xaxis: { title: 'RS Ratio (100 = Benchmark)', gridcolor: '#ddd' },
+            yaxis: { title: '' },
+            height: 400,
+            margin: { l: 150, r: 50, t: 50, b: 50 }
+        }, config);
+        
+        // 2. RS Momentum Ranking Bar Chart
+        const rsMomentumData = snapshot.map(item => ({
+            name: item.name,
+            rsMomentum: item.rs_momentum,
+            quadrant: item.quadrant
+        })).sort((a, b) => b.rsMomentum - a.rsMomentum);
+        
+        const rsMomentumTrace = {
+            y: rsMomentumData.map(d => d.name),
+            x: rsMomentumData.map(d => d.rsMomentum),
+            type: 'bar',
+            orientation: 'h',
+            marker: {
+                color: rsMomentumData.map(d => {
+                    const colors = sectorColors[d.name.toUpperCase()] || '#999';
+                    return colors;
+                })
+            },
+            text: rsMomentumData.map(d => d.rsMomentum.toFixed(2)),
+            textposition: 'outside'
+        };
+        
+        Plotly.newPlot('rsMomentumChart', [rsMomentumTrace], {
+            title: 'Momentum Ranking (Acceleration/Deceleration)',
+            xaxis: { title: 'RS Momentum (100 = Benchmark)', gridcolor: '#ddd' },
+            yaxis: { title: '' },
+            height: 400,
+            margin: { l: 150, r: 50, t: 50, b: 50 }
+        }, config);
+        
+        // 3. Sector Size (Members Count) Bar Chart
+        const sectorSizeData = snapshot.map(item => ({
+            name: item.name,
+            members: item.members
+        })).sort((a, b) => b.members - a.members);
+        
+        const sectorSizeTrace = {
+            y: sectorSizeData.map(d => d.name),
+            x: sectorSizeData.map(d => d.members),
+            type: 'bar',
+            orientation: 'h',
+            marker: {
+                color: sectorSizeData.map(d => {
+                    const colors = sectorColors[d.name.toUpperCase()] || '#999';
+                    return colors;
+                })
+            },
+            text: sectorSizeData.map(d => d.members),
+            textposition: 'outside'
+        };
+        
+        Plotly.newPlot('sectorSizeChart', [sectorSizeTrace], {
+            title: 'Number of Stocks per {{ view|title }}',
+            xaxis: { title: 'Number of Stocks', gridcolor: '#ddd' },
+            yaxis: { title: '' },
+            height: 400,
+            margin: { l: 150, r: 50, t: 50, b: 50 }
+        }, config);
+        
+        // 4. Quadrant Distribution Pie Chart
+        const quadrantCounts = {};
+        snapshot.forEach(item => {
+            quadrantCounts[item.quadrant] = (quadrantCounts[item.quadrant] || 0) + 1;
+        });
+        
+        const quadrantColors = {
+            'Leading': '#00FF41',
+            'Weakening': '#FF9100',
+            'Lagging': '#FF1744',
+            'Improving': '#2979FF'
+        };
+        
+        const quadrantTrace = {
+            labels: Object.keys(quadrantCounts),
+            values: Object.values(quadrantCounts),
+            type: 'pie',
+            marker: {
+                colors: Object.keys(quadrantCounts).map(q => quadrantColors[q])
+            },
+            textinfo: 'label+value+percent',
+            textfont: { size: 14, weight: 'bold' }
+        };
+        
+        Plotly.newPlot('quadrantDistChart', [quadrantTrace], {
+            title: '{{ view|title }} Distribution by Quadrant',
+            height: 400,
+            margin: { t: 50, r: 50, b: 50, l: 50 }
+        }, config);
+        
         {% endif %}
     </script>
 </body>
