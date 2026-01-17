@@ -647,6 +647,22 @@
             quadrant: item.quadrant
         })).sort((a, b) => b.rsDelta - a.rsDelta); // Sort by deviation
         
+        // 2. RS Momentum Ranking Bar Chart (Diverging from 100)
+        const rsMomentumData = snapshot.map(item => ({
+            name: item.name,
+            rsMomentum: item.rs_momentum,
+            momentumDelta: item.rs_momentum - 100, // Deviation from benchmark
+            quadrant: item.quadrant
+        })).sort((a, b) => b.momentumDelta - a.momentumDelta); // Sort by deviation
+        
+        // Calculate shared axis range for both charts
+        const allDeltas = [
+            ...rsRatioData.map(d => Math.abs(d.rsDelta)),
+            ...rsMomentumData.map(d => Math.abs(d.momentumDelta))
+        ];
+        const maxAbsValue = Math.max(...allDeltas);
+        const sharedAxisRange = [-maxAbsValue * 1.15, maxAbsValue * 1.15]; // Add 15% padding for text labels
+        
         const rsRatioTrace = {
             y: rsRatioData.map(d => d.name),
             x: rsRatioData.map(d => d.rsDelta),
@@ -680,20 +696,13 @@
                 gridcolor: '#ddd',
                 zeroline: true,
                 zerolinecolor: '#000',
-                zerolinewidth: 2
+                zerolinewidth: 2,
+                range: sharedAxisRange
             },
             yaxis: { title: '' },
             height: 400,
             margin: { l: 150, r: 50, t: 50, b: 50 }
         }, config);
-        
-        // 2. RS Momentum Ranking Bar Chart (Diverging from 100)
-        const rsMomentumData = snapshot.map(item => ({
-            name: item.name,
-            rsMomentum: item.rs_momentum,
-            momentumDelta: item.rs_momentum - 100, // Deviation from benchmark
-            quadrant: item.quadrant
-        })).sort((a, b) => b.momentumDelta - a.momentumDelta); // Sort by deviation
         
         const rsMomentumTrace = {
             y: rsMomentumData.map(d => d.name),
@@ -728,7 +737,8 @@
                 gridcolor: '#ddd',
                 zeroline: true,
                 zerolinecolor: '#000',
-                zerolinewidth: 2
+                zerolinewidth: 2,
+                range: sharedAxisRange
             },
             yaxis: { title: '' },
             height: 400,
