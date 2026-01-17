@@ -7720,15 +7720,27 @@ async def index(
         stocks = filtered_stocks
         print(f'Filtered to {len(stocks)} stocks confirmed by other scanners')
     
-    # Get available sectors for dropdown (cached)
+    # Get available sectors for dropdown with counts (cached)
     available_sectors = []
+    sector_counts = {}
     try:
         cached_metadata = get_cached_symbol_metadata()
         sectors_set = set()
         for meta in cached_metadata.values():
             if meta.get('sector'):
                 sectors_set.add(meta['sector'])
-        available_sectors = sorted(list(sectors_set))
+        
+        # Count setups by sector from current filtered stocks
+        for symbol, data in stocks.items():
+            sector = data.get('sector')
+            if sector:
+                sector_counts[sector] = sector_counts.get(sector, 0) + 1
+        
+        # Build sector list with counts: [('TECHNOLOGY', 150), ('ENERGY', 45), ...]
+        available_sectors = []
+        for sector in sorted(sectors_set):
+            count = sector_counts.get(sector, 0)
+            available_sectors.append((sector, count))
     except Exception as e:
         print(f'Could not get sectors: {e}')
     

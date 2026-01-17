@@ -559,8 +559,8 @@
 
                 <select name="sector" onchange="showLoading(); this.form.submit()" style="padding: 10px 15px; font-size: 14px; border: 2px solid #ddd; border-radius: 5px; background: white; cursor: pointer;">
                     <option value="">-- All Sectors --</option>
-                    {% for sector in available_sectors %}
-                        <option value="{{ sector }}" {% if selected_sector == sector %}selected="selected"{% endif %}>{{ sector }}</option>
+                    {% for sector, count in available_sectors %}
+                        <option value="{{ sector }}" {% if selected_sector == sector %}selected="selected"{% endif %}>{{ sector }} ({{ count }})</option>
                     {% endfor %}
                 </select>
 
