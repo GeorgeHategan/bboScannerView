@@ -860,10 +860,10 @@ def get_cached_symbol_metadata():
             FROM main.daily_cache d
             LEFT JOIN main.fundamental_cache f ON d.symbol = f.symbol
             LEFT JOIN (
-                SELECT industry_group, rs_momentum, rs_ratio, quadrant
+                SELECT group_name, rs_momentum, rs_ratio, quadrant
                 FROM v_rrg_latest
-                WHERE view_type = 'industry'
-            ) r ON f.industry = r.industry_group
+                WHERE group_type = 'industry'
+            ) r ON f.industry = r.group_name
             ORDER BY d.symbol
             LIMIT 2000
         ''').fetchall()
@@ -7478,9 +7478,9 @@ async def index(
                 if industries:
                     ind_placeholders = ','.join(['?' for _ in industries])
                     momentum_query = f'''
-                        SELECT industry_group, rs_momentum, rs_ratio, quadrant
+                        SELECT group_name, rs_momentum, rs_ratio, quadrant
                         FROM v_rrg_latest
-                        WHERE view_type = 'industry' AND industry_group IN ({ind_placeholders})
+                        WHERE group_type = 'industry' AND group_name IN ({ind_placeholders})
                     '''
                     momentum_results = scanner_conn_temp.execute(momentum_query, industries).fetchall()
                     momentum_by_industry = {}
