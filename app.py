@@ -2863,7 +2863,7 @@ async def download_vix_csv():
 async def sector_rotation(
     request: Request,
     view: Optional[str] = Query('sector'),  # 'sector' or 'industry'
-    days: Optional[int] = Query(30)
+    days: Optional[int] = Query(5)
 ):
     """Display Relative Rotation Graph (RRG) analysis for sectors and industries."""
     
