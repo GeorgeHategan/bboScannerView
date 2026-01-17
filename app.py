@@ -2918,6 +2918,38 @@ async def sector_rotation(
             FROM {tail_view}
         """).fetchone()
         
+        # Get industry data with sector grouping for grouped bar chart
+        industry_sector_query = """
+            SELECT 
+                i.group_name as industry,
+                d.sector,
+                i.rs_ratio,
+                i.rs_momentum,
+                i.members_count,
+                i.quadrant
+            FROM v_rrg_latest i
+            JOIN scanner_data.main.daily_cache d ON i.group_name = d.industry
+            WHERE i.group_type = 'industry'
+            GROUP BY i.group_name, d.sector, i.rs_ratio, i.rs_momentum, i.members_count, i.quadrant
+            ORDER BY d.sector, i.rs_momentum DESC
+        """
+        industry_sector_data = scanner_conn.execute(industry_sector_query).fetchall()
+        
+        # Organize industries by sector
+        industries_by_sector = {}
+        for row in industry_sector_data:
+            industry = row[0]
+            sector = row[1]
+            if sector not in industries_by_sector:
+                industries_by_sector[sector] = []
+            industries_by_sector[sector].append({
+                'industry': industry,
+                'rs_ratio': float(row[2]) if row[2] is not None else 100.0,
+                'rs_momentum': float(row[3]) if row[3] is not None else 100.0,
+                'members': row[4],
+                'quadrant': row[5]
+            })
+        
         scanner_conn.close()
         
         return templates.TemplateResponse('sector_rotation.html', {
@@ -2925,6 +2957,7 @@ async def sector_rotation(
             'view': view,
             'days': days,
             'snapshot': snapshot,
+            'industries_by_sector': industries_by_sector,
             'date_range': {
                 'start': str(date_range[0]) if date_range[0] else '',
                 'end': str(date_range[1]) if date_range[1] else ''

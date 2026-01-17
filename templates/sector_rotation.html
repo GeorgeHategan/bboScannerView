@@ -433,6 +433,11 @@
         </div>
     </div>
 
+    <!-- Industries by Sector Grouped Bar Chart -->
+    <div class="chart-container">
+        <div id="industriesBySectorChart"></div>
+    </div>
+
     {% endif %}
 
     <script>
@@ -752,6 +757,79 @@
             height: 400,
             margin: { t: 50, r: 50, b: 50, l: 50 }
         }, config);
+        
+        // 5. Industries Grouped by Sector Bar Chart
+        {% if industries_by_sector %}
+        const industriesBySector = {{ industries_by_sector | tojson }};
+        const sectorOrder = Object.keys(industriesBySector).sort();
+        
+        // Create traces for grouped bar chart
+        const industryTraces = [];
+        const allIndustries = [];
+        
+        sectorOrder.forEach(sector => {
+            const industries = industriesBySector[sector];
+            const sectorColor = sectorColors[sector.toUpperCase()] || '#999';
+            
+            industries.forEach(ind => {
+                allIndustries.push({
+                    sector: sector,
+                    industry: ind.industry,
+                    momentum: ind.rs_momentum,
+                    ratio: ind.rs_ratio,
+                    members: ind.members,
+                    quadrant: ind.quadrant,
+                    color: sectorColor
+                });
+            });
+        });
+        
+        // Group by sector for display
+        sectorOrder.forEach(sector => {
+            const sectorIndustries = allIndustries.filter(i => i.sector === sector);
+            const sectorColor = sectorColors[sector.toUpperCase()] || '#999';
+            
+            industryTraces.push({
+                x: sectorIndustries.map(i => i.industry),
+                y: sectorIndustries.map(i => i.momentum),
+                type: 'bar',
+                name: sector,
+                marker: { color: sectorColor },
+                text: sectorIndustries.map(i => i.momentum.toFixed(2)),
+                textposition: 'outside',
+                hovertemplate: 
+                    '<b>%{x}</b><br>' +
+                    'Sector: ' + sector + '<br>' +
+                    'RS Momentum: %{y:.2f}<br>' +
+                    'RS Ratio: %{customdata[0]:.2f}<br>' +
+                    'Stocks: %{customdata[1]}<br>' +
+                    'Quadrant: %{customdata[2]}' +
+                    '<extra></extra>',
+                customdata: sectorIndustries.map(i => [i.ratio, i.members, i.quadrant])
+            });
+        });
+        
+        Plotly.newPlot('industriesBySectorChart', industryTraces, {
+            title: 'Industries Momentum by Sector',
+            xaxis: { 
+                title: 'Industry',
+                tickangle: -45,
+                gridcolor: '#ddd'
+            },
+            yaxis: { 
+                title: 'RS Momentum (100 = Benchmark)',
+                gridcolor: '#ddd'
+            },
+            barmode: 'group',
+            height: 600,
+            margin: { l: 60, r: 50, t: 50, b: 150 },
+            showlegend: true,
+            legend: {
+                orientation: 'h',
+                y: -0.3
+            }
+        }, config);
+        {% endif %}
         
         {% endif %}
     </script>
