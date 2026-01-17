@@ -38,7 +38,7 @@ date            DATE        -- Trading date
 group_type      VARCHAR     -- 'sector' or 'industry'
 group_name      VARCHAR     -- Name (e.g., "TECHNOLOGY", "SOFTWARE")
 members_count   INTEGER     -- Number of stocks in group
-rs_ratio        DOUBLE      -- Relative Strength vs SPY
+rs_ratio        DOUBLE      -- Relative Strength vs VTI
 rs_momentum     DOUBLE      -- RS Momentum (rate of change)
 quadrant        VARCHAR     -- "Leading", "Weakening", "Lagging", "Improving"
 rs_ratio_5d     DOUBLE      -- 5-day change in RS ratio
