@@ -772,10 +772,14 @@
             const sectorColor = sectorColors[sector.toUpperCase()] || '#999';
             
             industries.forEach(ind => {
+                // Calculate deviation from market (100)
+                const momentumDelta = ind.rs_momentum - 100;
+                
                 allIndustries.push({
                     sector: sector,
                     industry: ind.industry,
                     momentum: ind.rs_momentum,
+                    momentumDelta: momentumDelta,
                     ratio: ind.rs_ratio,
                     members: ind.members,
                     quadrant: ind.quadrant,
@@ -784,6 +788,9 @@
             });
         });
         
+        // Sort by momentum delta for better visualization
+        allIndustries.sort((a, b) => b.momentumDelta - a.momentumDelta);
+        
         // Group by sector for display
         sectorOrder.forEach(sector => {
             const sectorIndustries = allIndustries.filter(i => i.sector === sector);
@@ -791,38 +798,48 @@
             
             industryTraces.push({
                 x: sectorIndustries.map(i => i.industry),
-                y: sectorIndustries.map(i => i.momentum),
+                y: sectorIndustries.map(i => i.momentumDelta), // Show deviation from 100
                 type: 'bar',
                 name: sector,
-                marker: { color: sectorColor },
-                text: sectorIndustries.map(i => i.momentum.toFixed(2)),
+                marker: { 
+                    color: sectorIndustries.map(i => i.momentumDelta >= 0 ? sectorColor : sectorColor + '80'), // Dim color for negative
+                    line: {
+                        color: sectorIndustries.map(i => i.momentumDelta >= 0 ? '#fff' : '#000'),
+                        width: 1
+                    }
+                },
+                text: sectorIndustries.map(i => (i.momentumDelta >= 0 ? '+' : '') + i.momentumDelta.toFixed(1)),
                 textposition: 'outside',
                 hovertemplate: 
                     '<b>%{x}</b><br>' +
                     'Sector: ' + sector + '<br>' +
-                    'RS Momentum: %{y:.2f}<br>' +
-                    'RS Ratio: %{customdata[0]:.2f}<br>' +
-                    'Stocks: %{customdata[1]}<br>' +
-                    'Quadrant: %{customdata[2]}' +
+                    'Momentum Delta: %{y:.2f}<br>' +
+                    'RS Momentum: %{customdata[0]:.2f}<br>' +
+                    'RS Ratio: %{customdata[1]:.2f}<br>' +
+                    'Stocks: %{customdata[2]}<br>' +
+                    'Quadrant: %{customdata[3]}' +
                     '<extra></extra>',
-                customdata: sectorIndustries.map(i => [i.ratio, i.members, i.quadrant])
+                customdata: sectorIndustries.map(i => [i.momentum, i.ratio, i.members, i.quadrant])
             });
         });
         
         Plotly.newPlot('industriesBySectorChart', industryTraces, {
-            title: 'Industries Momentum by Sector',
+            title: 'Industries Momentum vs Market (Deviation from Benchmark)',
             xaxis: { 
                 title: 'Industry',
                 tickangle: -45,
                 gridcolor: '#ddd'
             },
             yaxis: { 
-                title: 'RS Momentum (100 = Benchmark)',
-                gridcolor: '#ddd'
+                title: 'Momentum Delta (0 = Market Pace, Positive = Accelerating)',
+                gridcolor: '#ddd',
+                zeroline: true,
+                zerolinecolor: '#000',
+                zerolinewidth: 2
             },
             barmode: 'group',
             height: 600,
-            margin: { l: 60, r: 50, t: 50, b: 150 },
+            margin: { l: 80, r: 50, t: 50, b: 150 },
             showlegend: true,
             legend: {
                 orientation: 'h',
