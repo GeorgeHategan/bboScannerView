@@ -680,26 +680,27 @@
             orientation: 'h',
             marker: {
                 color: rsRatioData.map(d => {
-                    // Green gradient for positive, red gradient for negative
+                    const baseColor = sectorColors[d.name.toUpperCase()] || '#999';
+                    // Use sector color with green tint for positive, red tint for negative
                     if (d.rsDelta >= 0) {
-                        return d.rsDelta > 5 ? '#2E7D32' : '#66BB6A';  // dark green / light green
+                        return baseColor;  // Full color for positive
                     } else {
-                        return d.rsDelta < -5 ? '#C62828' : '#EF5350';  // dark red / light red
+                        return baseColor + '99';  // 60% opacity for negative
                     }
                 }),
                 line: {
-                    color: rsRatioData.map(d => d.rsDelta >= 0 ? '#1B5E20' : '#B71C1C'),
+                    color: rsRatioData.map(d => d.rsDelta >= 0 ? '#fff' : '#000'),
                     width: 1
                 }
             },
             text: rsRatioData.map(d => (d.rsDelta >= 0 ? '+' : '') + d.rsDelta.toFixed(2)),
             textposition: 'outside',
-            hovertemplate: 
-                '<b>%{y}</b><br>' +
-                'Delta: %{x:.2f}<br>' +
-                'RS Ratio: %{customdata:.2f}' +
-                '<extra></extra>',
-            customdata: rsRatioData.map(d => d.rsRatio)
+            hoverinfo: 'text',
+            hovertext: rsRatioData.map(d => 
+                `<b>${d.name}</b><br>` +
+                `Delta: ${d.rsDelta >= 0 ? '+' : ''}${d.rsDelta.toFixed(2)}<br>` +
+                `RS Ratio: ${d.rsRatio.toFixed(2)}`
+            )
         };
         
         Plotly.newPlot('rsRatioChart', [rsRatioTrace], {
@@ -723,26 +724,27 @@
             orientation: 'h',
             marker: {
                 color: rsMomentumData.map(d => {
-                    // Green gradient for positive, red gradient for negative
+                    const baseColor = sectorColors[d.name.toUpperCase()] || '#999';
+                    // Use sector color with green tint for positive, red tint for negative
                     if (d.momentumDelta >= 0) {
-                        return d.momentumDelta > 5 ? '#2E7D32' : '#66BB6A';  // dark green / light green
+                        return baseColor;  // Full color for positive
                     } else {
-                        return d.momentumDelta < -5 ? '#C62828' : '#EF5350';  // dark red / light red
+                        return baseColor + '99';  // 60% opacity for negative
                     }
                 }),
                 line: {
-                    color: rsMomentumData.map(d => d.momentumDelta >= 0 ? '#1B5E20' : '#B71C1C'),
+                    color: rsMomentumData.map(d => d.momentumDelta >= 0 ? '#fff' : '#000'),
                     width: 1
                 }
             },
             text: rsMomentumData.map(d => (d.momentumDelta >= 0 ? '+' : '') + d.momentumDelta.toFixed(2)),
             textposition: 'outside',
-            hovertemplate: 
-                '<b>%{y}</b><br>' +
-                'Delta: %{x:.2f}<br>' +
-                'RS Momentum: %{customdata:.2f}' +
-                '<extra></extra>',
-            customdata: rsMomentumData.map(d => d.rsMomentum)
+            hoverinfo: 'text',
+            hovertext: rsMomentumData.map(d => 
+                `<b>${d.name}</b><br>` +
+                `Delta: ${d.momentumDelta >= 0 ? '+' : ''}${d.momentumDelta.toFixed(2)}<br>` +
+                `RS Momentum: ${d.rsMomentum.toFixed(2)}`
+            )
         };
         
         Plotly.newPlot('rsMomentumChart', [rsMomentumTrace], {
