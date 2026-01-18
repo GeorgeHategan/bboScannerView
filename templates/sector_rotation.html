@@ -680,12 +680,15 @@
             orientation: 'h',
             marker: {
                 color: rsRatioData.map(d => {
-                    const baseColor = sectorColors[d.name.toUpperCase()] || '#999';
-                    // Dim color for negative (underperforming)
-                    return d.rsDelta >= 0 ? baseColor : baseColor + '80';
+                    // Green gradient for positive, red gradient for negative
+                    if (d.rsDelta >= 0) {
+                        return d.rsDelta > 5 ? '#2E7D32' : '#66BB6A';  // dark green / light green
+                    } else {
+                        return d.rsDelta < -5 ? '#C62828' : '#EF5350';  // dark red / light red
+                    }
                 }),
                 line: {
-                    color: rsRatioData.map(d => d.rsDelta >= 0 ? '#fff' : '#000'),
+                    color: rsRatioData.map(d => d.rsDelta >= 0 ? '#1B5E20' : '#B71C1C'),
                     width: 1
                 }
             },
@@ -720,12 +723,15 @@
             orientation: 'h',
             marker: {
                 color: rsMomentumData.map(d => {
-                    const baseColor = sectorColors[d.name.toUpperCase()] || '#999';
-                    // Dim color for negative (decelerating)
-                    return d.momentumDelta >= 0 ? baseColor : baseColor + '80';
+                    // Green gradient for positive, red gradient for negative
+                    if (d.momentumDelta >= 0) {
+                        return d.momentumDelta > 5 ? '#2E7D32' : '#66BB6A';  // dark green / light green
+                    } else {
+                        return d.momentumDelta < -5 ? '#C62828' : '#EF5350';  // dark red / light red
+                    }
                 }),
                 line: {
-                    color: rsMomentumData.map(d => d.momentumDelta >= 0 ? '#fff' : '#000'),
+                    color: rsMomentumData.map(d => d.momentumDelta >= 0 ? '#1B5E20' : '#B71C1C'),
                     width: 1
                 }
             },
