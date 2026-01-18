@@ -649,6 +649,31 @@
         
         // Additional Charts
         
+        // Build industry-to-sector mapping for color lookup
+        const industryToSector = {};
+        {% if industries_by_sector %}
+        const industriesBySectorData = {{ industries_by_sector | tojson }};
+        Object.keys(industriesBySectorData).forEach(sector => {
+            industriesBySectorData[sector].forEach(ind => {
+                industryToSector[ind.industry] = sector.toUpperCase();
+            });
+        });
+        {% endif %}
+        
+        // Helper function to get color for a name (sector or industry)
+        function getColorForItem(name) {
+            // First try direct sector match
+            if (sectorColors[name.toUpperCase()]) {
+                return sectorColors[name.toUpperCase()];
+            }
+            // Then try industry-to-sector lookup
+            const sector = industryToSector[name];
+            if (sector && sectorColors[sector]) {
+                return sectorColors[sector];
+            }
+            return '#999'; // Default gray
+        }
+        
         // 1. RS Ratio Ranking Bar Chart (Diverging from 100)
         const rsRatioData = snapshot.map(item => ({
             name: item.name,
@@ -680,8 +705,8 @@
             orientation: 'h',
             marker: {
                 color: rsRatioData.map(d => {
-                    const baseColor = sectorColors[d.name.toUpperCase()] || '#999';
-                    // Use sector color with green tint for positive, red tint for negative
+                    const baseColor = getColorForItem(d.name);
+                    // Use sector color with full brightness for positive, dimmed for negative
                     if (d.rsDelta >= 0) {
                         return baseColor;  // Full color for positive
                     } else {
@@ -724,8 +749,8 @@
             orientation: 'h',
             marker: {
                 color: rsMomentumData.map(d => {
-                    const baseColor = sectorColors[d.name.toUpperCase()] || '#999';
-                    // Use sector color with green tint for positive, red tint for negative
+                    const baseColor = getColorForItem(d.name);
+                    // Use sector color with full brightness for positive, dimmed for negative
                     if (d.momentumDelta >= 0) {
                         return baseColor;  // Full color for positive
                     } else {
