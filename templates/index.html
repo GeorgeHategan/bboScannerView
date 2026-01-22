@@ -1480,7 +1480,11 @@
                                 {% endif %}">
                                 <strong style="font-size: 14px;">{{ stocks[stock]['news_sentiment_label'] }}</strong>
                                 {% if stocks[stock].get('news_sentiment') %}
-                                    <span style="font-size: 12px; opacity: 0.8;"> ({{ '%.3f'|format(stocks[stock]['news_sentiment']) }})</span>
+                                    {% if stocks[stock]['news_sentiment'] is mapping %}
+                                        <span style="font-size: 12px; opacity: 0.8;"> ({{ '%.3f'|format(stocks[stock]['news_sentiment'].get('score', 0)) }})</span>
+                                    {% else %}
+                                        <span style="font-size: 12px; opacity: 0.8;"> ({{ '%.3f'|format(stocks[stock]['news_sentiment']) }})</span>
+                                    {% endif %}
                                 {% endif %}
                                 {% if stocks[stock].get('news_relevance') %}
                                     <br><span style="font-size: 11px; opacity: 0.7;">Relevance: {{ '%.1f%%'|format(stocks[stock]['news_relevance'] * 100) }}</span>
