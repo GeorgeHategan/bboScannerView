@@ -4812,7 +4812,7 @@ async def darkpool_signals(
 
 @app.get("/api/download-darkpool-trades")
 async def download_darkpool_trades(symbol: str):
-    """Download all dark pool trades for a symbol as CSV."""
+    """Download all dark pool trades for a symbol from darkpool_trades table as CSV."""
     
     if not OPTIONS_DUCKDB_PATH:
         return JSONResponse(
@@ -4828,31 +4828,17 @@ async def download_darkpool_trades(symbol: str):
                 content={"error": "Could not connect to options database"}
             )
         
-        # Query all dark pool trades for the symbol (not just signals)
+        # Query ALL columns from darkpool_trades table for the symbol
         query = """
-            SELECT 
-                signal_id,
-                signal_date,
-                scan_date,
-                ticker,
-                signal_type,
-                direction,
-                signal_strength,
-                confidence_score,
-                dp_volume,
-                dp_premium,
-                avg_price,
-                buy_volume,
-                sell_volume,
-                buy_sell_ratio,
-                block_count,
-                avg_block_size,
-                consecutive_days,
-                notes
-            FROM darkpool_signals
+            SELECT *
+            FROM darkpool_trades
             WHERE ticker = ?
-            ORDER BY signal_date DESC, signal_id DESC
+            ORDER BY executed_at DESC
         """
+        
+        # Get column names from the table
+        col_query = conn.execute("SELECT * FROM darkpool_trades LIMIT 0")
+        column_names = [desc[0] for desc in col_query.description]
         
         results = conn.execute(query, [symbol.upper()]).fetchall()
         conn.close()
@@ -4870,50 +4856,12 @@ async def download_darkpool_trades(symbol: str):
         output = StringIO()
         writer = csv.writer(output)
         
-        # Write header
-        writer.writerow([
-            'Signal ID',
-            'Signal Date',
-            'Scan Date',
-            'Symbol',
-            'Signal Type',
-            'Direction',
-            'Strength',
-            'Confidence',
-            'DP Volume',
-            'DP Premium ($)',
-            'Avg Price ($)',
-            'Buy Volume',
-            'Sell Volume',
-            'Buy/Sell Ratio',
-            'Block Count',
-            'Avg Block Size',
-            'Consecutive Days',
-            'Notes'
-        ])
+        # Write header with all column names
+        writer.writerow(column_names)
         
-        # Write data rows
+        # Write all data rows as-is
         for row in results:
-            writer.writerow([
-                row[0],  # signal_id
-                row[1],  # signal_date
-                row[2],  # scan_date
-                row[3],  # ticker
-                row[4],  # signal_type
-                row[5],  # direction
-                row[6],  # signal_strength
-                row[7],  # confidence_score
-                row[8],  # dp_volume
-                f"{row[9]:.2f}" if row[9] else "",  # dp_premium
-                f"{row[10]:.2f}" if row[10] else "",  # avg_price
-                row[11],  # buy_volume
-                row[12],  # sell_volume
-                f"{row[13]:.2f}" if row[13] else "",  # buy_sell_ratio
-                row[14],  # block_count
-                f"{row[15]:.0f}" if row[15] else "",  # avg_block_size
-                row[16],  # consecutive_days
-                row[17]  # notes
-            ])
+            writer.writerow(row)
         
         csv_content = output.getvalue()
         output.close()
