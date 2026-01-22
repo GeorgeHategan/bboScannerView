@@ -332,16 +332,35 @@
     
     <!-- Signals Table -->
     <div style="padding: 0 20px; overflow-x: auto;">
-        <h3 style="margin: 20px 0 10px 0; color: #333;">
-            📋 Dark Pool Signals ({{ signals|length }} results)
-            {% if selected_symbol and not selected_scan_date %}
-                - {{ selected_symbol.upper() }} (All Dates)
-            {% elif selected_symbol and selected_scan_date %}
-                - {{ selected_symbol.upper() }} on {{ selected_scan_date }}
-            {% elif selected_scan_date %}
-                - {{ selected_scan_date }}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0 10px 0;">
+            <h3 style="margin: 0; color: #333;">
+                📋 Dark Pool Signals ({{ signals|length }} results)
+                {% if selected_symbol and not selected_scan_date %}
+                    - {{ selected_symbol.upper() }} (All Dates)
+                {% elif selected_symbol and selected_scan_date %}
+                    - {{ selected_symbol.upper() }} on {{ selected_scan_date }}
+                {% elif selected_scan_date %}
+                    - {{ selected_scan_date }}
+                {% endif %}
+            </h3>
+            
+            {% if selected_symbol %}
+            <a href="/api/download-darkpool-trades?symbol={{ selected_symbol }}" 
+               style="background: linear-gradient(135deg, #27ae60 0%, #229954 100%); 
+                      color: white; 
+                      padding: 10px 20px; 
+                      border-radius: 6px; 
+                      text-decoration: none; 
+                      font-weight: bold; 
+                      font-size: 14px;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;">
+                📥 Download All DP Trades (CSV)
+            </a>
             {% endif %}
-        </h3>
+        </div>
         
         {% if signals %}
         <table class="signals-table">
