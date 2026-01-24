@@ -212,9 +212,12 @@
                                 <div class="symbol" style="color: #0066cc; cursor: pointer;">{{ result.symbol }}</div>
                             </a>
                             <button onclick="copyTicker('{{ result.symbol }}')" 
-                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 11px; color: #666;"
+                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center;"
                                     title="Copy ticker to clipboard for TradingView watchlist">
-                                📋
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
                             </button>
                         </div>
                         <div style="font-size: 14px; color: #666; margin-top: 2px;">{{ result.company_name }}</div>
@@ -387,13 +390,14 @@
         function copyTicker(symbol) {
             navigator.clipboard.writeText(symbol).then(function() {
                 // Show brief feedback
-                const btn = event.target;
-                const originalText = btn.textContent;
-                btn.textContent = '✓';
+                const btn = event.currentTarget;
+                const svg = btn.querySelector('svg');
+                const originalSvg = svg.outerHTML;
+                svg.outerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
                 btn.style.background = '#d4edda';
                 btn.style.borderColor = '#28a745';
                 setTimeout(() => {
-                    btn.textContent = originalText;
+                    btn.querySelector('svg').outerHTML = originalSvg;
                     btn.style.background = '#f0f0f0';
                     btn.style.borderColor = '#ddd';
                 }, 1000);
