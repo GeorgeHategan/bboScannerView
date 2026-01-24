@@ -251,39 +251,39 @@
                         <h4 style="margin: 0 0 12px 0; color: #495057; font-size: 14px; border-bottom: 1px solid #dee2e6; padding-bottom: 8px;">📊 Quick Analysis</h4>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center; cursor: help;" title="RRG Quadrant for the stock's sector. Leading = strong momentum & relative strength. Weakening = losing momentum. Lagging = underperforming. Improving = gaining momentum.">
                                 <div style="color: #6c757d; font-size: 11px;">Sector Momentum</div>
                                 <div style="font-weight: bold; color: {% if result.sector_quadrant == 'Leading' %}#28a745{% elif result.sector_quadrant == 'Weakening' %}#ffc107{% elif result.sector_quadrant == 'Lagging' %}#dc3545{% else %}#17a2b8{% endif %};">
                                     {{ result.sector_quadrant or 'N/A' }}
                                 </div>
                             </div>
-                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center; cursor: help;" title="RRG Quadrant for the stock's industry. Leading = strong momentum & relative strength. Weakening = losing momentum. Lagging = underperforming. Improving = gaining momentum.">
                                 <div style="color: #6c757d; font-size: 11px;">Industry Momentum</div>
                                 <div style="font-weight: bold; color: {% if result.industry_quadrant == 'Leading' %}#28a745{% elif result.industry_quadrant == 'Weakening' %}#ffc107{% elif result.industry_quadrant == 'Lagging' %}#dc3545{% else %}#17a2b8{% endif %};">
                                     {{ result.industry_quadrant or 'N/A' }}
                                 </div>
                             </div>
-                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center; cursor: help;" title="Number of different scanners that detected this stock. More scanners = stronger signal confluence.">
                                 <div style="color: #6c757d; font-size: 11px;">Scanner Breadth</div>
                                 <div style="font-weight: bold; color: #2c5f7a;">{{ result.scanner_breadth or 0 }} scanners</div>
                             </div>
-                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center; cursor: help;" title="Number of different scanner families (trend, momentum, volume, etc.) that detected this stock. Higher = more diverse signal confirmation.">
                                 <div style="color: #6c757d; font-size: 11px;">Effective Breadth</div>
                                 <div style="font-weight: bold; color: #2c5f7a;">{{ result.effective_breadth or 0 }} families</div>
                             </div>
-                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center; cursor: help;" title="Measures price position relative to moving averages. 100% = price well above SMAs in strong uptrend. Calculated from price vs SMA20/SMA50.">
                                 <div style="color: #6c757d; font-size: 11px;">Trend Quality</div>
                                 <div style="font-weight: bold; color: {% if result.trend_quality > 70 %}#28a745{% elif result.trend_quality > 40 %}#ffc107{% else %}#dc3545{% endif %};">{{ result.trend_quality }}%</div>
                             </div>
-                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center; cursor: help;" title="Relative Volume percentile. Compares today's volume to average. High RVOL = unusual interest/activity in the stock.">
                                 <div style="color: #6c757d; font-size: 11px;">RVOL Score</div>
                                 <div style="font-weight: bold; color: {% if result.rvol_score > 70 %}#28a745{% elif result.rvol_score > 40 %}#ffc107{% else %}#6c757d{% endif %};">{{ result.rvol_score }}%</div>
                             </div>
-                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center; cursor: help;" title="RSI-based momentum score. Measures if RSI is in bullish zone (40-70 ideal). Percentile ranked across universe.">
                                 <div style="color: #6c757d; font-size: 11px;">RSI Score</div>
                                 <div style="font-weight: bold; color: {% if result.rsi_score > 70 %}#28a745{% elif result.rsi_score > 40 %}#ffc107{% else %}#6c757d{% endif %};">{{ result.rsi_score }}%</div>
                             </div>
-                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="background: white; padding: 8px; border-radius: 5px; text-align: center; cursor: help;" title="How recent the scanner signals are. Fresh signals (🔥) indicate the stock was just picked. Older signals may be less actionable.">
                                 <div style="color: #6c757d; font-size: 11px;">Freshness</div>
                                 <div style="font-weight: bold; color: #2c5f7a;">🔥</div>
                             </div>
