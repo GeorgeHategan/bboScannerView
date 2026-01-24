@@ -5189,28 +5189,31 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     prev_date = prev_date_obj.strftime('%Y-%m-%d')
     next_date = next_date_obj.strftime('%Y-%m-%d') if not is_today else None
     
-    # Get ranked results for the date
+    # Get ranked results for the date from top_ranking table
     try:
         results_query = """
             SELECT 
-                r.analysis_date,
+                r.ranking_date,
                 r.rank,
                 r.symbol,
-                r.scanner_name,
-                r.composite_score,
-                r.signal_strength,
-                r.price,
+                r.scanners_list,
+                r.final_score,
+                r.signal_strength_combined,
+                r.close,
                 r.sector,
-                COALESCE(ai.analysis_text, r.reasoning) as analysis_text,
-                r.news_headline,
-                r.news_sentiment_label,
-                COALESCE(f.name, r.symbol) as company_name,
-                f.market_cap,
-                f.industry
-            FROM scanner_data.main.ranked_analysis r
+                r.industry,
+                r.scanner_breadth,
+                r.effective_breadth,
+                r.sector_quadrant,
+                r.industry_quadrant,
+                r.trend_quality_raw,
+                r.rvol_score,
+                r.rsi_score,
+                COALESCE(f.company_name, r.symbol) as company_name,
+                f.market_cap
+            FROM scanner_results.main.top_ranking r
             LEFT JOIN scanner_data.main.fundamental_cache f ON r.symbol = f.symbol
-            LEFT JOIN scanner_data.main.ai_analysis_individual ai ON r.symbol = ai.symbol AND r.analysis_date = ai.analysis_date
-            WHERE r.analysis_date = ?
+            WHERE r.ranking_date = ?
             ORDER BY r.rank ASC
         """
         results = conn.execute(results_query, [current_date]).fetchall()
@@ -5222,17 +5225,24 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
                 'analysis_date': row[0],
                 'rank': row[1],
                 'symbol': row[2],
-                'scanner_name': row[3],
-                'composite_score': round(row[4], 1),
-                'signal_strength': round(row[5], 1),
+                'scanner_name': row[3],  # scanners_list
+                'composite_score': round(row[4] * 100, 1) if row[4] else 0,  # Convert 0-1 to 0-100
+                'signal_strength': round(row[5] * 100, 1) if row[5] else 0,  # Convert to percentage
                 'price': row[6],
                 'sector': row[7],
-                'analysis_text': row[8],  # Full AI analysis from ai_analysis_individual table
-                'news_headline': row[9],
-                'news_sentiment_label': row[10],
-                'company_name': row[11],
-                'market_cap': format_market_cap(row[12]),
-                'industry': row[13]
+                'analysis_text': None,  # No AI analysis in top_ranking
+                'news_headline': None,
+                'news_sentiment_label': None,
+                'company_name': row[16],  # COALESCE(f.name, r.symbol)
+                'market_cap': format_market_cap(row[17]),
+                'industry': row[8],
+                'scanner_breadth': row[9],
+                'effective_breadth': row[10],
+                'sector_quadrant': row[11],
+                'industry_quadrant': row[12],
+                'trend_quality': round(row[13] * 100, 1) if row[13] else 0,
+                'rvol_score': round(row[14] * 100, 1) if row[14] else 0,
+                'rsi_score': round(row[15] * 100, 1) if row[15] else 0
             })
     except Exception as e:
         print(f"Error loading ranked results: {e}")
