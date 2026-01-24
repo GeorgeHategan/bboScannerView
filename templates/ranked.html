@@ -207,9 +207,16 @@
                 <div style="display: flex; align-items: center; gap: 20px;">
                     <div class="rank-number">#{{ result.rank }}</div>
                     <div>
-                        <a href="https://www.tradingview.com/chart/?symbol={{ result.symbol }}" target="_blank" style="text-decoration: none;">
-                            <div class="symbol" style="color: #0066cc; cursor: pointer;">{{ result.symbol }}</div>
-                        </a>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <a href="https://www.tradingview.com/chart/?symbol={{ result.symbol }}" target="_blank" style="text-decoration: none;">
+                                <div class="symbol" style="color: #0066cc; cursor: pointer;">{{ result.symbol }}</div>
+                            </a>
+                            <button onclick="copyTicker('{{ result.symbol }}')" 
+                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 11px; color: #666;"
+                                    title="Copy ticker to clipboard for TradingView watchlist">
+                                📋
+                            </button>
+                        </div>
                         <div style="font-size: 14px; color: #666; margin-top: 2px;">{{ result.company_name }}</div>
                         <div class="scanner-name">
                             {% if result.scanner_name == 'volatility_macd' %}
@@ -324,12 +331,6 @@
                                     {% if fq.quarterly_earnings_growth is not none %}{{ "%.1f"|format(fq.quarterly_earnings_growth * 100) }}%{% else %}—{% endif %}
                                 </div>
                             </div>
-                            <div style="background: white; padding: 6px; border-radius: 4px; text-align: center;" title="Year-over-Year EPS Growth: Annual earnings per share growth rate.">
-                                <div style="color: #6c757d; font-size: 10px;">YoY EPS Growth</div>
-                                <div style="font-weight: bold; color: {% if fq.yoy_eps_growth and fq.yoy_eps_growth > 0.10 %}#28a745{% elif fq.yoy_eps_growth and fq.yoy_eps_growth > 0 %}#ffc107{% elif fq.yoy_eps_growth %}#dc3545{% else %}#6c757d{% endif %};">
-                                    {% if fq.yoy_eps_growth is not none %}{{ "%.1f"|format(fq.yoy_eps_growth * 100) }}%{% else %}—{% endif %}
-                                </div>
-                            </div>
                         </div>
                         {% else %}
                         <div style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; text-align: center; color: #6c757d; font-size: 12px;">
@@ -381,5 +382,25 @@
         <p>Try selecting a different date.</p>
     </div>
     {% endif %}
+    
+    <script>
+        function copyTicker(symbol) {
+            navigator.clipboard.writeText(symbol).then(function() {
+                // Show brief feedback
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓';
+                btn.style.background = '#d4edda';
+                btn.style.borderColor = '#28a745';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#f0f0f0';
+                    btn.style.borderColor = '#ddd';
+                }, 1000);
+            }).catch(function(err) {
+                console.error('Failed to copy:', err);
+            });
+        }
+    </script>
 </body>
 </html>
