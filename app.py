@@ -5250,6 +5250,56 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     
     conn.close()
     
+    # Fetch fundamental quality data for ranked symbols
+    fund_quality_dict = {}
+    if ranked_results:
+        try:
+            fund_conn = get_db_connection(SCANNER_DATA_PATH)
+            if fund_conn:
+                symbols = [r['symbol'] for r in ranked_results]
+                placeholders = ','.join(['?' for _ in symbols])
+                fund_query = f'''
+                    SELECT symbol, fund_score, bar_blocks, bar_bucket, dot_state,
+                           score_components, computed_at
+                    FROM scanner_data.main.fundamental_quality_scores
+                    WHERE symbol IN ({placeholders}) AND score_version = 'fq_v2'
+                '''
+                fund_results = fund_conn.execute(fund_query, symbols).fetchall()
+                
+                for row in fund_results:
+                    sym = row[0]
+                    raw_inputs = {}
+                    if row[5]:
+                        import json
+                        try:
+                            components = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                            raw_inputs = components.get('raw_inputs', {})
+                        except:
+                            pass
+                    
+                    fund_quality_dict[sym] = {
+                        'fund_score': row[1],
+                        'bar_blocks': row[2],
+                        'bar_bucket': row[3],
+                        'dot_state': row[4],
+                        'computed_at': str(row[6]) if row[6] else None,
+                        'operating_margin': raw_inputs.get('operating_margin'),
+                        'return_on_equity': raw_inputs.get('return_on_equity'),
+                        'profit_margin': raw_inputs.get('profit_margin'),
+                        'quarterly_earnings_growth': raw_inputs.get('quarterly_earnings_growth'),
+                        'yoy_eps_growth': raw_inputs.get('yoy_eps_growth'),
+                        'pe_ratio': raw_inputs.get('pe_ratio')
+                    }
+                
+                fund_conn.close()
+                print(f'Ranked: Loaded fundamental quality scores for {len(fund_quality_dict)} symbols')
+        except Exception as e:
+            print(f"Error fetching fundamental quality for ranked: {e}")
+    
+    # Attach fund_quality to each result
+    for result in ranked_results:
+        result['fund_quality'] = fund_quality_dict.get(result['symbol'])
+    
     return templates.TemplateResponse('ranked.html', {
         'request': request,
         'results': ranked_results,

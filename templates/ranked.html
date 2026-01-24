@@ -288,6 +288,54 @@
                                 <div style="font-weight: bold; color: #2c5f7a;">🔥</div>
                             </div>
                         </div>
+                        
+                        <!-- Fundamentals Section -->
+                        {% if result.fund_quality %}
+                        {% set fq = result.fund_quality %}
+                        <h4 style="margin: 15px 0 10px 0; color: #495057; font-size: 13px; border-bottom: 1px solid #dee2e6; padding-bottom: 6px;">📈 Fundamentals <span style="font-weight: normal; color: {% if fq.fund_score >= 70 %}#28a745{% elif fq.fund_score >= 40 %}#ffc107{% else %}#dc3545{% endif %};">{{ fq.fund_score }}/100</span></h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+                            <div style="background: white; padding: 6px; border-radius: 4px; text-align: center;" title="Operating Margin: Measures operational efficiency - how much profit from revenue after operating costs.">
+                                <div style="color: #6c757d; font-size: 10px;">Op. Margin</div>
+                                <div style="font-weight: bold; color: {% if fq.operating_margin and fq.operating_margin > 0.15 %}#28a745{% elif fq.operating_margin and fq.operating_margin > 0.05 %}#ffc107{% elif fq.operating_margin %}#dc3545{% else %}#6c757d{% endif %};">
+                                    {% if fq.operating_margin is not none %}{{ "%.1f"|format(fq.operating_margin * 100) }}%{% else %}—{% endif %}
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 6px; border-radius: 4px; text-align: center;" title="Profit Margin: Net income as a percentage of revenue - overall profitability.">
+                                <div style="color: #6c757d; font-size: 10px;">Profit Margin</div>
+                                <div style="font-weight: bold; color: {% if fq.profit_margin and fq.profit_margin > 0.10 %}#28a745{% elif fq.profit_margin and fq.profit_margin > 0.03 %}#ffc107{% elif fq.profit_margin %}#dc3545{% else %}#6c757d{% endif %};">
+                                    {% if fq.profit_margin is not none %}{{ "%.1f"|format(fq.profit_margin * 100) }}%{% else %}—{% endif %}
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 6px; border-radius: 4px; text-align: center;" title="Return on Equity: Measures how efficiently equity capital generates profits.">
+                                <div style="color: #6c757d; font-size: 10px;">ROE</div>
+                                <div style="font-weight: bold; color: {% if fq.return_on_equity and fq.return_on_equity > 0.15 %}#28a745{% elif fq.return_on_equity and fq.return_on_equity > 0.08 %}#ffc107{% elif fq.return_on_equity %}#dc3545{% else %}#6c757d{% endif %};">
+                                    {% if fq.return_on_equity is not none %}{{ "%.1f"|format(fq.return_on_equity * 100) }}%{% else %}—{% endif %}
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 6px; border-radius: 4px; text-align: center;" title="P/E Ratio: Price to Earnings ratio - how much investors pay per dollar of earnings.">
+                                <div style="color: #6c757d; font-size: 10px;">P/E Ratio</div>
+                                <div style="font-weight: bold; color: {% if fq.pe_ratio and fq.pe_ratio > 0 and fq.pe_ratio < 20 %}#28a745{% elif fq.pe_ratio and fq.pe_ratio > 0 and fq.pe_ratio < 35 %}#ffc107{% elif fq.pe_ratio and fq.pe_ratio > 0 %}#dc3545{% else %}#6c757d{% endif %};">
+                                    {% if fq.pe_ratio is not none %}{{ "%.1f"|format(fq.pe_ratio) }}{% else %}—{% endif %}
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 6px; border-radius: 4px; text-align: center;" title="Quarterly EPS Growth: Earnings per share growth compared to same quarter last year.">
+                                <div style="color: #6c757d; font-size: 10px;">Q EPS Growth</div>
+                                <div style="font-weight: bold; color: {% if fq.quarterly_earnings_growth and fq.quarterly_earnings_growth > 0.10 %}#28a745{% elif fq.quarterly_earnings_growth and fq.quarterly_earnings_growth > 0 %}#ffc107{% elif fq.quarterly_earnings_growth %}#dc3545{% else %}#6c757d{% endif %};">
+                                    {% if fq.quarterly_earnings_growth is not none %}{{ "%.1f"|format(fq.quarterly_earnings_growth * 100) }}%{% else %}—{% endif %}
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 6px; border-radius: 4px; text-align: center;" title="Year-over-Year EPS Growth: Annual earnings per share growth rate.">
+                                <div style="color: #6c757d; font-size: 10px;">YoY EPS Growth</div>
+                                <div style="font-weight: bold; color: {% if fq.yoy_eps_growth and fq.yoy_eps_growth > 0.10 %}#28a745{% elif fq.yoy_eps_growth and fq.yoy_eps_growth > 0 %}#ffc107{% elif fq.yoy_eps_growth %}#dc3545{% else %}#6c757d{% endif %};">
+                                    {% if fq.yoy_eps_growth is not none %}{{ "%.1f"|format(fq.yoy_eps_growth * 100) }}%{% else %}—{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; text-align: center; color: #6c757d; font-size: 12px;">
+                            📈 Fundamentals: N/A
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
