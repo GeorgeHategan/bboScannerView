@@ -506,7 +506,7 @@
                 const chartArea = chart.chartArea;
                 const dates = chart.data.labels;
                 
-                // Draw each multi-day signal as a span bar at TOP of chart
+                // Draw each multi-day signal
                 signals.forEach((signal, index) => {
                     if (!signal.end_date) return;
                     
@@ -523,24 +523,43 @@
                     const xEnd = xAxis.getPixelForValue(endIndex);
                     const barWidth = xEnd - xStart;
                     
-                    // Position at TOP of chart, stacking multiple signals vertically downward
-                    const yPos = chartArea.top - 15 - (index * 28);
-                    
                     // Determine color based on direction
                     const direction = (signal.direction || '').toUpperCase();
-                    let barColor, textColor;
+                    let barColor, textColor, bgColor;
                     if (direction.includes('BULLISH') || direction === 'BUY') {
                         barColor = 'rgba(39, 174, 96, 0.9)';  // Green
+                        bgColor = 'rgba(39, 174, 96, 0.12)';  // Light green background
                         textColor = '#ffffff';
                     } else if (direction.includes('BEARISH') || direction === 'SELL') {
                         barColor = 'rgba(231, 76, 60, 0.9)';  // Red
+                        bgColor = 'rgba(231, 76, 60, 0.12)';  // Light red background
                         textColor = '#ffffff';
                     } else {
                         barColor = 'rgba(155, 89, 182, 0.9)';  // Purple/Neutral
+                        bgColor = 'rgba(155, 89, 182, 0.12)';  // Light purple background
                         textColor = '#ffffff';
                     }
                     
                     ctx.save();
+                    
+                    // FIRST: Draw background shading on chart area for the signal period
+                    ctx.fillStyle = bgColor;
+                    ctx.fillRect(xStart, chartArea.top, barWidth, chartArea.bottom - chartArea.top);
+                    
+                    // Draw subtle vertical lines at start/end of period
+                    ctx.strokeStyle = barColor;
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(xStart, chartArea.top);
+                    ctx.lineTo(xStart, chartArea.bottom);
+                    ctx.moveTo(xEnd, chartArea.top);
+                    ctx.lineTo(xEnd, chartArea.bottom);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    
+                    // Position annotation bar at TOP of chart
+                    const yPos = chartArea.top - 15 - (index * 28);
                     
                     // Draw the spanning bar with rounded corners
                     const barHeight = 24;
