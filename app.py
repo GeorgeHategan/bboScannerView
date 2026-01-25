@@ -4747,10 +4747,11 @@ async def darkpool_signals(
                 scan_date = str(latest_date)
         
         # Increase limit when searching by symbol (showing full history)
+        # Sort multi-day signals (consecutive_days >= 5) to the TOP of the list
         if symbol:
-            query += " ORDER BY signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 500"
+            query += " ORDER BY CASE WHEN consecutive_days >= 5 THEN 0 ELSE 1 END, signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 500"
         else:
-            query += " ORDER BY signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 200"
+            query += " ORDER BY CASE WHEN consecutive_days >= 5 THEN 0 ELSE 1 END, signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 200"
         
         results = conn.execute(query, params).fetchall()
         
