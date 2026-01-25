@@ -4191,6 +4191,8 @@ async def darkpool_chart_data(symbol: str):
         if not conn:
             return {"error": "Could not connect to options database"}
         
+        # Exclude multi-day signals (consecutive_days >= 5) from daily bar chart
+        # They will be shown as annotations instead
         query = """
             SELECT 
                 signal_date,
@@ -4202,6 +4204,7 @@ async def darkpool_chart_data(symbol: str):
             FROM darkpool_signals
             WHERE ticker = ?
                 AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
+                AND (consecutive_days IS NULL OR consecutive_days < 5)
             GROUP BY signal_date, direction
             ORDER BY signal_date
         """
