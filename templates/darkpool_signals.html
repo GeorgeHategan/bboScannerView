@@ -323,9 +323,12 @@
     <!-- Chart for individual symbol -->
     {% if selected_symbol %}
     <div style="padding: 0 20px; margin: 20px 0;">
-        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background: white; padding: 20px; padding-bottom: 80px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <h3 style="margin: 0 0 15px 0; color: #333;">📊 {{ selected_symbol.upper() }} - Dark Pool Activity (Last 60 Days)</h3>
             <canvas id="darkpoolChart" style="max-height: 400px;"></canvas>
+            <div id="multidaySignalsLegend" style="margin-top: 10px; font-size: 11px; color: #666; text-align: center;">
+                <!-- Legend for multi-day signals will be populated if any exist -->
+            </div>
         </div>
     </div>
     {% endif %}
@@ -460,6 +463,120 @@
     {% endif %}
     
     <script>
+        // Multi-day signal annotation plugin (e.g., NPV Directional spanning 10 days)
+        // Must be defined before Chart instantiation
+        const multidaySignalPlugin = {
+            id: 'multidaySignalAnnotation',
+            afterDraw(chart, args, options) {
+                const signals = chart.config.options.multidaySignals;
+                if (!signals || signals.length === 0) return;
+                
+                const ctx = chart.ctx;
+                const xAxis = chart.scales.x;
+                const chartArea = chart.chartArea;
+                const dates = chart.data.labels;
+                
+                // Draw each multi-day signal as a span bar below the chart
+                signals.forEach((signal, index) => {
+                    if (!signal.end_date) return;
+                    
+                    // Find the end date index
+                    const endIndex = dates.indexOf(signal.end_date);
+                    if (endIndex < 0) return;
+                    
+                    // Calculate start index (go back by number of days)
+                    const days = signal.days || 10;
+                    const startIndex = Math.max(0, endIndex - days + 1);
+                    
+                    // Get pixel positions
+                    const xStart = xAxis.getPixelForValue(startIndex);
+                    const xEnd = xAxis.getPixelForValue(endIndex);
+                    const barWidth = xEnd - xStart;
+                    
+                    // Position below chart, stacking multiple signals vertically
+                    const yPos = chartArea.bottom + 30 + (index * 32);
+                    
+                    // Determine color based on direction
+                    const direction = (signal.direction || '').toUpperCase();
+                    let barColor, textColor;
+                    if (direction.includes('BULLISH') || direction === 'BUY') {
+                        barColor = 'rgba(39, 174, 96, 0.9)';  // Green
+                        textColor = '#ffffff';
+                    } else if (direction.includes('BEARISH') || direction === 'SELL') {
+                        barColor = 'rgba(231, 76, 60, 0.9)';  // Red
+                        textColor = '#ffffff';
+                    } else {
+                        barColor = 'rgba(155, 89, 182, 0.9)';  // Purple/Neutral
+                        textColor = '#ffffff';
+                    }
+                    
+                    ctx.save();
+                    
+                    // Draw the spanning bar with rounded corners
+                    const barHeight = 24;
+                    const radius = 6;
+                    ctx.fillStyle = barColor;
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(xStart, yPos - barHeight/2, barWidth, barHeight, radius);
+                    } else {
+                        // Fallback for older browsers
+                        ctx.rect(xStart, yPos - barHeight/2, barWidth, barHeight);
+                    }
+                    ctx.fill();
+                    
+                    // Draw end cap circles
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(xStart + 4, yPos, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(xEnd - 4, yPos, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Build label text
+                    let label = signal.signal_type || 'Multi-Day Signal';
+                    label += ` (${days}d)`;
+                    
+                    // Add verdict
+                    if (signal.direction) {
+                        label += ' • ' + signal.direction;
+                    }
+                    
+                    // Add directional confidence if available
+                    if (signal.dir_conf) {
+                        label += ' ' + signal.dir_conf.toFixed(1) + '%';
+                    }
+                    
+                    // Add pos/total days if available
+                    if (signal.pos_days !== null && signal.total_days) {
+                        label += ' (' + signal.pos_days + '/' + signal.total_days + ' pos)';
+                    }
+                    
+                    // Draw label text
+                    ctx.fillStyle = textColor;
+                    ctx.font = 'bold 11px Inter, Arial, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    // Truncate if too long
+                    const maxWidth = barWidth - 16;
+                    let displayLabel = label;
+                    if (ctx.measureText(label).width > maxWidth && maxWidth > 50) {
+                        // Shorten the label
+                        while (ctx.measureText(displayLabel + '...').width > maxWidth && displayLabel.length > 10) {
+                            displayLabel = displayLabel.slice(0, -1);
+                        }
+                        displayLabel += '...';
+                    }
+                    
+                    ctx.fillText(displayLabel, (xStart + xEnd) / 2, yPos);
+                    
+                    ctx.restore();
+                });
+            }
+        };
+        
         // Load chart data if viewing a specific symbol
         {% if selected_symbol %}
         async function loadDarkpoolChart() {
@@ -637,8 +754,11 @@
                                     }
                                 }
                             }
-                        }
-                    }
+                        },
+                        // Store multiday signals for the plugin to use
+                        multidaySignals: data.multiday_signals || []
+                    },
+                    plugins: [multidaySignalPlugin]
                 });
             } catch (error) {
                 console.error('Failed to load chart:', error);

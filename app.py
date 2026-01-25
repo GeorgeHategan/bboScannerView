@@ -4280,6 +4280,70 @@ async def darkpool_chart_data(symbol: str):
             # Add price if available (will be None for symbols not in universe)
             prices.append(price_map.get(date))
         
+        # Fetch multi-day signals (like NPV Directional) for annotation display
+        # These signals span multiple days and should be shown as range bars
+        multiday_signals = []
+        try:
+            conn2 = get_options_db_connection()
+            if conn2:
+                multiday_query = """
+                    SELECT 
+                        signal_date,
+                        signal_type,
+                        direction,
+                        consecutive_days,
+                        confidence_score,
+                        notes
+                    FROM darkpool_signals
+                    WHERE ticker = ?
+                        AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
+                        AND consecutive_days IS NOT NULL
+                        AND consecutive_days >= 5
+                    ORDER BY signal_date DESC
+                """
+                multiday_results = conn2.execute(multiday_query, [symbol.upper()]).fetchall()
+                conn2.close()
+                
+                for row in multiday_results:
+                    signal_date = str(row[0]) if row[0] else None
+                    signal_type = row[1] or ''
+                    direction = row[2] or 'NEUTRAL'
+                    consec_days = int(row[3]) if row[3] else 10
+                    confidence = float(row[4]) if row[4] else 0
+                    notes = row[5] or ''
+                    
+                    # Parse notes for DirConf percentage if available
+                    dir_conf = None
+                    if 'DirConf=' in notes:
+                        import re
+                        match = re.search(r'DirConf=(\d+\.?\d*)%', notes)
+                        if match:
+                            dir_conf = float(match.group(1))
+                    
+                    # Parse notes for pos/neg days count
+                    pos_days = None
+                    total_days = consec_days
+                    if '/' in notes and 'pos days' in notes.lower():
+                        import re
+                        match = re.search(r'(\d+)/(\d+)\s*pos\s*days', notes, re.IGNORECASE)
+                        if match:
+                            pos_days = int(match.group(1))
+                            total_days = int(match.group(2))
+                    
+                    multiday_signals.append({
+                        'end_date': signal_date,
+                        'signal_type': signal_type.replace('_', ' ').title(),
+                        'direction': direction,
+                        'days': consec_days,
+                        'confidence': confidence,
+                        'dir_conf': dir_conf,
+                        'pos_days': pos_days,
+                        'total_days': total_days,
+                        'notes': notes
+                    })
+        except Exception as e:
+            print(f"Error fetching multiday signals: {e}")
+        
         return {
             'dates': dates,
             'bullish_premiums': bullish_premiums,
@@ -4289,7 +4353,8 @@ async def darkpool_chart_data(symbol: str):
             'trade_counts': trade_counts,
             'confidences': confidences,
             'prices': prices,
-            'has_price_data': has_price_data  # Let frontend know if price overlay is available
+            'has_price_data': has_price_data,  # Let frontend know if price overlay is available
+            'multiday_signals': multiday_signals  # Multi-day signals for span annotations
         }
         
     except Exception as e:
