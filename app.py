@@ -4191,7 +4191,7 @@ async def darkpool_chart_data(symbol: str):
         if not conn:
             return {"error": "Could not connect to options database"}
         
-        # Exclude multi-day signals (consecutive_days >= 5) from daily bar chart
+        # Exclude multi-day signals (consecutive_days >= 3) from daily bar chart
         # They will be shown as annotations instead
         query = """
             SELECT 
@@ -4204,7 +4204,7 @@ async def darkpool_chart_data(symbol: str):
             FROM darkpool_signals
             WHERE ticker = ?
                 AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
-                AND (consecutive_days IS NULL OR consecutive_days < 5)
+                AND (consecutive_days IS NULL OR consecutive_days < 3)
             GROUP BY signal_date, direction
             ORDER BY signal_date
         """
@@ -4301,7 +4301,7 @@ async def darkpool_chart_data(symbol: str):
                     WHERE ticker = ?
                         AND signal_date >= CURRENT_DATE - INTERVAL '60 days'
                         AND consecutive_days IS NOT NULL
-                        AND consecutive_days >= 5
+                        AND consecutive_days >= 3
                     ORDER BY signal_date DESC
                 """
                 multiday_results = conn2.execute(multiday_query, [symbol.upper()]).fetchall()
@@ -4750,11 +4750,11 @@ async def darkpool_signals(
                 scan_date = str(latest_date)
         
         # Increase limit when searching by symbol (showing full history)
-        # Sort multi-day signals (consecutive_days >= 5) to the TOP of the list
+        # Sort multi-day signals (consecutive_days >= 3) to the TOP of the list
         if symbol:
-            query += " ORDER BY CASE WHEN consecutive_days >= 5 THEN 0 ELSE 1 END, signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 500"
+            query += " ORDER BY CASE WHEN consecutive_days >= 3 THEN 0 ELSE 1 END, signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 500"
         else:
-            query += " ORDER BY CASE WHEN consecutive_days >= 5 THEN 0 ELSE 1 END, signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 200"
+            query += " ORDER BY CASE WHEN consecutive_days >= 3 THEN 0 ELSE 1 END, signal_date DESC, confidence_score DESC, dp_premium DESC LIMIT 200"
         
         results = conn.execute(query, params).fetchall()
         

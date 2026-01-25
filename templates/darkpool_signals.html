@@ -394,7 +394,7 @@
             <tbody>
                 {% for signal in signals %}
                 {# Special styling for multi-day signals like NPV Directional #}
-                {% set is_multiday = signal.consecutive_days and signal.consecutive_days >= 5 %}
+                {% set is_multiday = signal.consecutive_days and signal.consecutive_days >= 3 %}
                 {% if is_multiday %}
                 <tr style="background: linear-gradient(90deg, rgba(39, 174, 96, 0.15) 0%, rgba(39, 174, 96, 0.05) 100%); border-left: 4px solid {% if signal.direction == 'STRONGLY BULLISH' or signal.direction == 'BULLISH' or signal.direction == 'BUY' %}#27ae60{% elif signal.direction == 'STRONGLY BEARISH' or signal.direction == 'BEARISH' or signal.direction == 'SELL' %}#e74c3c{% else %}#8e44ad{% endif %};">
                 {% else %}
