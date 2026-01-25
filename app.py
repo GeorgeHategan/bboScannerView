@@ -5176,7 +5176,23 @@ async def ranked_results(request: Request, date: Optional[str] = Query(None)):
     
     # Get today's date or use provided date
     today = datetime.now().strftime('%Y-%m-%d')
-    current_date = date if date else today
+    
+    # If no date provided, find the most recent date with ranking data
+    if date:
+        current_date = date
+    else:
+        # Get the most recent ranking date (in case today has no data, like weekends)
+        try:
+            latest_date_result = conn.execute("""
+                SELECT MAX(ranking_date) FROM scanner_results.main.top_ranking
+            """).fetchone()
+            if latest_date_result and latest_date_result[0]:
+                current_date = str(latest_date_result[0])
+            else:
+                current_date = today
+        except:
+            current_date = today
+    
     is_today = current_date == today
     
     # Parse current date
