@@ -4241,6 +4241,12 @@ async def darkpool_chart_data(symbol: str):
             darkpool_map[date_str]['trade_count'] += trade_count
             darkpool_map[date_str]['confidence'] = max(darkpool_map[date_str]['confidence'], confidence)
         
+        # If no price data available, use darkpool signal dates as the date axis
+        # This allows showing the chart for symbols not in the user's universe
+        has_price_data = len(all_dates) > 0
+        if not has_price_data and darkpool_map:
+            all_dates = sorted(darkpool_map.keys())
+        
         # Build detailed data for individual chart (with full date strings)
         dates = []
         bullish_premiums = []
@@ -4271,7 +4277,7 @@ async def darkpool_chart_data(symbol: str):
                 trade_counts.append(0)
                 confidences.append(0)
             
-            # Add price if available
+            # Add price if available (will be None for symbols not in universe)
             prices.append(price_map.get(date))
         
         return {
@@ -4282,7 +4288,8 @@ async def darkpool_chart_data(symbol: str):
             'volumes': volumes,
             'trade_counts': trade_counts,
             'confidences': confidences,
-            'prices': prices
+            'prices': prices,
+            'has_price_data': has_price_data  # Let frontend know if price overlay is available
         }
         
     except Exception as e:
