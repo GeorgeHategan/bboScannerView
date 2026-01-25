@@ -93,6 +93,14 @@
         .direction-BUY, .direction-BULLISH { background: #27ae60; color: white; }
         .direction-SELL, .direction-BEARISH { background: #e74c3c; color: white; }
         .direction-NEUTRAL { background: #f39c12; color: white; }
+        .direction-STRONGLY_BULLISH { background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); color: white; }
+        .direction-STRONGLY_BEARISH { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; }
+        
+        /* Multi-day signal row highlight */
+        .multiday-signal-row {
+            background: linear-gradient(90deg, rgba(142, 68, 173, 0.1) 0%, rgba(142, 68, 173, 0.02) 100%);
+            border-left: 4px solid #8e44ad;
+        }
         
         .symbol-link {
             color: #8e44ad;
@@ -388,17 +396,31 @@
             </thead>
             <tbody>
                 {% for signal in signals %}
+                {# Special styling for multi-day signals like NPV Directional #}
+                {% set is_multiday = signal.consecutive_days and signal.consecutive_days >= 5 %}
+                {% if is_multiday %}
+                <tr style="background: linear-gradient(90deg, rgba(39, 174, 96, 0.15) 0%, rgba(39, 174, 96, 0.05) 100%); border-left: 4px solid {% if signal.direction == 'STRONGLY BULLISH' or signal.direction == 'BULLISH' or signal.direction == 'BUY' %}#27ae60{% elif signal.direction == 'STRONGLY BEARISH' or signal.direction == 'BEARISH' or signal.direction == 'SELL' %}#e74c3c{% else %}#8e44ad{% endif %};">
+                {% else %}
                 <tr>
+                {% endif %}
                     <td>
                         <a href="https://www.tradingview.com/chart/?symbol={{ signal.ticker }}" 
                            target="_blank" class="symbol-link">
                             {{ signal.ticker }}
                         </a>
                     </td>
-                    <td style="white-space: nowrap;">{{ signal.signal_date }}</td>
+                    <td style="white-space: nowrap;">
+                        {{ signal.signal_date }}
+                        {% if is_multiday %}
+                        <br><span style="font-size: 10px; color: #8e44ad;">← {{ signal.consecutive_days }} day analysis</span>
+                        {% endif %}
+                    </td>
                     <td>
-                        <span class="signal-type-badge">
+                        <span class="signal-type-badge" {% if is_multiday %}style="background: linear-gradient(135deg, #8e44ad 0%, #6c3483 100%); color: white; padding: 4px 8px; border-radius: 4px;"{% endif %}>
                             {{ signal.signal_type.replace('_', ' ').title() if signal.signal_type else 'N/A' }}
+                            {% if is_multiday %}
+                            <span style="font-size: 10px; opacity: 0.9;">({{ signal.consecutive_days }}d)</span>
+                            {% endif %}
                             <span class="signal-tooltip">
                                 {% if signal.signal_type == 'BLOCK_CLUSTERING' %}
                                 <strong>🧱 Block Clustering</strong>
@@ -412,6 +434,9 @@
                                 {% elif signal.signal_type == 'DP_VOLUME_SPIKE' %}
                                 <strong>📊 DP Volume Spike</strong>
                                 Dark pool volume significantly exceeds historical average (typically 2x+). Sudden spikes often precede major price moves as institutions position ahead of catalysts.
+                                {% elif signal.signal_type and 'DIRECTIONAL' in signal.signal_type.upper() %}
+                                <strong>📈 NPV Directional ({{ signal.consecutive_days or 10 }}d)</strong>
+                                Net Premium Value directional analysis over {{ signal.consecutive_days or 10 }} consecutive trading days. Measures cumulative institutional buying vs selling pressure. {{ signal.notes or '' }}
                                 {% else %}
                                 <strong>🌑 Dark Pool Signal</strong>
                                 Unusual dark pool activity detected based on volume, premium, or trade patterns that deviate from normal institutional flow.
@@ -419,7 +444,15 @@
                             </span>
                         </span>
                     </td>
-                    <td><span class="direction-badge direction-{{ signal.direction }}">{{ signal.direction or 'N/A' }}</span></td>
+                    <td>
+                        {% if is_multiday and signal.direction %}
+                        <span class="direction-badge direction-{{ signal.direction.replace(' ', '_') }}" style="font-weight: bold; font-size: 13px; padding: 6px 12px;">
+                            {{ signal.direction or 'N/A' }}
+                        </span>
+                        {% else %}
+                        <span class="direction-badge direction-{{ signal.direction }}">{{ signal.direction or 'N/A' }}</span>
+                        {% endif %}
+                    </td>
                     <td><span class="strength-badge strength-{{ signal.signal_strength }}">{{ signal.signal_strength }}</span></td>
                     <td style="text-align: center; font-weight: bold;">{{ "%.0f"|format(signal.confidence_score) if signal.confidence_score else 'N/A' }}</td>
                     <td style="text-align: right;">{{ "{:,}".format(signal.dp_volume) if signal.dp_volume else 'N/A' }}</td>
