@@ -331,12 +331,9 @@
     <!-- Chart for individual symbol -->
     {% if selected_symbol %}
     <div style="padding: 0 20px; margin: 20px 0;">
-        <div style="background: white; padding: 20px; padding-bottom: 80px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h3 style="margin: 0 0 15px 0; color: #333;">📊 {{ selected_symbol.upper() }} - Dark Pool Activity (Last 60 Days)</h3>
+        <div style="background: white; padding: 20px; padding-top: 60px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
+            <h3 style="margin: 0 0 15px 0; color: #333; position: absolute; top: 15px; left: 20px;">📊 {{ selected_symbol.upper() }} - Dark Pool Activity (Last 60 Days)</h3>
             <canvas id="darkpoolChart" style="max-height: 400px;"></canvas>
-            <div id="multidaySignalsLegend" style="margin-top: 10px; font-size: 11px; color: #666; text-align: center;">
-                <!-- Legend for multi-day signals will be populated if any exist -->
-            </div>
         </div>
     </div>
     {% endif %}
@@ -509,7 +506,7 @@
                 const chartArea = chart.chartArea;
                 const dates = chart.data.labels;
                 
-                // Draw each multi-day signal as a span bar below the chart
+                // Draw each multi-day signal as a span bar at TOP of chart
                 signals.forEach((signal, index) => {
                     if (!signal.end_date) return;
                     
@@ -526,8 +523,8 @@
                     const xEnd = xAxis.getPixelForValue(endIndex);
                     const barWidth = xEnd - xStart;
                     
-                    // Position below chart, stacking multiple signals vertically
-                    const yPos = chartArea.bottom + 30 + (index * 32);
+                    // Position at TOP of chart, stacking multiple signals vertically downward
+                    const yPos = chartArea.top - 15 - (index * 28);
                     
                     // Determine color based on direction
                     const direction = (signal.direction || '').toUpperCase();
