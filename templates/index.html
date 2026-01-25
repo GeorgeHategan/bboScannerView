@@ -963,11 +963,21 @@
             {% endif %}
             <tr>
                 <td>
-                    <a href="https://www.tradingview.com/chart/?symbol={{ stock }}" 
-                       target="_blank" 
-                       style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
-                        {{ stock }}
-                    </a>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <a href="https://www.tradingview.com/chart/?symbol={{ stock }}" 
+                           target="_blank" 
+                           style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
+                            {{ stock }}
+                        </a>
+                        <button onclick="copyTicker('{{ stock }}', this)" 
+                                style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center;"
+                                title="Copy ticker to clipboard for TradingView watchlist">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
                     {% if stock in focus_list_symbols %}
                     <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', '{{ stocks[stock].get(pattern + '_quality', '') }}', '{{ stocks[stock].get(pattern + '_entry_price', '') }}')" style="background: #ff6b35; color: #fff; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-left: 4px;">⭐{{ focus_list_symbols[stock][5:] }}</button>
                     {% else %}
@@ -1556,10 +1566,20 @@
                 {% if key not in ['company', 'market_cap', 'sector', 'industry', 'earnings_date', 'news_sentiment', 'news_sentiment_label', 'news_relevance', 'news_headline', 'news_published', 'news_url'] and (key + '_strength') in stocks[stock] %}
                 <tr>
                     <td>
-                        <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
-                           style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
-                            {{ stock }}
-                        </a>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
+                               style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
+                                {{ stock }}
+                            </a>
+                            <button onclick="copyTicker('{{ stock }}', this)" 
+                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center;"
+                                    title="Copy ticker to clipboard for TradingView watchlist">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
                     </td>
                     <td>{{ stocks[stock]['company'] }}</td>
                     <td>
@@ -1915,6 +1935,28 @@
             })
             .catch(e => console.error('Bulk OPT chart error:', e));
     });
+    
+    // Copy ticker to clipboard function
+    function copyTicker(symbol, btn) {
+        navigator.clipboard.writeText(symbol).then(function() {
+            // Show brief feedback - change to green checkmark
+            const svg = btn.querySelector('svg');
+            svg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+            svg.setAttribute('stroke', '#28a745');
+            svg.setAttribute('stroke-width', '3');
+            btn.style.background = '#d4edda';
+            btn.style.borderColor = '#28a745';
+            setTimeout(() => {
+                svg.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>';
+                svg.setAttribute('stroke', '#666');
+                svg.setAttribute('stroke-width', '2');
+                btn.style.background = '#f0f0f0';
+                btn.style.borderColor = '#ddd';
+            }, 1000);
+        }).catch(function(err) {
+            console.error('Failed to copy:', err);
+        });
+    }
     </script>
 </body>
 </html>

@@ -2102,7 +2102,11 @@ Provide analysis in exactly this format with 5 numbered points:
 4. **Technical Setup**: Current trend status, RSI reading, and position relative to key moving averages.
 
 5. **Trade Plan**:
-Entry zone: $X-$Y | Stop Loss: $Z (below support) | Take Profit: $W (at resistance) | Risk/Reward ratio.
+   - Entry zone: $X-$Y
+   - Stop Loss: $Z (below support)
+   - Take Profit: $W (at resistance)
+   - Risk/Reward ratio: X:Y
+   - Note: Use ATR for stop sizing consideration
 
 Be specific with price levels. Use the ATR for stop loss sizing. Consider fundamentals and news in your risk assessment."""
 

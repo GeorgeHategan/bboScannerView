@@ -463,10 +463,20 @@
             <table class="stock-table">
                 <tr>
                     <td style="width: 200px;">
-                        <a href="https://www.tradingview.com/chart/?symbol={{ item.symbol }}" 
-                           target="_blank" class="symbol-link">
-                            {{ item.symbol }}
-                        </a>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <a href="https://www.tradingview.com/chart/?symbol={{ item.symbol }}" 
+                               target="_blank" class="symbol-link">
+                                {{ item.symbol }}
+                            </a>
+                            <button onclick="copyTicker('{{ item.symbol }}', this)" 
+                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center;"
+                                    title="Copy ticker to clipboard for TradingView watchlist">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
                         {% if item.scanner_name %}
                         <span class="scanner-badge" data-scanner="{{ item.scanner_name }}">{{ item.scanner_name.replace('_', ' ').title() }}</span>
                         {% endif %}
@@ -889,6 +899,28 @@
             }
         }
     });
+    
+    // Copy ticker to clipboard function
+    function copyTicker(symbol, btn) {
+        navigator.clipboard.writeText(symbol).then(function() {
+            // Show brief feedback - change to green checkmark
+            const svg = btn.querySelector('svg');
+            svg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+            svg.setAttribute('stroke', '#28a745');
+            svg.setAttribute('stroke-width', '3');
+            btn.style.background = '#d4edda';
+            btn.style.borderColor = '#28a745';
+            setTimeout(() => {
+                svg.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>';
+                svg.setAttribute('stroke', '#666');
+                svg.setAttribute('stroke-width', '2');
+                btn.style.background = '#f0f0f0';
+                btn.style.borderColor = '#ddd';
+            }, 1000);
+        }).catch(function(err) {
+            console.error('Failed to copy:', err);
+        });
+    }
     </script>
 </body>
 </html>
