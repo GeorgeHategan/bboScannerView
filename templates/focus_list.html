@@ -462,25 +462,25 @@
         <div class="stock-row" id="row-{{ item.id }}">
             <table class="stock-table">
                 <tr>
-                    <td style="width: 200px;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
+                    <td style="width: 200px; white-space: nowrap;">
+                        <div style="display: flex; align-items: center; gap: 3px; flex-wrap: nowrap;">
                             <a href="https://www.tradingview.com/chart/?symbol={{ item.symbol }}" 
                                target="_blank" class="symbol-link">
                                 {{ item.symbol }}
                             </a>
                             <button onclick="copyTicker('{{ item.symbol }}', this)" 
-                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center;"
+                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 2px 4px; cursor: pointer; display: flex; align-items: center; flex-shrink: 0;"
                                     title="Copy ticker to clipboard for TradingView watchlist">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                             </button>
+                            {% if item.scanner_name %}
+                            <span class="scanner-badge" data-scanner="{{ item.scanner_name }}">{{ item.scanner_name.replace('_', ' ').title() }}</span>
+                            {% endif %}
+                            <button class="remove-btn" onclick="removeItem({{ item.id }})">✕</button>
                         </div>
-                        {% if item.scanner_name %}
-                        <span class="scanner-badge" data-scanner="{{ item.scanner_name }}">{{ item.scanner_name.replace('_', ' ').title() }}</span>
-                        {% endif %}
-                        <button class="remove-btn" onclick="removeItem({{ item.id }})">✕</button>
                     </td>
                     <td style="width: 180px;">
                         {{ item.company if item.company else '' }}

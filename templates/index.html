@@ -962,27 +962,27 @@
             </tr>
             {% endif %}
             <tr>
-                <td>
-                    <div style="display: flex; align-items: center; gap: 6px;">
+                <td style="white-space: nowrap;">
+                    <div style="display: flex; align-items: center; gap: 3px; flex-wrap: nowrap;">
                         <a href="https://www.tradingview.com/chart/?symbol={{ stock }}" 
                            target="_blank" 
                            style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
                             {{ stock }}
                         </a>
                         <button onclick="copyTicker('{{ stock }}', this)" 
-                                style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center;"
+                                style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 2px 4px; cursor: pointer; display: flex; align-items: center; flex-shrink: 0;"
                                 title="Copy ticker to clipboard for TradingView watchlist">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                             </svg>
                         </button>
+                        {% if stock in focus_list_symbols %}
+                        <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', '{{ stocks[stock].get(pattern + '_quality', '') }}', '{{ stocks[stock].get(pattern + '_entry_price', '') }}')" style="background: #ff6b35; color: #fff; border: none; padding: 2px 4px; border-radius: 3px; cursor: pointer; font-size: 10px; flex-shrink: 0;" title="In focus list">⭐</button>
+                        {% else %}
+                        <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', '{{ stocks[stock].get(pattern + '_quality', '') }}', '{{ stocks[stock].get(pattern + '_entry_price', '') }}')" style="background: #e8e8e8; color: #888; border: none; padding: 2px 4px; border-radius: 3px; cursor: pointer; font-size: 11px; flex-shrink: 0;" title="Add to focus list">+</button>
+                        {% endif %}
                     </div>
-                    {% if stock in focus_list_symbols %}
-                    <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', '{{ stocks[stock].get(pattern + '_quality', '') }}', '{{ stocks[stock].get(pattern + '_entry_price', '') }}')" style="background: #ff6b35; color: #fff; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-left: 4px;">⭐{{ focus_list_symbols[stock][5:] }}</button>
-                    {% else %}
-                    <button class="focus-btn" onclick="addToFocus(this, '{{ stock }}', '{{ pattern }}', '{{ stocks[stock].get(pattern + '_scan_date', '') }}', '{{ stocks[stock].get(pattern + '_quality', '') }}', '{{ stocks[stock].get(pattern + '_entry_price', '') }}')" style="background: #e8e8e8; color: #888; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-left: 8px;">focus +</button>
-                    {% endif %}
                 </td>
                 <td>
                     {{ stocks[stock]['company'] }}
@@ -1565,16 +1565,16 @@
             {% for key in stocks[stock].keys() %}
                 {% if key not in ['company', 'market_cap', 'sector', 'industry', 'earnings_date', 'news_sentiment', 'news_sentiment_label', 'news_relevance', 'news_headline', 'news_published', 'news_url'] and (key + '_strength') in stocks[stock] %}
                 <tr>
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 6px;">
+                    <td style="white-space: nowrap;">
+                        <div style="display: flex; align-items: center; gap: 3px; flex-wrap: nowrap;">
                             <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
                                style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
                                 {{ stock }}
                             </a>
                             <button onclick="copyTicker('{{ stock }}', this)" 
-                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center;"
+                                    style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 2px 4px; cursor: pointer; display: flex; align-items: center; flex-shrink: 0;"
                                     title="Copy ticker to clipboard for TradingView watchlist">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
