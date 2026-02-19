@@ -1472,54 +1472,6 @@
                         </div>
                         {% endif %}
                         
-                        {% if stocks[stock].get('news_sentiment_label') %}
-                        <br><br>
-                        <strong>📰 News Sentiment:</strong><br>
-                        <div style="margin-left: 10px;">
-                            <div style="padding: 8px; border-radius: 5px; margin-top: 5px; 
-                                {% if stocks[stock]['news_sentiment_label'] == 'Bullish' %}
-                                    background: #d4edda; border: 1px solid #28a745; color: #155724;
-                                {% elif stocks[stock]['news_sentiment_label'] == 'Somewhat-Bullish' %}
-                                    background: #d1ecf1; border: 1px solid #17a2b8; color: #0c5460;
-                                {% elif stocks[stock]['news_sentiment_label'] == 'Neutral' %}
-                                    background: #fff3cd; border: 1px solid #ffc107; color: #856404;
-                                {% elif stocks[stock]['news_sentiment_label'] == 'Somewhat-Bearish' %}
-                                    background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;
-                                {% elif stocks[stock]['news_sentiment_label'] == 'Bearish' %}
-                                    background: #f8d7da; border: 1px solid #dc3545; color: #721c24;
-                                {% endif %}">
-                                <strong style="font-size: 14px;">{{ stocks[stock]['news_sentiment_label'] }}</strong>
-                                {% if stocks[stock].get('news_sentiment') %}
-                                    {% if stocks[stock]['news_sentiment'] is mapping %}
-                                        <span style="font-size: 12px; opacity: 0.8;"> ({{ '%.3f'|format(stocks[stock]['news_sentiment'].get('score', 0)) }})</span>
-                                    {% else %}
-                                        <span style="font-size: 12px; opacity: 0.8;"> ({{ '%.3f'|format(stocks[stock]['news_sentiment']) }})</span>
-                                    {% endif %}
-                                {% endif %}
-                                {% if stocks[stock].get('news_relevance') %}
-                                    <br><span style="font-size: 11px; opacity: 0.7;">Relevance: {{ '%.1f%%'|format(stocks[stock]['news_relevance'] * 100) }}</span>
-                                {% endif %}
-                            </div>
-                            {% if stocks[stock].get('news_headline') %}
-                                <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #007bff;">
-                                    <div style="font-size: 11px; color: #666; margin-bottom: 3px;">Latest Headline:</div>
-                                    {% if stocks[stock].get('news_url') %}
-                                        <a href="{{ stocks[stock]['news_url'] }}" target="_blank" style="font-size: 12px; color: #333; text-decoration: none; line-height: 1.4;">
-                                            {{ stocks[stock]['news_headline'][:120] }}{% if stocks[stock]['news_headline']|length > 120 %}...{% endif %}
-                                        </a>
-                                    {% else %}
-                                        <div style="font-size: 12px; color: #333; line-height: 1.4;">
-                                            {{ stocks[stock]['news_headline'][:120] }}{% if stocks[stock]['news_headline']|length > 120 %}...{% endif %}
-                                        </div>
-                                    {% endif %}
-                                    {% if stocks[stock].get('news_published') %}
-                                        <div style="font-size: 10px; color: #999; margin-top: 4px;">{{ stocks[stock]['news_published'] }}</div>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                        
                         {% if stocks[stock]['earnings_date'] %}
                         <br>
                         <strong>📅 Earnings Date:</strong> 
