@@ -4386,35 +4386,22 @@ async def darkpool_chart_data_bulk(symbols: str):
         if not conn:
             return {"error": "Could not connect to options database"}
         
-        # Find the most recent date with data across all symbols
-        placeholders = ','.join(['?' for _ in symbol_list])
-        max_date_query = f"""
-            SELECT MAX(signal_date) 
-            FROM darkpool_signals 
-            WHERE ticker IN ({placeholders})
-        """
-        max_date_result = conn.execute(max_date_query, symbol_list).fetchone()
-        
-        if max_date_result and max_date_result[0]:
-            end_date = datetime.strptime(str(max_date_result[0]), '%Y-%m-%d').date()
-        else:
-            end_date = datetime.now().date()
-        
-        # Get trading days from price data (no weekends/holidays)
+        # Get trading days from price data (last 60 days up to today)
+        # Always use CURRENT_DATE as end so both darkpool and options charts share the same timeline
         scanner_conn = get_db_connection(SCANNER_DATA_PATH)
         if scanner_conn:
-            # Get any symbol's price data to determine trading days
             trading_days_query = """
                 SELECT DISTINCT date
                 FROM main.daily_cache
                 WHERE CAST(date AS DATE) >= CURRENT_DATE - INTERVAL '60 days'
-                    AND CAST(date AS DATE) <= ?
+                    AND CAST(date AS DATE) <= CURRENT_DATE
                 ORDER BY date
             """
-            trading_days_results = scanner_conn.execute(trading_days_query, [end_date.strftime('%Y-%m-%d')]).fetchall()
+            trading_days_results = scanner_conn.execute(trading_days_query).fetchall()
             all_dates = [str(row[0]) for row in trading_days_results]
         else:
             # Fallback to calendar days if price data unavailable
+            end_date = datetime.now().date()
             start_date = end_date - timedelta(days=59)
             all_dates = []
             current = start_date
@@ -4518,35 +4505,22 @@ async def options_chart_data_bulk(symbols: str):
         if not conn:
             return {"error": "Could not connect to options database"}
         
-        # Find the most recent date with data across all symbols
-        placeholders = ','.join(['?' for _ in symbol_list])
-        max_date_query = f"""
-            SELECT MAX(signal_date) 
-            FROM accumulation_signals 
-            WHERE underlying_symbol IN ({placeholders})
-        """
-        max_date_result = conn.execute(max_date_query, symbol_list).fetchone()
-        
-        if max_date_result and max_date_result[0]:
-            end_date = datetime.strptime(str(max_date_result[0]), '%Y-%m-%d').date()
-        else:
-            end_date = datetime.now().date()
-        
-        # Get trading days from price data (no weekends/holidays)
+        # Get trading days from price data (last 60 days up to today)
+        # Always use CURRENT_DATE as end so both darkpool and options charts share the same timeline
         scanner_conn = get_db_connection(SCANNER_DATA_PATH)
         if scanner_conn:
-            # Get any symbol's price data to determine trading days
             trading_days_query = """
                 SELECT DISTINCT date
                 FROM main.daily_cache
                 WHERE CAST(date AS DATE) >= CURRENT_DATE - INTERVAL '60 days'
-                    AND CAST(date AS DATE) <= ?
+                    AND CAST(date AS DATE) <= CURRENT_DATE
                 ORDER BY date
             """
-            trading_days_results = scanner_conn.execute(trading_days_query, [end_date.strftime('%Y-%m-%d')]).fetchall()
+            trading_days_results = scanner_conn.execute(trading_days_query).fetchall()
             all_dates = [str(row[0]) for row in trading_days_results]
         else:
             # Fallback to calendar days if price data unavailable
+            end_date = datetime.now().date()
             start_date = end_date - timedelta(days=59)
             all_dates = []
             current = start_date

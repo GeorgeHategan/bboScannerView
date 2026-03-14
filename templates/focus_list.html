@@ -811,38 +811,33 @@
         }
     }
     
-    const dpData = {};
-    
-    {% for day, items in grouped_items.items() %}
-    {% for item in items %}
-    {% if item.darkpool_signals %}
-    dpData['{{ item.symbol }}'] = [
-        {% for dp in item.darkpool_signals[:60] %}
-        { label: '{{ dp.date[5:] if dp.date else "" }}', 
-          bullish_premium: {{ dp.dp_premium if dp.direction in ["BUY", "BULLISH"] else 0 }}, 
-          bearish_premium: {{ dp.dp_premium if dp.direction in ["SELL", "BEARISH"] else 0 }}, 
-          neutral_premium: {{ dp.dp_premium if dp.direction not in ["BUY", "BULLISH", "SELL", "BEARISH"] else 0 }} },
-        {% endfor %}
-    ].reverse();
-    {% endif %}
-    {% endfor %}
-    {% endfor %}
-    
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.dp-chart').forEach(canvas => {
-            const symbol = canvas.getAttribute('data-symbol');
-            const data = dpData[symbol];
-            if (!data || data.length === 0) return;
-            new Chart(canvas, {
-                type: 'bar',
-                data: { labels: data.map(d => d.label), datasets: [
-                    { label: 'Bullish', data: data.map(d => d.bullish_premium), backgroundColor: 'rgba(39, 174, 96, 0.7)', borderWidth: 0, stack: 'dp' },
-                    { label: 'Bearish', data: data.map(d => d.bearish_premium), backgroundColor: 'rgba(231, 76, 60, 0.7)', borderWidth: 0, stack: 'dp' },
-                    { label: 'Neutral', data: data.map(d => d.neutral_premium), backgroundColor: 'rgba(155, 89, 182, 0.7)', borderWidth: 0, stack: 'dp' }
-                ] },
-                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + (ctx.parsed.y / 1000000).toFixed(1) + 'M' } } }, scales: { y: { beginAtZero: true, stacked: true, ticks: { callback: v => '$' + (v / 1000000).toFixed(0) + 'M', font: { size: 9 } } }, x: { stacked: true, ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 } } } }
-            });
-        });
+        // Load darkpool charts using bulk API (consistent 60-day timeline)
+        const dpCharts = document.querySelectorAll('.dp-chart');
+        if (dpCharts.length > 0) {
+            const dpSymbols = Array.from(dpCharts).map(c => c.getAttribute('data-symbol')).filter(s => s);
+            if (dpSymbols.length > 0) {
+                fetch('/api/darkpool-chart-data-bulk?symbols=' + dpSymbols.join(','))
+                    .then(r => r.json())
+                    .then(allData => {
+                        dpCharts.forEach(canvas => {
+                            const symbol = canvas.getAttribute('data-symbol');
+                            const data = allData[symbol];
+                            if (!data || data.length === 0) return;
+                            new Chart(canvas, {
+                                type: 'bar',
+                                data: { labels: data.map(d => d.label), datasets: [
+                                    { label: 'Bullish', data: data.map(d => d.bullish_premium), backgroundColor: 'rgba(39, 174, 96, 0.7)', borderWidth: 0, stack: 'dp' },
+                                    { label: 'Bearish', data: data.map(d => d.bearish_premium), backgroundColor: 'rgba(231, 76, 60, 0.7)', borderWidth: 0, stack: 'dp' },
+                                    { label: 'Neutral', data: data.map(d => d.neutral_premium), backgroundColor: 'rgba(155, 89, 182, 0.7)', borderWidth: 0, stack: 'dp' }
+                                ] },
+                                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + (ctx.parsed.y / 1000000).toFixed(1) + 'M' } } }, scales: { y: { beginAtZero: true, stacked: true, ticks: { callback: v => '$' + (v / 1000000).toFixed(0) + 'M', font: { size: 9 } } }, x: { stacked: true, ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 45 } } } }
+                            });
+                        });
+                    })
+                    .catch(e => console.error('Bulk darkpool chart error:', e));
+            }
+        }
         
         // Load options charts using bulk API (same as scanner results page)
         const optCharts = document.querySelectorAll('.opt-chart');
