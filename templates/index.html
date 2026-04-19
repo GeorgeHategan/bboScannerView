@@ -1523,11 +1523,11 @@
                 <tr>
                     <td style="white-space: nowrap;">
                         <div style="display: flex; align-items: center; gap: 3px; flex-wrap: nowrap;">
-                            <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
+                            <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}&ticker={{ stock }}"
                                style="color: #0066cc; text-decoration: none; font-weight: bold; font-size: 14px;">
                                 {{ stock }}
                             </a>
-                            <button onclick="copyTicker('{{ stock }}', this)" 
+                            <button onclick="copyTicker('{{ stock }}', this)"
                                     style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 2px 4px; cursor: pointer; display: flex; align-items: center; flex-shrink: 0;"
                                     title="Copy ticker to clipboard for TradingView watchlist">
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1539,7 +1539,7 @@
                     </td>
                     <td>{{ stocks[stock]['company'] }}</td>
                     <td>
-                        <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
+                        <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}&ticker={{ stock }}"
                            style="color: #666; text-decoration: none;">
                             {{ stocks[stock].get(key + '_scan_date', 'N/A') }}
                         </a>
@@ -1553,7 +1553,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}" 
+                        <a href="/?pattern={{ key }}&scan_date={{ stocks[stock].get(key + '_scan_date', '') }}&ticker={{ stock }}"
                            style="color: #333; text-decoration: none;">
                             {{ key.replace('_', ' ').title() }}
                         </a>
