@@ -1,0 +1,60 @@
+<h2>🎯 What It Does</h2>
+<p>Hybrid scanner combining <strong>fundamental quality (60%)</strong> with <strong>technical entry timing (40%)</strong>. Targets value-plus-momentum swing trades with 14-30 day holding period.</p>
+
+<h2>📊 Fundamental Score (0-100, 60% weight)</h2>
+<table>
+    <tr><th>Factor</th><th>Ideal Range</th><th>Max Points</th></tr>
+    <tr><td>P/E Ratio</td><td>10-20</td><td>20</td></tr>
+    <tr><td>PEG Ratio</td><td>0-1.0</td><td>15</td></tr>
+    <tr><td>Profit Margin</td><td>≥ 20%</td><td>15</td></tr>
+    <tr><td>ROE</td><td>≥ 20%</td><td>15</td></tr>
+    <tr><td>Debt-to-Equity</td><td>&lt; 30</td><td>15</td></tr>
+    <tr><td>Dividend Yield</td><td>2-5%</td><td>10</td></tr>
+    <tr><td>Analyst Target Upside</td><td>≥ 20%</td><td>10</td></tr>
+</table>
+
+<h2>📈 Technical Entry Score (0-100, 40% weight)</h2>
+<table>
+    <tr><th>Factor</th><th>Criterion</th><th>Max Points</th></tr>
+    <tr><td>Trend alignment</td><td>Price &gt; SMA20 &gt; SMA50 &gt; SMA200</td><td>30</td></tr>
+    <tr><td>RSI 14</td><td>40-60 (sweet spot)</td><td>25</td></tr>
+    <tr><td>MACD bullish</td><td>Above signal line</td><td>20</td></tr>
+    <tr><td>Volume trend</td><td>≥ 1.2x 20-day avg</td><td>15</td></tr>
+    <tr><td>Pullback to support</td><td>-5% to +2% from SMA20</td><td>10</td></tr>
+</table>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>Combined score = <code>(fundamental × 0.6) + (technical × 0.4) ≥ 60</code></li>
+    <li>Price above SMA 20, SMA 50, SMA 200 (trend alignment)</li>
+    <li>RSI 14 in 30-70 range</li>
+    <li>MACD bullish</li>
+    <li>Recent volume &gt; 1.2x average</li>
+</ul>
+
+<h2>🏆 Quality Tiers</h2>
+<table>
+    <tr><th>Combined Score</th><th>Rating</th></tr>
+    <tr><td>≥ 80</td><td>Excellent</td></tr>
+    <tr><td>70-79</td><td>Good</td></tr>
+    <tr><td>60-69</td><td>Fair (minimum for inclusion)</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, name, sector, industry, fundamental_score, entry_score, combined_score, current_price, pe_ratio, peg_ratio, profit_margin, roe, debt_to_equity, dividend_yield, target_price, sma20, rsi, macd_signal, holding_period, volatility, chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below SMA 50 or recent swing low (~5-8%)</li>
+    <li><strong>Target:</strong> Analyst target price or 15-30% upside</li>
+    <li><strong>Holding Period:</strong> 14-30 days (swing)</li>
+    <li><strong>Position Size:</strong> Larger than momentum scans — quality-based, lower turnover</li>
+</ul>
+
+<h2>⚠️ Known Issue</h2>
+<div class="alert">
+    <strong>Calibration note:</strong> Historical results show most signals scoring exactly 50.0 — indicates some components may be producing default values when fundamental data is missing. Review data completeness before relying on the composite score.
+</div>
+
+<h2>📝 Summary</h2>
+<p>Weighted composite of 7 fundamental and 5 technical factors. Threshold 60 required; 80+ excellent. Best for longer-horizon swing trades where both quality and timing matter. Do not use for short-term momentum plays.</p>

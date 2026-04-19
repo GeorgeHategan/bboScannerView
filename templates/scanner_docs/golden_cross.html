@@ -1,0 +1,56 @@
+<h2>🎯 What It Does</h2>
+<p>Detects <strong>Golden Cross events</strong> — when a fast moving average crosses above a slow one, signaling a potential long-term trend change.</p>
+
+<div class="alert">
+    <strong>⚠️ Important:</strong> This scanner uses <strong>20-day MA crossing above 200-day MA</strong> — not the textbook 50/200. The 20-day crossover is more responsive but fires more often.
+</div>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>20 DMA crosses above 200 DMA within last 5 days (<code>lookback = 5</code>)</li>
+    <li>200 DMA slope &lt; <code>max_200ma_slope = 5.0%</code> (relatively flat — trend change, not acceleration)</li>
+    <li>Price currently above BOTH 20 DMA and 200 DMA</li>
+    <li>Price was ABOVE 200 SMA at the time of cross (40% success rate vs 18% below)</li>
+    <li>Volume on cross day ≥ <code>1.5x</code> average (confirmation)</li>
+    <li>RSI ≥ <code>50</code> at cross (momentum present)</li>
+    <li>Avg volume ≥ <code>min_volume = 100,000</code></li>
+    <li>Signal strength ≥ <code>min_signal_strength = 60</code></li>
+</ul>
+
+<h2>🎯 Signal Strength (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Tiers</th></tr>
+    <tr><td>Freshness of cross</td><td>30</td><td>0d=30, 1d=20, 2d=15, 5d=10, 10d+=2-5</td></tr>
+    <tr><td>200 DMA slope flatness</td><td>20</td><td>&lt;0.5%=20, &lt;1%=17, &lt;1.5%=14, &lt;2%=11, &lt;3%=8, &lt;4%=5</td></tr>
+    <tr><td>MA separation</td><td>15</td><td>1.5-4%=15, 1-5%=12, 0.5-6%=9, 0.2-8%=6, else=3</td></tr>
+    <tr><td>Volume trend</td><td>10</td><td>&gt;50%=10, &gt;30%=8, &gt;20%=6, &gt;10%=4, &gt;0%=2</td></tr>
+    <tr><td>Price vs 200 at cross</td><td>15</td><td>&gt;8%=15, &gt;5%=13, &gt;3%=11, &gt;1%=8, &gt;0%=5</td></tr>
+    <tr><td>Volume ratio at cross</td><td>10</td><td>≥3x=10, ≥2.5x=9, ≥2x=8, ≥1.5x=6, ≥1.2x=4</td></tr>
+</table>
+<p>Final: <code>min(100, max(60, score))</code> — signals below 60 are discarded.</p>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>max_200ma_slope</td><td>5.0%</td></tr>
+    <tr><td>min_volume</td><td>100,000</td></tr>
+    <tr><td>min_volume_ratio</td><td>1.0-1.2x</td></tr>
+    <tr><td>min_rsi</td><td>50</td></tr>
+    <tr><td>cross_lookback_days</td><td>5-20</td></tr>
+    <tr><td>min_signal_strength</td><td>60</td></tr>
+    <tr><td>Data freshness</td><td>≤5 days old</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, entry_price, sma_20, sma_200, cross_date, days_since_cross, 200ma_slope_pct, ma_separation_pct, price_vs_200ma_pct, volume, avg_volume, volume_trend_pct, price_vs_200_at_cross_pct, volume_ratio_at_cross, rsi_at_cross, signal_strength, chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below 200-day SMA</li>
+    <li><strong>Target:</strong> 20-50%+ over 6-12 months</li>
+    <li><strong>Holding Period:</strong> 6-12 months (long-term trend)</li>
+    <li><strong>Position Size:</strong> 2-5% (larger due to high historical quality)</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Six-component score with minimum floor of 60. Uses <strong>20/200</strong> (not classic 50/200). Requires a flat 200 DMA — catches genuine regime changes, filters out accelerations of existing trends.</p>

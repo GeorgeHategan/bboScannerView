@@ -1,0 +1,91 @@
+<h2>🎯 What It Does</h2>
+<p>Detects <strong>TA-Lib bullish reversal candlestick patterns</strong> — single-, two-, and three-bar formations that historically mark the exhaustion of a downtrend and the start of a new uptrend. This scanner runs as a <em>confirmation layer</em>: it only analyzes symbols already picked by other scanners in the last 30 days.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> A reversal candlestick alone is noise. A reversal candlestick <em>at a setup another scanner already flagged</em> is signal. This scanner is architected around that principle — it never fires standalone.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Curated Pattern Library (11 of 61 TA-Lib patterns)</div>
+    <p>TA-Lib ships 61 candlestick recognizers. This scanner keeps only the 11 with the strongest historical reversal reliability, each assigned a weight from 5.0 (marginal) to 10.0 (premium). Weaker or ambiguous patterns (Doji, Hanging Man, etc.) are deliberately excluded to reduce noise.</p>
+    <p><strong>Logic:</strong> Pattern weight is the base of the signal strength score — stronger patterns inherit a higher score floor.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Recency Filter</div>
+    <p>Only the most recent <code>recent_bars_to_check = 3</code> bars are inspected for patterns. Older patterns have lost their information value — by the time a Morning Star is 5 days old, the setup has either resolved or gone stale.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Downtrend Context (Trend Score Bonus)</div>
+    <p>A reversal is only meaningful if there's something to reverse. The scanner checks whether the recent 5-day low sits below the prior 15-day low — if yes, the stock was genuinely making new lows, and a +5 "trend context" bonus is added.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Volume Confirmation</div>
+    <p>Patterns with volume ≥ <code>1.5×</code> the recent 5-day average score +10; patterns with at least average volume score +5. Volume-less reversal patterns are real but less reliable.</p>
+    <p><strong>Formula:</strong> <code>today_volume / mean(last_5_days_volume) ≥ 1.5</code></p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Pattern Stacking</div>
+    <p>If multiple patterns fire on the same bar (e.g. Engulfing + Hammer), the scanner rewards the cluster: +5 for two, +10 for three, +15 for four or more. Stacked patterns compound the reversal evidence.</p>
+</div>
+
+<h2>🕯️ Pattern Library (11 patterns, weights 7.5-10.0)</h2>
+<table>
+    <tr><th>Pattern</th><th>Weight</th><th>Reliability</th></tr>
+    <tr><td>CDL3WHITESOLDIERS</td><td>10.0</td><td>Very strong 3-bar reversal</td></tr>
+    <tr><td>CDLMORNINGSTAR</td><td>9.5</td><td>Classic 3-bar from lows</td></tr>
+    <tr><td>CDLENGULFING</td><td>9.0</td><td>Strong 2-bar reversal</td></tr>
+    <tr><td>CDLHAMMER</td><td>8.8</td><td>Simple bottom reversal</td></tr>
+    <tr><td>CDLPIERCING</td><td>8.5</td><td>2-bar recovery</td></tr>
+    <tr><td>CDLMORNINGDOJISTAR</td><td>8.3</td><td>Morning Star + doji</td></tr>
+    <tr><td>CDLLADDERBOTTOM</td><td>8.2</td><td>Multi-bar capitulation</td></tr>
+    <tr><td>CDLDRAGONFLYDOJI</td><td>8.0</td><td>Rejection of lower prices</td></tr>
+    <tr><td>CDLTAKURI</td><td>7.9</td><td>Long-tailed hammer</td></tr>
+    <tr><td>CDL3INSIDE</td><td>7.8</td><td>Three Inside Up</td></tr>
+    <tr><td>CDL3OUTSIDE</td><td>7.6</td><td>Three Outside Up</td></tr>
+</table>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>≥1 bullish reversal pattern detected within last 3 bars (<code>recent_bars_to_check = 3</code>)</li>
+    <li>Primary pattern weight ≥ <code>MIN_SCORE = 7.5</code></li>
+    <li>Symbol must appear in <code>picked_symbols</code> (other scanners' output, last 30 days)</li>
+    <li>Excludes: <code>candlestick_bullish</code>, <code>candlestick_continuation</code>, <code>candlestick</code> (avoids circular confirmation)</li>
+</ul>
+
+<h2>🎯 Signal Strength (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
+    <tr><td>Base pattern weight</td><td>70</td><td><code>pattern_weight × 7</code> (10.0 → 70)</td></tr>
+    <tr><td>Multiple patterns</td><td>15</td><td>3+ patterns=15, 2=10, 1=5</td></tr>
+    <tr><td>Volume confirmation</td><td>10</td><td>≥1.5× recent avg=10, ≥1×=5</td></tr>
+    <tr><td>Trend context</td><td>5</td><td>Recent 5-day low below prior 15-day low = 5</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>MIN_SCORE</td><td>7.5</td></tr>
+    <tr><td>recent_bars_to_check</td><td>3</td></tr>
+    <tr><td>lookback_days_for_analysis</td><td>60</td></tr>
+    <tr><td>volume_confirmation_threshold</td><td>1.5× (5-day avg)</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, scan_date, pattern_date, scanner_name, signal_type, signal_strength, timeframe, pattern, pattern_name, pattern_weight, total_patterns, all_patterns, entry_price, volume, sector, chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below the pattern low (3-5% typical)</li>
+    <li><strong>Position Size:</strong> 90+=3%, 80-89=2%, 70-79=1%</li>
+    <li><strong>Hold Period:</strong> 1-4 weeks (reversals need time to develop a new trend)</li>
+    <li><strong>Exit Rule:</strong> Exit if a new trend fails to form within 5-7 bars</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Curated 11-pattern library × 4-component scoring, acting only as a confirmation layer on top of other scanners. Because it's gated by <code>picked_symbols</code>, it never fires standalone — this is the scanner's signature design choice and the reason its signals tend to be high-conviction.</p>

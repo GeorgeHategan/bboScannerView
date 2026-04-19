@@ -1,0 +1,53 @@
+<h2>🎯 What It Does</h2>
+<p>Detects <strong>explosive short-term momentum moves</strong> across 3 timeframes (1/3/5 days), each with its own gain + volume requirements. Stockbee-inspired methodology.</p>
+
+<h2>⚡ Three Signal Types</h2>
+<table>
+    <tr><th>Timeframe</th><th>Min Gain</th><th>Vol Multiplier</th><th>Character</th></tr>
+    <tr><td>1-day burst</td><td>≥ 4.0%</td><td>≥ 2.0x avg</td><td>Most explosive</td></tr>
+    <tr><td>3-day burst</td><td>≥ 6.0%</td><td>≥ 1.5x 3-day avg</td><td>Sustained momentum</td></tr>
+    <tr><td>5-day burst</td><td>≥ 8.0%</td><td>≥ 1.3x 5-day avg</td><td>Strong sustained</td></tr>
+</table>
+
+<h2>✅ Entry Criteria (all timeframes)</h2>
+<ul>
+    <li>Meets one of the three (gain, volume) pairs above</li>
+    <li>Price above SMA 20 (confirmed uptrend)</li>
+    <li>Stock price <code>$5 ≤ price ≤ $500</code></li>
+    <li>Current daily dollar volume ≥ <code>$50,000,000</code></li>
+    <li>Market cap ≥ <code>$50M</code> (liquidity)</li>
+</ul>
+
+<h2>🎯 Signal Strength (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Tiers</th></tr>
+    <tr><td>Magnitude of move</td><td>40</td><td>12%+=40, 10%+=35, 8%+=30, 6%+=25, else=20</td></tr>
+    <tr><td>Volume confirmation</td><td>30</td><td>4x+=30, 3x+=25, 2.5x+=20, 2x+=15, else=10</td></tr>
+    <tr><td>Price vs SMA 20</td><td>20</td><td>≥15% above=20, ≥10%=15, ≥5%=10, else=5</td></tr>
+    <tr><td>Timeframe bonus</td><td>10</td><td>1-day=10, 3-day=7, 5-day=5</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>1D / 3D / 5D gain thresholds</td><td>4.0% / 6.0% / 8.0%</td></tr>
+    <tr><td>1D / 3D / 5D volume multipliers</td><td>2.0x / 1.5x / 1.3x</td></tr>
+    <tr><td>min_price / max_price</td><td>$5 / $500</td></tr>
+    <tr><td>min_dollar_volume</td><td>$50,000,000</td></tr>
+    <tr><td>SMA_period</td><td>20</td></tr>
+    <tr><td>lookback_days</td><td>100</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, entry_price, volume, avg_volume, signal_type, signal_strength, burst_gain_pct, burst_days, volume_ratio, price_vs_sma20, timeframe, scan_date, chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> 5-7% below entry (momentum can reverse fast)</li>
+    <li><strong>Position Size:</strong> 0.5-1% risk per trade (high volatility)</li>
+    <li><strong>Holding Period:</strong> 1-5 days for 1D bursts, 1-3 weeks for 5D bursts</li>
+    <li><strong>Exit Rule:</strong> Scale out on first down day following the burst</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Three parallel detectors (1/3/5-day) with different gain+volume thresholds. Shorter timeframes get a score bonus since they're rarer and more actionable. No RSI filter despite what older docs said.</p>

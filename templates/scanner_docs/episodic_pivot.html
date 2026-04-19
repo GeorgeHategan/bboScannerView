@@ -1,0 +1,94 @@
+<h2>🎯 What It Does</h2>
+<p>Implements the <strong>StockBee Episodic Pivot</strong> methodology — detects gap-ups driven by a fresh catalyst on stocks that were "neglected" (tight price base) prior to the gap. Two-tier output: <code>CONFIRMED</code> vs <code>WATCHLIST</code>.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> A true EP = gap + volume + catalyst + tight base + market regime. Missing any ingredient drops the trade to watchlist or skips it.
+</div>
+
+<h2>✅ Entry Criteria — Two Tiers</h2>
+<table>
+    <tr><th>Criterion</th><th>CONFIRMED</th><th>WATCHLIST</th></tr>
+    <tr><td>Min price</td><td>$3.00</td><td>$3.00</td></tr>
+    <tr><td>Min gap %</td><td>10.0%</td><td>5.0%</td></tr>
+    <tr><td>Volume (any one)</td><td>Premkt ≥ 3x OR First 15min ≥ 0.75x OR First 20min ≥ 1x OR RVOL ≥ 3x</td><td>RVOL ≥ 2x</td></tr>
+    <tr><td>Avg daily volume (50d)</td><td>≥ 300,000</td><td>≥ 300,000</td></tr>
+    <tr><td>Avg dollar volume (50d)</td><td>≥ $5,000,000</td><td>—</td></tr>
+    <tr><td>Catalyst recency</td><td>Within 24 hours</td><td>Within 7 days</td></tr>
+    <tr><td>Exchange quality</td><td colspan="2">Exclude OTC, PINK, OTCBB, GREY; exclude suffixes [-W, -R, -U, -P, .WS, .RT]</td></tr>
+</table>
+
+<h2>🏛️ Base Quality (StockBee Neglect Criterion)</h2>
+<p>Evaluates 60-day price range <em>prior</em> to the gap. Tighter base = more explosive move when catalyst hits.</p>
+<table>
+    <tr><th>60-day Range</th><th>Score</th></tr>
+    <tr><td>&lt; 20% (tight base)</td><td>100</td></tr>
+    <tr><td>20-35% (moderate)</td><td>60</td></tr>
+    <tr><td>35-50% (wide)</td><td>35</td></tr>
+    <tr><td>&lt; 8% price change (very neglected)</td><td>+20 bonus</td></tr>
+    <tr><td>&gt; 20% price change (trending)</td><td>-15 penalty</td></tr>
+</table>
+
+<h2>📰 Catalyst Quality Map</h2>
+<table>
+    <tr><th>Category</th><th>Score</th></tr>
+    <tr><td>Raised guidance</td><td>95</td></tr>
+    <tr><td>Earnings beat</td><td>90</td></tr>
+    <tr><td>FDA / Regulatory approval</td><td>85</td></tr>
+    <tr><td>Major contract / partnership</td><td>80</td></tr>
+    <tr><td>Major product / business update</td><td>70</td></tr>
+    <tr><td>Strategic corporate event</td><td>65</td></tr>
+    <tr><td>Analyst upgrade</td><td>60</td></tr>
+    <tr><td>Unknown</td><td>20</td></tr>
+</table>
+
+<h2>📊 Earnings Growth Score</h2>
+<table>
+    <tr><th>EPS Growth YoY</th><th>Score</th></tr>
+    <tr><td>≥ 50%</td><td>100</td></tr>
+    <tr><td>25-50%</td><td>75</td></tr>
+    <tr><td>10-25%</td><td>55</td></tr>
+    <tr><td>0-10%</td><td>35</td></tr>
+    <tr><td>&lt; 0% or None</td><td>25</td></tr>
+    <tr><td>Revenue growth ≥ 30%</td><td>+15 bonus</td></tr>
+    <tr><td>Revenue growth 10-30%</td><td>+8 bonus</td></tr>
+</table>
+
+<h2>🎯 Final EP Score (Weighted Composite, 0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Weight</th><th>Raw Scoring</th></tr>
+    <tr><td>Gap size</td><td>20%</td><td>10%=40, 15%=70, 25%+=100</td></tr>
+    <tr><td>Early volume</td><td>20%</td><td>3x=40, 5x=70, 8x+=100</td></tr>
+    <tr><td>Catalyst quality</td><td>15%</td><td>See catalyst map</td></tr>
+    <tr><td>Base quality</td><td>15%</td><td>See base scoring</td></tr>
+    <tr><td>Earnings growth</td><td>10%</td><td>See growth scoring</td></tr>
+    <tr><td>Liquidity</td><td>10%</td><td>$5M=30, $20M=60, $50M+=100</td></tr>
+    <tr><td>Float size</td><td>5%</td><td>&lt;25M=100, 25-50M=60, &gt;50M=30</td></tr>
+    <tr><td>Contextual quality</td><td>5%</td><td>52wk high=+25, 52wk low=-20, prior 5d extension &gt;20%=-25</td></tr>
+</table>
+
+<h2>🌐 Market Regime Filter (Qullamaggie)</h2>
+<ul>
+    <li><strong>Bullish:</strong> QQQ 10 EMA &gt; 20 EMA AND both rising → green light</li>
+    <li><strong>Bearish:</strong> QQQ 10 EMA &lt; 20 EMA → reduce size or skip</li>
+    <li><strong>Neutral/Unknown:</strong> normal sizing</li>
+</ul>
+
+<h2>⚙️ Config</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>DAILY_LOOKBACK_DAYS</td><td>100</td></tr>
+    <tr><td>HOURLY_LOOKBACK_HOURS</td><td>195 (~30 days)</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, company_name, exchange, sector, last_price, prior_close, today_open, gap_pct, today_volume, rel_volume, avg_daily_volume_50d, avg_dollar_volume_50d, market_cap, float_shares, fifty_two_week_high, fifty_two_week_low, prior_5d_change_pct, base_range_pct, base_flatness_pct, quarterly_earnings_growth, quarterly_revenue_growth, premarket_volume, first_15min_volume, ep_score, gap_score, volume_score, catalyst_score, liquidity_score, float_score, contextual_score, base_score, earnings_growth_score, catalyst_headline, catalyst_category, candidate_type, risk_flags</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below gap-up low or prior day close (typically 3-7%)</li>
+    <li><strong>Position Size:</strong> Scale with EP score — max only if CONFIRMED + bullish regime + score &gt; 80</li>
+    <li><strong>Holding Period:</strong> 1-4 weeks (momentum fades quickly)</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Eight-component weighted score fused with a two-tier classifier. Most complex scanner in the suite. Production use requires integration with news/catalyst feed. CONFIRMED candidates are trade-ready; WATCHLIST requires further confirmation.</p>

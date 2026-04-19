@@ -1,0 +1,84 @@
+<h2>🎯 What It Does</h2>
+<p>The Bull Flag scanner detects <strong>wedge-style bullish continuation patterns</strong>: a strong prior uptrend (the "flagpole") followed by a tightening, converging consolidation (the "wedge") with an imminent breakout. Unlike a classic rectangular flag, this variant requires the range to <em>compress</em> over time — a much higher-probability setup.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> A real bull flag is a <em>coiling spring</em>. The flagpole builds energy, the wedge compresses it, and the breakout releases it. If volume is also drying up during the wedge and picking up near the breakout, the probability of follow-through rises sharply.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Flagpole (Phase 1)</div>
+    <p>A strong prior uptrend establishing institutional demand. Must be a gain of <code>flagpole_gain_min = 20%</code> or more, completed in 5-15 trading days, with the pole itself starting 15-30 days ago.</p>
+    <p><strong>Logic:</strong> The steeper and shorter the pole, the more energy is trapped. Gains &lt; 20% don't create enough momentum for a meaningful continuation.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Consolidation (Phase 2)</div>
+    <p>Duration 7, 10, 14, or 20 days — the scanner tests each candidate window. The consolidation range must be 5-15% of its own low: tight enough to indicate equilibrium, wide enough to not be noise.</p>
+    <p><strong>Formula:</strong> <code>(consolidation_high - consolidation_low) / consolidation_low ≤ 15%</code></p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Wedge Compression (Phase 3)</div>
+    <p>The <em>second half</em> of the consolidation range must be tighter than the <em>first half</em>. This converging price action — lower highs meeting higher lows — is what turns a flag into a wedge.</p>
+    <p><strong>Formula:</strong> <code>compression_ratio = range(second_half) / range(first_half)</code>; must be &lt; 1.</p>
+    <p><strong>Impact:</strong> Ratios near 0.5 produce the highest-quality signals (score component up to 15 pts).</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Volume Pattern (Phase 4)</div>
+    <p>Two-part signature: (a) volume should <em>decline</em> during the consolidation (traders losing interest = supply exhausted), and (b) there should be a <em>pickup</em> in the last 3 days (early-bird institutions positioning for the break).</p>
+    <p><strong>Formula:</strong> Declining slope &lt; 0 on consolidation volume <strong>AND</strong> <code>last_3d_avg / prior_avg ≥ 1.1×</code> <em>or</em> <code>RVOL ≥ 1.2×</code>.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Breakout Proximity (Phase 5)</div>
+    <p>Current price must be within <code>3%</code> of the consolidation high, and must be ≥ 98% of the EMA 9. This catches stocks right at the trigger point, not mid-breakout or too early.</p>
+    <p><strong>Logic:</strong> Entering after the breakout has already fired gives back most of the expected move. The 3% proximity filter forces entries at the cleanest R:R location.</p>
+</div>
+
+<h2>✅ Hard Filters (beyond phase logic)</h2>
+<ul>
+    <li>RSI 14 &lt; <code>rsi_14_threshold = 75</code> (reject overbought — flags that fire from RSI &gt; 75 fail more often)</li>
+    <li>Quality score ≥ <code>quality_threshold = 60</code></li>
+    <li>Avg volume ≥ <code>min_avg_volume = 500,000</code> (swing-trade liquidity)</li>
+    <li>Pattern ≤ 10 days old (actionable freshness)</li>
+</ul>
+
+<h2>🎯 Quality Score (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
+    <tr><td>Flagpole strength</td><td>30</td><td><code>min(30, int(flagpole_gain_pct))</code></td></tr>
+    <tr><td>Consolidation tightness</td><td>20</td><td><code>max(0, 20 - range_pct)</code></td></tr>
+    <tr><td>Wedge compression</td><td>15</td><td><code>(1 - compression_ratio) × 15</code></td></tr>
+    <tr><td>Volume pattern</td><td>15</td><td>Declining=10, pickup=5</td></tr>
+    <tr><td>MA alignment</td><td>20</td><td>EMA9&gt;EMA21=10, Price&gt;EMA9=5, Price&gt;EMA21=5</td></tr>
+    <tr><td>RSI sweet spot</td><td>10</td><td>40-65=10pt, 65-75=5pt</td></tr>
+    <tr><td>RVOL bonus</td><td>5</td><td>&gt;1.5=5pt, &gt;1.2=3pt</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>flagpole_gain_min</td><td>20%</td></tr>
+    <tr><td>flagpole_days_range</td><td>5-15</td></tr>
+    <tr><td>min_consolidation_range / max</td><td>5% / 15%</td></tr>
+    <tr><td>distance_to_breakout_max</td><td>3%</td></tr>
+    <tr><td>rsi_14_threshold (max)</td><td>75</td></tr>
+    <tr><td>quality_threshold</td><td>60</td></tr>
+    <tr><td>min_avg_volume</td><td>500,000</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>Ticker, Date, Current_Price, Flagpole_Gain_%, Flagpole_Days, Consolidation_Days, Consolidation_Range_%, Compression_Ratio, Volume_Pattern, Volume_Pickup, Breakout_Level, Distance_to_Breakout_%, Stop_Loss, Target_Price, Risk_%, Reward_%, Risk_Reward_Ratio, Quality_Score, setup_stage, EMA_9, EMA_21, SMA_20, SMA_50, RSI_14, ATR_14, RVOL, Setup_Quality, Chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below consolidation low (~2-4% below entry)</li>
+    <li><strong>Target:</strong> Flagpole height projected from the breakout point (measured move)</li>
+    <li><strong>Position Size:</strong> Quality 90+=3%, 80-89=2%, 60-79=1%</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Seven-component quality score built on top of a strict 5-phase pattern detector. Key differentiator vs classic "bull flag" scans: this one demands wedge-style range compression and imminent breakout proximity (≤3%), producing fewer but higher-quality signals.</p>

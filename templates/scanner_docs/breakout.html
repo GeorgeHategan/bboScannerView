@@ -1,0 +1,73 @@
+<h2>🎯 What It Does</h2>
+<p>The Breakout scanner implements the <strong>Kristjan Qullamaggie</strong> methodology — detecting stocks breaking above recent highs with confirming volume, a rising moving-average stack, and hourly timing refinement for earlier entries.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> True breakouts combine <strong>three forces at once</strong>: price clearing a known resistance level (20-day high), institutions participating (volume ≥ 1.5× average), and the stock already being in an uptrend (MA stack aligned). Missing any one = false breakout risk.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. 20-Day High Breakout</div>
+    <p>The stock's close must exceed its highest close over the prior <code>lookback_days = 20</code> trading days. This establishes that the market has decisively repriced the asset above prior resistance.</p>
+    <p><strong>Logic:</strong> A 20-day high represents about one month of price memory — short enough to be actionable, long enough to be meaningful.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Volume Confirmation</div>
+    <p>Breakout day volume must be at least <code>volume_multiplier = 1.5×</code> the recent average. Low-volume breakouts are the classic "fake out" pattern — price pokes above resistance but nobody's participating, and it collapses back.</p>
+    <p><strong>Formula:</strong> <code>today_volume / avg_volume ≥ 1.5</code></p>
+    <p><strong>Impact:</strong> Volume confirmation dramatically reduces false-breakout rate. Qullamaggie's research: breakouts on &gt; 1.5× volume historically outperform &lt; 1× breakouts by a wide margin.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Moving-Average Stack</div>
+    <p>Three simultaneous MA filters — <strong>Close &gt; SMA 10 &gt; SMA 20</strong> — confirm the stock is in a short-term uptrend <em>before</em> the breakout fires. SMA 50 is tracked for context.</p>
+    <p><strong>Logic:</strong> Without the MA stack, any random pop above the 20-day high triggers. The stack filter ensures we're adding to strength, not catching a counter-trend bounce.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Hourly Timing Refinement</div>
+    <p>After the daily signal fires, the scanner replays the last 195 hours (~30 trading days) of hourly data to find the <em>precise hourly bar</em> where the daily breakout first occurred. If the hourly bar's volume is also ≥ 1.2× its hourly average, that timestamp becomes the reported <code>Breakout_Time</code> and <code>Entry_Price</code>.</p>
+    <p><strong>Edge:</strong> Daily-only breakout scans report at next day's open. Hourly refinement lets traders enter 5-6 hours earlier in many cases — significant when breakouts accelerate fast.</p>
+</div>
+
+<h2>✅ Entry Criteria (ALL 5 must be true)</h2>
+<ol>
+    <li>Price breaks above 20-day high (<code>lookback_days = 20</code>)</li>
+    <li>Volume spike ≥ <code>volume_multiplier = 1.5×</code> average</li>
+    <li>Close &gt; SMA 10 (above fast MA)</li>
+    <li>Close &gt; SMA 20 (above slow MA)</li>
+    <li>SMA 10 &gt; SMA 20 (confirmed uptrend)</li>
+</ol>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>lookback_days</td><td>20</td></tr>
+    <tr><td>volume_multiplier</td><td>1.5×</td></tr>
+    <tr><td>max_price filter</td><td>$10 (universe filter)</td></tr>
+    <tr><td>min_volume</td><td>100,000 shares</td></tr>
+    <tr><td>sma_10_period</td><td>10</td></tr>
+    <tr><td>sma_20_period</td><td>20</td></tr>
+    <tr><td>sma_50_period</td><td>50 (context only)</td></tr>
+    <tr><td>hourly_lookback</td><td>195 hours</td></tr>
+    <tr><td>hourly_vol_threshold</td><td>1.2×</td></tr>
+</table>
+
+<h2>📊 Scoring</h2>
+<p><strong>Binary detection — no signal_strength score.</strong> All 5 conditions must be true; if so, it's a signal. This is why breakout results show <em>N/A</em> in the signal-strength distribution tables elsewhere on this site.</p>
+
+<h2>📤 Output Columns</h2>
+<p><code>Ticker, Date, Close, Previous_High, Breakout_%, Volume, Avg_Volume, Volume_Ratio, SMA_10, SMA_20, Breakout_Time, Entry_Price, Hourly_Signal, scan_date, chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> 3-7% below entry, or below the breakout level itself</li>
+    <li><strong>Profit Target:</strong> 10-20% for first scale-out</li>
+    <li><strong>Holding Period:</strong> 2-7 days (short-term momentum)</li>
+    <li><strong>Position Size:</strong> 0.5-1% account risk per trade</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Binary 5-condition breakout with hourly refinement for entry timing. No quality scoring — the presence of a signal is itself the grade, since all five conditions must hold simultaneously. Highly selective: 25 or fewer signals are typical per scan day, which is by design.</p>

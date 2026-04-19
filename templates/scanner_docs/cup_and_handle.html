@@ -1,0 +1,63 @@
+<h2>🎯 What It Does</h2>
+<p>Detects the <strong>classic Cup and Handle pattern</strong> — a rounded "cup" base followed by a shallow "handle" pullback before breakout. One of the most reliable William O'Neil / IBD chart patterns.</p>
+
+<h2>🪜 4-Phase Detection</h2>
+<div class="indicator-box">
+    <strong>Phase 1 — Cup Formation:</strong> Left rim high → rounded low → right rim. Depth 10-30%, duration 20-60 days.
+</div>
+<div class="indicator-box">
+    <strong>Phase 2 — Cup Quality:</strong> U-shape verified (variance &lt; 3% per side), right rim ≥ 80% of left rim height.
+</div>
+<div class="indicator-box">
+    <strong>Phase 3 — Handle Formation:</strong> Tight pullback off right rim. Duration 5-20 days, depth 3-15% of cup right rim.
+</div>
+<div class="indicator-box">
+    <strong>Phase 4 — Breakout Proximity:</strong> Price near handle high, <code>RVOL ≥ 0.8</code>, pattern ≤ 10 days old.
+</div>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>Quality score ≥ <code>quality_threshold = 50</code> (relaxed from 65)</li>
+    <li>Right rim ≥ <code>80%</code> of left rim height (relaxed from 90%)</li>
+    <li>RVOL ≥ <code>min_rvol = 0.8</code> (relaxed from 1.0)</li>
+    <li>Cup depth 10-30%, duration 20-60 days</li>
+    <li>Handle depth 3-15%, duration 5-20 days</li>
+</ul>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>min_cup_days / max_cup_days</td><td>20 / 60</td></tr>
+    <tr><td>min_cup_depth / max_cup_depth</td><td>10% / 30%</td></tr>
+    <tr><td>min_handle_days / max_handle_days</td><td>5 / 20</td></tr>
+    <tr><td>min_handle_depth / max_handle_depth</td><td>3% / 15%</td></tr>
+    <tr><td>right_rim_min</td><td>80% of left rim</td></tr>
+    <tr><td>variance_max_pct (U-shape)</td><td>3% per side</td></tr>
+    <tr><td>quality_threshold</td><td>50</td></tr>
+    <tr><td>min_rvol</td><td>0.8</td></tr>
+    <tr><td>lookback_days</td><td>100</td></tr>
+</table>
+
+<h2>🎯 Quality Score (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
+    <tr><td>Cup Symmetry</td><td>25</td><td>&gt;95% ratio=25, &gt;90%=20, &gt;85%=15, &gt;80%=10, &gt;75%=5</td></tr>
+    <tr><td>Depth/Duration</td><td>25</td><td>Ideal 12-20% depth × 30-50 days = 25 (graduated)</td></tr>
+    <tr><td>Handle Quality</td><td>25</td><td>5-8% depth=15, 5-10 days=10, position in cup</td></tr>
+    <tr><td>Volume Pattern</td><td>15</td><td>Decline in cup=8, current RVOL spike=5-7</td></tr>
+    <tr><td>Breakout Proximity</td><td>10</td><td>Distance to handle high</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, entry_price, cup_low, cup_high_left, cup_high_right, handle_low, handle_high, cup_depth_pct, cup_days, handle_depth_pct, handle_days, symmetry_score, handle_position, signal_strength, signal_type, timeframe, stop_loss, target, risk_reward, rvol</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below handle low (typically 3-5% below entry)</li>
+    <li><strong>Target:</strong> Cup depth projected up from breakout (measured move)</li>
+    <li><strong>Position Size:</strong> 90+=3%, 80-89=2%, 70-79=1%</li>
+    <li><strong>Holding Period:</strong> 4-12 weeks</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Four-phase structural pattern detection with 5-component quality scoring. Thresholds intentionally relaxed (quality 50+, rvol 0.8+, right rim 80%+) for higher signal count. U-shape verification distinguishes cups from V-bottoms.</p>

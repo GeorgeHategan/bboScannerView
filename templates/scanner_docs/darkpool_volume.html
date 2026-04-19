@@ -1,0 +1,58 @@
+<h2>🎯 What It Does</h2>
+<p>Detects <strong>institutional dark pool volume spikes</strong> — large off-exchange trades that reveal hidden accumulation or distribution before the broader market sees it.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> Dark pool trades happen off-exchange so institutions can accumulate large positions without moving the price. A sudden spike in dark pool volume often precedes major moves.
+</div>
+
+<h2>📡 Data Source</h2>
+<p>Reads pre-aggregated signals from MotherDuck table <code>options_data.darkpool_signals</code> (date, ticker, direction, dp_volume, dp_premium, buy_sell_ratio, avg_block_size, etc.).</p>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>Volume ratio ≥ <code>MIN_VOLUME_RATIO = 5.0x</code> (vs 20-day average)</li>
+    <li>Dark pool premium ≥ <code>MIN_PREMIUM = $1,000,000</code></li>
+    <li>Bullish percentage ≥ <code>MIN_BULLISH_PCT = 60%</code> OR <code>direction = BULLISH</code></li>
+    <li>Block size analysis (avg_block_size) for institutional confirmation</li>
+</ul>
+
+<h2>🏷️ Signal Classification</h2>
+<table>
+    <tr><th>Signal Type</th><th>Threshold</th></tr>
+    <tr><td>EXTREME</td><td>volume_ratio ≥ <code>EXTREME_RATIO = 10.0x</code></td></tr>
+    <tr><td>STRONG</td><td>volume_ratio 5.0 - 10.0x</td></tr>
+</table>
+
+<h2>🎯 Signal Strength (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Tiers</th></tr>
+    <tr><td>Volume ratio</td><td>40</td><td>5x=20, 7x=25, 10x=30, 15x+=40</td></tr>
+    <tr><td>Premium size</td><td>30</td><td>$1M=10, $5M=20, $10M+=30</td></tr>
+    <tr><td>Bullish bias</td><td>20</td><td>60%=10, 80%=15, 95%+=20</td></tr>
+    <tr><td>Block size</td><td>10</td><td>50k+=10, 20k+=7, 10k+=5, &lt;10k=2</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>MIN_VOLUME_RATIO</td><td>5.0x</td></tr>
+    <tr><td>EXTREME_RATIO</td><td>10.0x</td></tr>
+    <tr><td>MIN_PREMIUM</td><td>$1,000,000</td></tr>
+    <tr><td>MIN_BULLISH_PCT</td><td>60%</td></tr>
+    <tr><td>LOOKBACK_DAYS (rolling avg)</td><td>20</td></tr>
+    <tr><td>institutional_threshold (block size)</td><td>10,000 shares</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, date, dark_pool_volume, avg_volume_20d, volume_ratio, total_premium, avg_trade_size, bullish_pct, current_price, num_trades, buy_sell_ratio, confidence_score, signal_strength, signal_type, scanner_name, timeframe</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> 3-5% below signal day low</li>
+    <li><strong>Position Size:</strong> Smaller — dark pool signals are leading but can precede moves by days to weeks</li>
+    <li><strong>Holding Period:</strong> 1-4 weeks (needs time for institutional positioning to manifest)</li>
+    <li><strong>Combine with:</strong> Technical setup from another scanner for entry timing</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Reads pre-aggregated dark pool signals; filters for 5x+ volume spike, $1M+ premium, 60%+ bullish bias. Four-component signal strength scoring. Best used as a conviction overlay — not primary entry signal.</p>

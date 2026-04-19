@@ -5653,7 +5653,7 @@ async def scanner_performance(request: Request):
 async def scanner_docs(request: Request):  # email: str = Depends(require_login)  # TODO: Re-enable after OAuth setup
     """Display documentation landing page with all scanners."""
     conn = get_db_connection(DUCKDB_PATH)
-    
+
     # Get scanner info
     scanner_data = conn.execute("""
         SELECT scanner_name, COUNT(*) as count
@@ -5661,8 +5661,23 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
         GROUP BY scanner_name
         ORDER BY scanner_name
     """).fetchall()
-    
+
     conn.close()
+
+    # Compute last updated from most recently modified scanner doc file
+    docs_last_updated = None
+    try:
+        docs_dir = os.path.join(os.path.dirname(__file__), 'templates', 'scanner_docs')
+        if os.path.isdir(docs_dir):
+            mtimes = [
+                os.path.getmtime(os.path.join(docs_dir, f))
+                for f in os.listdir(docs_dir)
+                if f.endswith('.html')
+            ]
+            if mtimes:
+                docs_last_updated = datetime.fromtimestamp(max(mtimes)).strftime('%B %d, %Y')
+    except Exception as e:
+        print(f"Could not compute docs last updated: {e}")
     
     # Scanner descriptions
     scanner_descriptions = {
@@ -5693,7 +5708,8 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
     
     return templates.TemplateResponse('scanner_docs.html', {
         'request': request,
-        'scanners': scanners
+        'scanners': scanners,
+        'docs_last_updated': docs_last_updated
     })
 
 
