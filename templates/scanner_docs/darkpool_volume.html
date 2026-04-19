@@ -1,32 +1,58 @@
 <h2>🎯 What It Does</h2>
-<p>Detects <strong>institutional dark pool volume spikes</strong> — large off-exchange trades that reveal hidden accumulation or distribution before the broader market sees it.</p>
+<p>Detects <strong>institutional dark pool volume spikes</strong> — unusual bursts of off-exchange trading that signal hidden accumulation or distribution before the move becomes visible on the regular tape.</p>
 
 <div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
-    <strong>💡 Key Concept:</strong> Dark pool trades happen off-exchange so institutions can accumulate large positions without moving the price. A sudden spike in dark pool volume often precedes major moves.
+    <strong>💡 Key Concept:</strong> Dark pools are private venues where large institutions trade <em>without</em> showing their intent on the public order book. When dark pool volume suddenly spikes 5-10× normal with a bullish bias and high dollar premium, an institution is almost certainly building a position. The retail market typically lags this signal by 1-3 days.
 </div>
 
 <h2>📡 Data Source</h2>
-<p>Reads pre-aggregated signals from MotherDuck table <code>options_data.darkpool_signals</code> (date, ticker, direction, dp_volume, dp_premium, buy_sell_ratio, avg_block_size, etc.).</p>
+<p>Reads pre-aggregated signals from the MotherDuck table <code>options_data.darkpool_signals</code>. Fields include <code>date, ticker, direction, dp_volume, dp_premium, buy_sell_ratio, avg_block_size, bullish_pct</code>. The upstream pipeline aggregates TAQ and FINRA dark pool prints into these daily signals; the scanner just filters and scores.</p>
 
-<h2>✅ Entry Criteria</h2>
-<ul>
-    <li>Volume ratio ≥ <code>MIN_VOLUME_RATIO = 5.0x</code> (vs 20-day average)</li>
-    <li>Dark pool premium ≥ <code>MIN_PREMIUM = $1,000,000</code></li>
-    <li>Bullish percentage ≥ <code>MIN_BULLISH_PCT = 60%</code> OR <code>direction = BULLISH</code></li>
-    <li>Block size analysis (avg_block_size) for institutional confirmation</li>
-</ul>
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Volume Ratio (20-Day Rolling)</div>
+    <p>Today's dark pool volume vs the 20-day rolling average of dark pool volume for that symbol. <code>MIN_VOLUME_RATIO = 5.0×</code> is the floor for consideration; <code>EXTREME_RATIO = 10.0×</code> flips the signal type from STRONG to EXTREME.</p>
+    <p><strong>Formula:</strong> <code>today_dp_volume / mean(last_20d_dp_volume)</code></p>
+    <p><strong>Impact:</strong> Up to 40 points of the total 100. This is the single biggest component because volume anomalies are the clearest institutional footprint.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Dollar Premium</div>
+    <p>Total dollar value of dark pool trades on the signal day. Must exceed <code>MIN_PREMIUM = $1,000,000</code>. This filter distinguishes real institutional flow from retail-sized or algo-fragmented prints.</p>
+    <p><strong>Logic:</strong> A $10M premium signal carries institutional conviction; a $500k signal is noise in large-cap stocks.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Bullish Percentage / Direction</div>
+    <p>Percent of the day's dark pool prints executed near the ask (bullish / buying) vs near the bid (bearish / selling). Minimum <code>MIN_BULLISH_PCT = 60%</code> OR explicit <code>direction = BULLISH</code> classification from the upstream pipeline.</p>
+    <p><strong>Impact:</strong> 95%+ bullish scores 20 pts; 80%+ scores 15; 60%+ scores 10.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Average Block Size</div>
+    <p>Avg shares per print on the signal day. Institutions often execute in large blocks (≥ 10,000 shares per print); the larger the block, the stronger the conviction the signal represents.</p>
+    <p><strong>Tiers:</strong> 50k+ = 10 pts, 20k+ = 7, 10k+ = 5, &lt; 10k = 2.</p>
+</div>
 
 <h2>🏷️ Signal Classification</h2>
 <table>
     <tr><th>Signal Type</th><th>Threshold</th></tr>
-    <tr><td>EXTREME</td><td>volume_ratio ≥ <code>EXTREME_RATIO = 10.0x</code></td></tr>
-    <tr><td>STRONG</td><td>volume_ratio 5.0 - 10.0x</td></tr>
+    <tr><td>EXTREME</td><td>volume_ratio ≥ <code>EXTREME_RATIO = 10.0×</code></td></tr>
+    <tr><td>STRONG</td><td>volume_ratio 5.0 - 10.0×</td></tr>
 </table>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>Volume ratio ≥ <code>MIN_VOLUME_RATIO = 5.0×</code></li>
+    <li>Premium ≥ <code>MIN_PREMIUM = $1,000,000</code></li>
+    <li>Bullish pct ≥ <code>MIN_BULLISH_PCT = 60%</code> OR direction = BULLISH</li>
+</ul>
 
 <h2>🎯 Signal Strength (0-100)</h2>
 <table>
     <tr><th>Component</th><th>Max</th><th>Tiers</th></tr>
-    <tr><td>Volume ratio</td><td>40</td><td>5x=20, 7x=25, 10x=30, 15x+=40</td></tr>
+    <tr><td>Volume ratio</td><td>40</td><td>5×=20, 7×=25, 10×=30, 15×+=40</td></tr>
     <tr><td>Premium size</td><td>30</td><td>$1M=10, $5M=20, $10M+=30</td></tr>
     <tr><td>Bullish bias</td><td>20</td><td>60%=10, 80%=15, 95%+=20</td></tr>
     <tr><td>Block size</td><td>10</td><td>50k+=10, 20k+=7, 10k+=5, &lt;10k=2</td></tr>
@@ -35,8 +61,8 @@
 <h2>⚙️ Thresholds (as coded)</h2>
 <table>
     <tr><th>Parameter</th><th>Value</th></tr>
-    <tr><td>MIN_VOLUME_RATIO</td><td>5.0x</td></tr>
-    <tr><td>EXTREME_RATIO</td><td>10.0x</td></tr>
+    <tr><td>MIN_VOLUME_RATIO</td><td>5.0×</td></tr>
+    <tr><td>EXTREME_RATIO</td><td>10.0×</td></tr>
     <tr><td>MIN_PREMIUM</td><td>$1,000,000</td></tr>
     <tr><td>MIN_BULLISH_PCT</td><td>60%</td></tr>
     <tr><td>LOOKBACK_DAYS (rolling avg)</td><td>20</td></tr>
@@ -49,10 +75,10 @@
 <h2>⚠️ Risk Management</h2>
 <ul>
     <li><strong>Stop Loss:</strong> 3-5% below signal day low</li>
-    <li><strong>Position Size:</strong> Smaller — dark pool signals are leading but can precede moves by days to weeks</li>
-    <li><strong>Holding Period:</strong> 1-4 weeks (needs time for institutional positioning to manifest)</li>
-    <li><strong>Combine with:</strong> Technical setup from another scanner for entry timing</li>
+    <li><strong>Position Size:</strong> Smaller than technical setups — dark pool signals lead but can precede the move by days to weeks</li>
+    <li><strong>Holding Period:</strong> 1-4 weeks</li>
+    <li><strong>Combine with:</strong> A technical entry trigger from another scanner for precise timing — dark pool is the <em>conviction overlay</em>, not the entry signal itself</li>
 </ul>
 
 <h2>📝 Summary</h2>
-<p>Reads pre-aggregated dark pool signals; filters for 5x+ volume spike, $1M+ premium, 60%+ bullish bias. Four-component signal strength scoring. Best used as a conviction overlay — not primary entry signal.</p>
+<p>Four-component scoring on pre-aggregated dark pool data: volume ratio (40), premium (30), bullish bias (20), block size (10). Best used in combination — standalone dark pool signals are noisy, but a dark pool extreme co-occurring with a technical breakout is one of the highest-conviction setups in the suite.</p>

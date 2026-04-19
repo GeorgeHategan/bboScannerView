@@ -1,0 +1,83 @@
+<h2>🎯 What It Does</h2>
+<p>Detects <strong>fresh bullish SuperTrend flips</strong> — moments when the volatility-adjusted SuperTrend band flips from bearish (above price) to bullish (below price), marking the potential start of a new trend leg. Scored across four components for quality filtering.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> SuperTrend is an ATR-based trailing stop that adapts to volatility. When price is above the line, it acts as dynamic support; when below, as resistance. The <em>flip</em> (where the line jumps from above to below price) is the signal — it means volatility-adjusted buyers have taken control.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. SuperTrend Calculation (ATR-Based Bands)</div>
+    <p>SuperTrend uses two bands: upper = <code>hl2 + multiplier × ATR</code>, lower = <code>hl2 - multiplier × ATR</code>, where <code>hl2 = (high + low) / 2</code>. The scanner uses <code>SUPERTREND_PERIOD = 10</code> for ATR and <code>SUPERTREND_MULTIPLIER = 3.0</code>.</p>
+    <p><strong>Direction rule:</strong> When price crosses above the upper band, trend flips bullish. When it crosses below the lower band, trend flips bearish. The active band then acts as a trailing stop.</p>
+    <p><strong>Formula:</strong> <code>ST_upper = (H + L) / 2 + 3.0 × ATR(10)</code></p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Freshness Gate (Flip Within Last 3 Days)</div>
+    <p>The bullish flip must have occurred within <code>MAX_DAYS_SINCE_FLIP = 3</code> days. Older flips are discarded — by day 4+ the setup has usually resolved and entering gives back most of the intended move.</p>
+    <p><strong>Impact:</strong> Day-of-flip scores 25 pts; 1 day old = 20; 2 days = 15; 3+ days = 10.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Flip-Day Volume Confirmation</div>
+    <p>Volume on the flip day should be ≥ 1.2× the recent average. Low-volume flips are more likely to whipsaw back.</p>
+    <p><strong>Impact:</strong> ≥ 2.0× = 25 pts; ≥ 1.5× = 20; ≥ 1.2× = 15; ≥ 1.0× = 10; else = 5.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Distance-to-Line (Sweet Spot 1-5%)</div>
+    <p>The distance between current price and the SuperTrend line is scored with a sweet spot. Too close (&lt; 0.5%) is a weak signal that might immediately re-cross; too far (&gt; 8%) means the move has already happened.</p>
+    <p><strong>Tiers:</strong> 1-5% = 25 pts (ideal); 0.5-1% = 20; 5-8% = 15; &lt; 0.5% = 10; &gt; 8% = 5.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Gain-Since-Flip (Reward Patient Entries)</div>
+    <p>Modest gains (0-3%) since the flip score highest — meaning you're early, not chasing. Zero/negative gains still score 25 (very early); 3-5% = 20; larger gains = only 10 (already extended).</p>
+</div>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>SuperTrend just flipped bullish within last 3 days (<code>MAX_DAYS_SINCE_FLIP = 3</code>)</li>
+    <li>Price currently above SuperTrend line (<code>supertrend_direction == 1</code>)</li>
+    <li>Stock price ≥ <code>MIN_PRICE = $5.00</code></li>
+    <li>Avg dollar volume ≥ <code>MIN_AVG_DOLLAR_VOLUME = $50,000,000</code></li>
+</ul>
+
+<h2>🎯 Signal Strength (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Tiers</th></tr>
+    <tr><td>Freshness</td><td>25</td><td>0d=25, 1d=20, 2d=15, 3d+=10</td></tr>
+    <tr><td>Volume on flip day</td><td>25</td><td>≥2×=25, ≥1.5×=20, ≥1.2×=15, ≥1.0×=10, else=5</td></tr>
+    <tr><td>Distance to line (sweet spot)</td><td>25</td><td>1-5%=25, 0.5-1%=20, 5-8%=15, &lt;0.5%=10, &gt;8%=5</td></tr>
+    <tr><td>Gain since flip</td><td>25</td><td>0-3%=25, 3-5%=20, &lt;0%=5, else=10</td></tr>
+</table>
+<p>Final: <code>quality_score = min(100, score)</code></p>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>SUPERTREND_PERIOD</td><td>10 (ATR period)</td></tr>
+    <tr><td>SUPERTREND_MULTIPLIER</td><td>3.0</td></tr>
+    <tr><td>MAX_DAYS_SINCE_FLIP</td><td>3</td></tr>
+    <tr><td>min_volume_spike</td><td>1.2× (20% above average)</td></tr>
+    <tr><td>MIN_AVG_DOLLAR_VOLUME</td><td>$50,000,000</td></tr>
+    <tr><td>MIN_PRICE</td><td>$5.00</td></tr>
+    <tr><td>Lookback days</td><td>100</td></tr>
+    <tr><td>Distance sweet spot</td><td>0.5-5%</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, quality_score, days_since_flip, flip_date, flip_price, current_price, supertrend_level, distance_pct, gain_since_flip, volume_spike, avg_volume, current_volume, avg_dollar_volume, chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below SuperTrend line itself (natural volatility-adjusted stop)</li>
+    <li><strong>Trailing Stop:</strong> Exit on bearish SuperTrend flip</li>
+    <li><strong>Position Size:</strong> Normal (1-2% risk)</li>
+    <li><strong>Holding Period:</strong> Weeks to months (trend-following)</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Four-component equal-weight scoring (25 pts each) on fresh bullish SuperTrend flips. ATR-based stop means the system self-adjusts to volatility. Best held until an opposing flip — which is also the natural exit signal.</p>

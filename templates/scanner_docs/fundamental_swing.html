@@ -1,5 +1,42 @@
 <h2>🎯 What It Does</h2>
-<p>Hybrid scanner combining <strong>fundamental quality (60%)</strong> with <strong>technical entry timing (40%)</strong>. Targets value-plus-momentum swing trades with 14-30 day holding period.</p>
+<p>A <strong>hybrid quality + timing scanner</strong>. Combines seven fundamental factors (60% weight) with five technical entry factors (40% weight) into a single composite score. Targets swing trades with 14-30 day holding horizons where <em>both</em> the company quality and the entry timing matter.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> Pure-technical scanners catch fast moves but include garbage companies. Pure-fundamental screens find great companies but terrible entry points. This scanner demands both. The 60/40 weight reflects that <em>what</em> you buy matters more than <em>when</em> — but timing still determines whether your stop holds.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Valuation Cluster (P/E + PEG)</div>
+    <p>Ideal P/E: 10-20 (20 pts). Ideal PEG: below 1.0 (15 pts). P/E alone is noisy; PEG normalizes it against growth. Stocks scoring well on both are reasonably priced <em>and</em> growing — the classic Peter Lynch GARP setup.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Profitability Cluster (Margin + ROE)</div>
+    <p>Profit margin ≥ 20% = 15 pts. ROE ≥ 20% = 15 pts. These two together filter for companies that turn revenue into profit <em>and</em> reinvest that profit at high returns — the hallmark of compounding businesses.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Balance Sheet + Income (Debt + Dividend + Analyst Upside)</div>
+    <p>Debt/Equity &lt; 30 = 15 pts. Dividend yield 2-5% = 10 pts. Analyst target upside ≥ 20% = 10 pts. These three round out the fundamental score with solvency, shareholder returns, and forward-looking sentiment.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Trend Alignment (30 pts — largest technical component)</div>
+    <p>Requires <code>price &gt; SMA 20 &gt; SMA 50 &gt; SMA 200</code>. All four in stack order. This is the strongest possible trend confirmation on a single timeframe.</p>
+    <p><strong>Logic:</strong> Quality companies in downtrends keep going down. The stack filter prevents "value trap" entries.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. RSI Sweet Spot + MACD</div>
+    <p>RSI 14 in 40-60 range = 25 pts (not overbought, not oversold). MACD above signal line = 20 pts (momentum aligned). Together they catch pullback-to-MA entries rather than chase-the-breakout entries.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">6. Volume + Pullback Confirmation</div>
+    <p>Recent volume ≥ 1.2× 20-day average = 15 pts (accumulation showing up). Distance from SMA 20 in -5% to +2% range = 10 pts (fresh pullback entry, not extended).</p>
+</div>
 
 <h2>📊 Fundamental Score (0-100, 60% weight)</h2>
 <table>
@@ -19,7 +56,7 @@
     <tr><td>Trend alignment</td><td>Price &gt; SMA20 &gt; SMA50 &gt; SMA200</td><td>30</td></tr>
     <tr><td>RSI 14</td><td>40-60 (sweet spot)</td><td>25</td></tr>
     <tr><td>MACD bullish</td><td>Above signal line</td><td>20</td></tr>
-    <tr><td>Volume trend</td><td>≥ 1.2x 20-day avg</td><td>15</td></tr>
+    <tr><td>Volume trend</td><td>≥ 1.2× 20-day avg</td><td>15</td></tr>
     <tr><td>Pullback to support</td><td>-5% to +2% from SMA20</td><td>10</td></tr>
 </table>
 
@@ -28,8 +65,8 @@
     <li>Combined score = <code>(fundamental × 0.6) + (technical × 0.4) ≥ 60</code></li>
     <li>Price above SMA 20, SMA 50, SMA 200 (trend alignment)</li>
     <li>RSI 14 in 30-70 range</li>
-    <li>MACD bullish</li>
-    <li>Recent volume &gt; 1.2x average</li>
+    <li>MACD bullish (above signal line)</li>
+    <li>Recent volume &gt; 1.2× average</li>
 </ul>
 
 <h2>🏆 Quality Tiers</h2>
@@ -43,6 +80,11 @@
 <h2>📤 Output Columns</h2>
 <p><code>symbol, name, sector, industry, fundamental_score, entry_score, combined_score, current_price, pe_ratio, peg_ratio, profit_margin, roe, debt_to_equity, dividend_yield, target_price, sma20, rsi, macd_signal, holding_period, volatility, chart</code></p>
 
+<h2>⚠️ Known Issue</h2>
+<div class="alert">
+    <strong>Calibration note:</strong> Historical results show most signals scoring exactly 50.0 — indicates some fundamental components may default to a neutral value when upstream data is missing. Review fundamental data completeness before relying on the composite score for production trades.
+</div>
+
 <h2>⚠️ Risk Management</h2>
 <ul>
     <li><strong>Stop Loss:</strong> Below SMA 50 or recent swing low (~5-8%)</li>
@@ -51,10 +93,5 @@
     <li><strong>Position Size:</strong> Larger than momentum scans — quality-based, lower turnover</li>
 </ul>
 
-<h2>⚠️ Known Issue</h2>
-<div class="alert">
-    <strong>Calibration note:</strong> Historical results show most signals scoring exactly 50.0 — indicates some components may be producing default values when fundamental data is missing. Review data completeness before relying on the composite score.
-</div>
-
 <h2>📝 Summary</h2>
-<p>Weighted composite of 7 fundamental and 5 technical factors. Threshold 60 required; 80+ excellent. Best for longer-horizon swing trades where both quality and timing matter. Do not use for short-term momentum plays.</p>
+<p>Weighted 7-fundamental + 5-technical composite. Best for longer-horizon swing trades where company quality matters alongside timing. Not suitable for short-term momentum plays — for those, use momentum_burst or breakout scanners.</p>

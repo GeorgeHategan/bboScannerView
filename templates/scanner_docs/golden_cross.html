@@ -1,17 +1,54 @@
 <h2>🎯 What It Does</h2>
-<p>Detects <strong>Golden Cross events</strong> — when a fast moving average crosses above a slow one, signaling a potential long-term trend change.</p>
+<p>Detects <strong>Golden Cross events</strong> — when a fast moving average crosses above a slow one, signaling a potential long-term trend change. Scored across six components to distinguish genuine regime changes from low-quality crossovers.</p>
 
 <div class="alert">
-    <strong>⚠️ Important:</strong> This scanner uses <strong>20-day MA crossing above 200-day MA</strong> — not the textbook 50/200. The 20-day crossover is more responsive but fires more often.
+    <strong>⚠️ Important:</strong> This scanner uses <strong>20-day MA crossing above 200-day MA</strong> — not the textbook <em>50/200</em>. The 20-day crossover is faster and more actionable, but fires more often and therefore requires the quality filters below to separate real regime changes from noise.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. 20/200 Crossover Detection</div>
+    <p>Looks for a fresh crossover within the last 5 trading days (<code>cross_lookback_days = 5</code>). The 20 DMA must close above the 200 DMA after having been below it; the cross is then marked on the exact day it happened.</p>
+    <p><strong>Logic:</strong> Freshness matters — day-of-cross entries score 30 pts, 5-day-old crosses score only 10. After 10+ days the setup has usually already moved.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Flat 200 DMA Filter (Regime Change vs Acceleration)</div>
+    <p>The 200 DMA slope must be &lt; <code>max_200ma_slope = 5.0%</code>. This is the single most important quality filter — it distinguishes genuine trend <em>reversals</em> from mere <em>accelerations</em> of an existing uptrend.</p>
+    <p><strong>Logic:</strong> If the 200 DMA is already trending up sharply, a 20/200 cross is just a late reaction to an existing trend, not a regime change. Flat 200s produce the most durable post-cross trends.</p>
+    <p><strong>Formula:</strong> <code>(sma_200[today] - sma_200[20d ago]) / sma_200[20d ago] &lt; 5%</code></p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Cross-Day Volume Confirmation</div>
+    <p>Volume on the cross day itself should be ≥ 1.5× average. Cross-day volume ratio is scored independently from the volume trend (next concept).</p>
+    <p><strong>Impact:</strong> Up to 10 pts. 3× volume on the cross day = 10 pts; 1.2× = 4 pts.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Price-vs-200-at-Cross (40% vs 18% Success)</div>
+    <p>A powerful statistical filter: crosses where price was <em>above</em> the 200 SMA at the moment of cross historically succeed at ~40%; crosses where price was <em>below</em> succeed at only ~18%.</p>
+    <p><strong>Impact:</strong> Price ≥ 8% above 200 at cross = 15 pts; &gt; 5% = 13; &gt; 3% = 11; &gt; 1% = 8; just above = 5.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. MA Separation (Not Too Tight, Not Too Wide)</div>
+    <p>Separation between 20 DMA and 200 DMA is scored best in the 1.5-4% range. Too tight = marginal cross that may re-cross back; too wide = stock has already run and cross is late.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">6. Volume Trend (Accumulation Leading In)</div>
+    <p>Compares recent volume to historical volume. A rising trend (+50%+) signals institutions were already accumulating into the cross = 10 pts.</p>
 </div>
 
 <h2>✅ Entry Criteria</h2>
 <ul>
-    <li>20 DMA crosses above 200 DMA within last 5 days (<code>lookback = 5</code>)</li>
-    <li>200 DMA slope &lt; <code>max_200ma_slope = 5.0%</code> (relatively flat — trend change, not acceleration)</li>
+    <li>20 DMA crosses above 200 DMA within last 5 days</li>
+    <li>200 DMA slope &lt; <code>max_200ma_slope = 5.0%</code></li>
     <li>Price currently above BOTH 20 DMA and 200 DMA</li>
-    <li>Price was ABOVE 200 SMA at the time of cross (40% success rate vs 18% below)</li>
-    <li>Volume on cross day ≥ <code>1.5x</code> average (confirmation)</li>
+    <li>Price was ABOVE 200 SMA at the time of cross</li>
+    <li>Volume on cross day ≥ <code>1.5×</code> average</li>
     <li>RSI ≥ <code>50</code> at cross (momentum present)</li>
     <li>Avg volume ≥ <code>min_volume = 100,000</code></li>
     <li>Signal strength ≥ <code>min_signal_strength = 60</code></li>
@@ -25,7 +62,7 @@
     <tr><td>MA separation</td><td>15</td><td>1.5-4%=15, 1-5%=12, 0.5-6%=9, 0.2-8%=6, else=3</td></tr>
     <tr><td>Volume trend</td><td>10</td><td>&gt;50%=10, &gt;30%=8, &gt;20%=6, &gt;10%=4, &gt;0%=2</td></tr>
     <tr><td>Price vs 200 at cross</td><td>15</td><td>&gt;8%=15, &gt;5%=13, &gt;3%=11, &gt;1%=8, &gt;0%=5</td></tr>
-    <tr><td>Volume ratio at cross</td><td>10</td><td>≥3x=10, ≥2.5x=9, ≥2x=8, ≥1.5x=6, ≥1.2x=4</td></tr>
+    <tr><td>Volume ratio at cross</td><td>10</td><td>≥3×=10, ≥2.5×=9, ≥2×=8, ≥1.5×=6, ≥1.2×=4</td></tr>
 </table>
 <p>Final: <code>min(100, max(60, score))</code> — signals below 60 are discarded.</p>
 
@@ -34,7 +71,7 @@
     <tr><th>Parameter</th><th>Value</th></tr>
     <tr><td>max_200ma_slope</td><td>5.0%</td></tr>
     <tr><td>min_volume</td><td>100,000</td></tr>
-    <tr><td>min_volume_ratio</td><td>1.0-1.2x</td></tr>
+    <tr><td>min_volume_ratio</td><td>1.0-1.2×</td></tr>
     <tr><td>min_rsi</td><td>50</td></tr>
     <tr><td>cross_lookback_days</td><td>5-20</td></tr>
     <tr><td>min_signal_strength</td><td>60</td></tr>
@@ -53,4 +90,4 @@
 </ul>
 
 <h2>📝 Summary</h2>
-<p>Six-component score with minimum floor of 60. Uses <strong>20/200</strong> (not classic 50/200). Requires a flat 200 DMA — catches genuine regime changes, filters out accelerations of existing trends.</p>
+<p>Six-component score with a hard floor of 60. Uses <strong>20/200</strong> (not classic 50/200) for faster signals, offset by strict quality filters — especially the 5% max 200 DMA slope, which is the scanner's signature "regime change" filter.</p>

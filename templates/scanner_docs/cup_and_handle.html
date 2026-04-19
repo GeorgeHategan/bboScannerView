@@ -1,28 +1,55 @@
 <h2>🎯 What It Does</h2>
-<p>Detects the <strong>classic Cup and Handle pattern</strong> — a rounded "cup" base followed by a shallow "handle" pullback before breakout. One of the most reliable William O'Neil / IBD chart patterns.</p>
+<p>Detects the <strong>classic Cup and Handle pattern</strong> — a rounded cup-shaped base followed by a shallow handle pullback, then a breakout above the right rim. One of the most durable chart patterns in the William O'Neil / IBD methodology.</p>
 
-<h2>🪜 4-Phase Detection</h2>
-<div class="indicator-box">
-    <strong>Phase 1 — Cup Formation:</strong> Left rim high → rounded low → right rim. Depth 10-30%, duration 20-60 days.
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> The cup is a multi-week <em>reaccumulation</em> base where weak holders exit near the left rim and strong holders rebuild positions at the lows. The handle is a final shakeout before institutions push price above the right rim. Shape matters: a clean "U" shape with tight handle beats a sharp "V" every time.
 </div>
-<div class="indicator-box">
-    <strong>Phase 2 — Cup Quality:</strong> U-shape verified (variance &lt; 3% per side), right rim ≥ 80% of left rim height.
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Cup Formation (Phase 1)</div>
+    <p>The scanner finds three anchor points: the <strong>left rim</strong> (prior high), the <strong>cup low</strong> (bottom), and the <strong>right rim</strong> (recovery high). Duration: 20-60 days. Depth: 10-30% from rim to low.</p>
+    <p><strong>Logic:</strong> Cups shallower than 10% don't represent real accumulation; cups deeper than 30% indicate broken trends, not bases.</p>
 </div>
-<div class="indicator-box">
-    <strong>Phase 3 — Handle Formation:</strong> Tight pullback off right rim. Duration 5-20 days, depth 3-15% of cup right rim.
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Cup Quality — U-Shape Verification (Phase 2)</div>
+    <p>A valid cup is U-shaped, not V-shaped. The scanner measures the variance of daily percent changes on each side of the low. Both halves must have variance &lt; <code>variance_max_pct = 3%</code> per side.</p>
+    <p><strong>Formula:</strong> <code>std(pct_change(left_half)) &lt; 3%</code> AND <code>std(pct_change(right_half)) &lt; 3%</code></p>
+    <p><strong>Symmetry:</strong> The right rim must recover to at least <code>right_rim_min = 80%</code> of left rim height (relaxed from 90% for signal density).</p>
 </div>
-<div class="indicator-box">
-    <strong>Phase 4 — Breakout Proximity:</strong> Price near handle high, <code>RVOL ≥ 0.8</code>, pattern ≤ 10 days old.
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Handle Formation (Phase 3)</div>
+    <p>After the right rim forms, the stock pulls back slightly to form the handle. Duration: 5-20 days. Depth: 3-15% of the right rim. Ideally the handle forms on lighter volume than the cup itself.</p>
+    <p><strong>Logic:</strong> The handle is the final weak-hand shakeout. Too shallow (&lt; 3%) = no shakeout happened. Too deep (&gt; 15%) = new downtrend, not a pause.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Breakout Proximity (Phase 4)</div>
+    <p>Current price near the handle high with RVOL ≥ <code>min_rvol = 0.8</code> (relaxed from 1.0). Pattern must be ≤ 10 days old — older patterns frequently resolve before they can be acted on.</p>
+    <p><strong>Impact:</strong> Proximity scoring gives up to 10 pts — the closer to breakout, the better the R:R.</p>
 </div>
 
 <h2>✅ Entry Criteria</h2>
 <ul>
-    <li>Quality score ≥ <code>quality_threshold = 50</code> (relaxed from 65)</li>
-    <li>Right rim ≥ <code>80%</code> of left rim height (relaxed from 90%)</li>
-    <li>RVOL ≥ <code>min_rvol = 0.8</code> (relaxed from 1.0)</li>
+    <li>Quality score ≥ <code>quality_threshold = 50</code> (relaxed from 65 for signal density)</li>
+    <li>Right rim ≥ <code>80%</code> of left rim height</li>
+    <li>RVOL ≥ <code>min_rvol = 0.8</code></li>
     <li>Cup depth 10-30%, duration 20-60 days</li>
     <li>Handle depth 3-15%, duration 5-20 days</li>
 </ul>
+
+<h2>🎯 Quality Score (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
+    <tr><td>Cup Symmetry</td><td>25</td><td>&gt;95% ratio=25, &gt;90%=20, &gt;85%=15, &gt;80%=10, &gt;75%=5</td></tr>
+    <tr><td>Depth/Duration</td><td>25</td><td>Ideal 12-20% depth × 30-50 days = 25 (graduated)</td></tr>
+    <tr><td>Handle Quality</td><td>25</td><td>5-8% depth=15, 5-10 days=10, position in cup</td></tr>
+    <tr><td>Volume Pattern</td><td>15</td><td>Decline in cup=8, current RVOL spike=5-7</td></tr>
+    <tr><td>Breakout Proximity</td><td>10</td><td>Distance to handle high</td></tr>
+</table>
 
 <h2>⚙️ Thresholds (as coded)</h2>
 <table>
@@ -38,16 +65,6 @@
     <tr><td>lookback_days</td><td>100</td></tr>
 </table>
 
-<h2>🎯 Quality Score (0-100)</h2>
-<table>
-    <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
-    <tr><td>Cup Symmetry</td><td>25</td><td>&gt;95% ratio=25, &gt;90%=20, &gt;85%=15, &gt;80%=10, &gt;75%=5</td></tr>
-    <tr><td>Depth/Duration</td><td>25</td><td>Ideal 12-20% depth × 30-50 days = 25 (graduated)</td></tr>
-    <tr><td>Handle Quality</td><td>25</td><td>5-8% depth=15, 5-10 days=10, position in cup</td></tr>
-    <tr><td>Volume Pattern</td><td>15</td><td>Decline in cup=8, current RVOL spike=5-7</td></tr>
-    <tr><td>Breakout Proximity</td><td>10</td><td>Distance to handle high</td></tr>
-</table>
-
 <h2>📤 Output Columns</h2>
 <p><code>symbol, entry_price, cup_low, cup_high_left, cup_high_right, handle_low, handle_high, cup_depth_pct, cup_days, handle_depth_pct, handle_days, symmetry_score, handle_position, signal_strength, signal_type, timeframe, stop_loss, target, risk_reward, rvol</code></p>
 
@@ -60,4 +77,4 @@
 </ul>
 
 <h2>📝 Summary</h2>
-<p>Four-phase structural pattern detection with 5-component quality scoring. Thresholds intentionally relaxed (quality 50+, rvol 0.8+, right rim 80%+) for higher signal count. U-shape verification distinguishes cups from V-bottoms.</p>
+<p>Four-phase structural detection with 5-component quality scoring. Thresholds intentionally relaxed (quality 50+, rvol 0.8+, right rim 80%+) for signal density. The U-shape variance check is what distinguishes clean cups from V-bottoms.</p>

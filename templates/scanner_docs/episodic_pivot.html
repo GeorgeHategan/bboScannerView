@@ -1,8 +1,81 @@
 <h2>🎯 What It Does</h2>
-<p>Implements the <strong>StockBee Episodic Pivot</strong> methodology — detects gap-ups driven by a fresh catalyst on stocks that were "neglected" (tight price base) prior to the gap. Two-tier output: <code>CONFIRMED</code> vs <code>WATCHLIST</code>.</p>
+<p>Implements the <strong>StockBee Episodic Pivot (EP)</strong> methodology — detects gap-ups driven by a fresh catalyst on stocks that were "neglected" (tight price base) prior to the gap. Produces a two-tier output: <code>CONFIRMED</code> candidates (trade-ready) and <code>WATCHLIST</code> candidates (further monitoring).</p>
 
 <div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
-    <strong>💡 Key Concept:</strong> A true EP = gap + volume + catalyst + tight base + market regime. Missing any ingredient drops the trade to watchlist or skips it.
+    <strong>💡 Key Concept:</strong> An EP is the moment a neglected stock suddenly matters. The "episode" is a catalyst (earnings beat, FDA approval, guidance raise) that forces the market to reprice. The "pivot" is the technical result: a large gap on huge volume. Tight prior base + high-quality catalyst + institutional volume = the highest-probability swing setup in the book.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Two-Tier Classification</div>
+    <p>Every candidate is classified as CONFIRMED (all strict filters pass) or WATCHLIST (looser filters). CONFIRMED candidates are traded; WATCHLIST are monitored in case they tighten up the next day.</p>
+    <p><strong>Logic:</strong> Strict real-time filters (10% gap, premarket vol 3×, &lt;24h catalyst) often disqualify candidates that will still work. The watchlist catches them with relaxed thresholds (5% gap, RVOL 2×, 7-day catalyst) for manual review.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Base Quality — StockBee's "Neglect" Criterion</div>
+    <p>The scanner measures the 60-day price range <em>prior</em> to the gap. Tight bases produce the most explosive EPs because there's no overhead supply from recent buyers.</p>
+    <p><strong>Logic:</strong> A stock that did nothing for 60 days has no sellers watching for "breakeven" to exit. When the catalyst hits, there's no supply to absorb the demand → parabolic move.</p>
+    <ul>
+        <li>&lt; 20% range: 100 pts (tight base — ideal)</li>
+        <li>20-35% range: 60 pts (moderate)</li>
+        <li>35-50% range: 35 pts (wide — less neglected)</li>
+        <li>&lt; 8% total price change: +20 bonus (very neglected)</li>
+        <li>&gt; 20% total price change: -15 penalty (already trending)</li>
+    </ul>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Catalyst Quality Map</div>
+    <p>Not all catalysts are equal. A raised guidance beat trades very differently from an analyst upgrade. The scanner maps catalyst category → quality score.</p>
+    <table>
+        <tr><th>Category</th><th>Score</th></tr>
+        <tr><td>Raised guidance</td><td>95</td></tr>
+        <tr><td>Earnings beat</td><td>90</td></tr>
+        <tr><td>FDA / Regulatory approval</td><td>85</td></tr>
+        <tr><td>Major contract / partnership</td><td>80</td></tr>
+        <tr><td>Major product / business update</td><td>70</td></tr>
+        <tr><td>Strategic corporate event</td><td>65</td></tr>
+        <tr><td>Analyst upgrade</td><td>60</td></tr>
+        <tr><td>Unknown</td><td>20</td></tr>
+    </table>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Early Volume (Premarket + First 15/20 Min)</div>
+    <p>Gap size alone can be misleading — gaps without volume close. The scanner checks FOUR volume signals and accepts any one:</p>
+    <ul>
+        <li>Premarket volume ≥ 3.0× (vs premarket norm)</li>
+        <li>First 15 min volume ≥ 0.75× (of typical hourly)</li>
+        <li>First 20 min volume ≥ 1.0×</li>
+        <li>Fallback RVOL ≥ 3.0× (vs 50-day average)</li>
+    </ul>
+    <p><strong>Logic:</strong> Institutions accumulate in premarket and the first 30 minutes. Strong early volume = institutional participation = move has legs.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Earnings Growth Factor</div>
+    <p>EPs with strong underlying growth outperform. EPS growth YoY maps to a score with a revenue-growth bonus. A 50%+ EPS beat with 30%+ revenue growth scores 115; a negative-EPS gap scores only 25.</p>
+    <table>
+        <tr><th>EPS Growth YoY</th><th>Score</th></tr>
+        <tr><td>≥ 50%</td><td>100</td></tr>
+        <tr><td>25-50%</td><td>75</td></tr>
+        <tr><td>10-25%</td><td>55</td></tr>
+        <tr><td>0-10%</td><td>35</td></tr>
+        <tr><td>&lt; 0% or None</td><td>25</td></tr>
+        <tr><td>Revenue growth ≥ 30%</td><td>+15 bonus</td></tr>
+    </table>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">6. Market Regime Filter (Qullamaggie QQQ Filter)</div>
+    <p>EPs fire best in bullish markets. The scanner classifies the market regime using QQQ 10 EMA vs 20 EMA:</p>
+    <ul>
+        <li><strong>Bullish:</strong> 10 EMA &gt; 20 EMA AND both rising — green light, normal sizing</li>
+        <li><strong>Bearish:</strong> 10 EMA &lt; 20 EMA — reduce size or skip</li>
+        <li><strong>Neutral/Unknown:</strong> proceed with caution</li>
+    </ul>
 </div>
 
 <h2>✅ Entry Criteria — Two Tiers</h2>
@@ -10,54 +83,18 @@
     <tr><th>Criterion</th><th>CONFIRMED</th><th>WATCHLIST</th></tr>
     <tr><td>Min price</td><td>$3.00</td><td>$3.00</td></tr>
     <tr><td>Min gap %</td><td>10.0%</td><td>5.0%</td></tr>
-    <tr><td>Volume (any one)</td><td>Premkt ≥ 3x OR First 15min ≥ 0.75x OR First 20min ≥ 1x OR RVOL ≥ 3x</td><td>RVOL ≥ 2x</td></tr>
+    <tr><td>Volume</td><td>Any one of 4 (see core concept 4)</td><td>RVOL ≥ 2×</td></tr>
     <tr><td>Avg daily volume (50d)</td><td>≥ 300,000</td><td>≥ 300,000</td></tr>
     <tr><td>Avg dollar volume (50d)</td><td>≥ $5,000,000</td><td>—</td></tr>
     <tr><td>Catalyst recency</td><td>Within 24 hours</td><td>Within 7 days</td></tr>
     <tr><td>Exchange quality</td><td colspan="2">Exclude OTC, PINK, OTCBB, GREY; exclude suffixes [-W, -R, -U, -P, .WS, .RT]</td></tr>
 </table>
 
-<h2>🏛️ Base Quality (StockBee Neglect Criterion)</h2>
-<p>Evaluates 60-day price range <em>prior</em> to the gap. Tighter base = more explosive move when catalyst hits.</p>
-<table>
-    <tr><th>60-day Range</th><th>Score</th></tr>
-    <tr><td>&lt; 20% (tight base)</td><td>100</td></tr>
-    <tr><td>20-35% (moderate)</td><td>60</td></tr>
-    <tr><td>35-50% (wide)</td><td>35</td></tr>
-    <tr><td>&lt; 8% price change (very neglected)</td><td>+20 bonus</td></tr>
-    <tr><td>&gt; 20% price change (trending)</td><td>-15 penalty</td></tr>
-</table>
-
-<h2>📰 Catalyst Quality Map</h2>
-<table>
-    <tr><th>Category</th><th>Score</th></tr>
-    <tr><td>Raised guidance</td><td>95</td></tr>
-    <tr><td>Earnings beat</td><td>90</td></tr>
-    <tr><td>FDA / Regulatory approval</td><td>85</td></tr>
-    <tr><td>Major contract / partnership</td><td>80</td></tr>
-    <tr><td>Major product / business update</td><td>70</td></tr>
-    <tr><td>Strategic corporate event</td><td>65</td></tr>
-    <tr><td>Analyst upgrade</td><td>60</td></tr>
-    <tr><td>Unknown</td><td>20</td></tr>
-</table>
-
-<h2>📊 Earnings Growth Score</h2>
-<table>
-    <tr><th>EPS Growth YoY</th><th>Score</th></tr>
-    <tr><td>≥ 50%</td><td>100</td></tr>
-    <tr><td>25-50%</td><td>75</td></tr>
-    <tr><td>10-25%</td><td>55</td></tr>
-    <tr><td>0-10%</td><td>35</td></tr>
-    <tr><td>&lt; 0% or None</td><td>25</td></tr>
-    <tr><td>Revenue growth ≥ 30%</td><td>+15 bonus</td></tr>
-    <tr><td>Revenue growth 10-30%</td><td>+8 bonus</td></tr>
-</table>
-
 <h2>🎯 Final EP Score (Weighted Composite, 0-100)</h2>
 <table>
     <tr><th>Component</th><th>Weight</th><th>Raw Scoring</th></tr>
     <tr><td>Gap size</td><td>20%</td><td>10%=40, 15%=70, 25%+=100</td></tr>
-    <tr><td>Early volume</td><td>20%</td><td>3x=40, 5x=70, 8x+=100</td></tr>
+    <tr><td>Early volume</td><td>20%</td><td>3×=40, 5×=70, 8×+=100</td></tr>
     <tr><td>Catalyst quality</td><td>15%</td><td>See catalyst map</td></tr>
     <tr><td>Base quality</td><td>15%</td><td>See base scoring</td></tr>
     <tr><td>Earnings growth</td><td>10%</td><td>See growth scoring</td></tr>
@@ -65,13 +102,6 @@
     <tr><td>Float size</td><td>5%</td><td>&lt;25M=100, 25-50M=60, &gt;50M=30</td></tr>
     <tr><td>Contextual quality</td><td>5%</td><td>52wk high=+25, 52wk low=-20, prior 5d extension &gt;20%=-25</td></tr>
 </table>
-
-<h2>🌐 Market Regime Filter (Qullamaggie)</h2>
-<ul>
-    <li><strong>Bullish:</strong> QQQ 10 EMA &gt; 20 EMA AND both rising → green light</li>
-    <li><strong>Bearish:</strong> QQQ 10 EMA &lt; 20 EMA → reduce size or skip</li>
-    <li><strong>Neutral/Unknown:</strong> normal sizing</li>
-</ul>
 
 <h2>⚙️ Config</h2>
 <table>
@@ -86,9 +116,10 @@
 <h2>⚠️ Risk Management</h2>
 <ul>
     <li><strong>Stop Loss:</strong> Below gap-up low or prior day close (typically 3-7%)</li>
-    <li><strong>Position Size:</strong> Scale with EP score — max only if CONFIRMED + bullish regime + score &gt; 80</li>
+    <li><strong>Position Size:</strong> Scale with EP score — maximum only if CONFIRMED + bullish regime + score &gt; 80</li>
     <li><strong>Holding Period:</strong> 1-4 weeks (momentum fades quickly)</li>
+    <li><strong>Exit Rule:</strong> Scale out after +15-20%; trail stop on remainder</li>
 </ul>
 
 <h2>📝 Summary</h2>
-<p>Eight-component weighted score fused with a two-tier classifier. Most complex scanner in the suite. Production use requires integration with news/catalyst feed. CONFIRMED candidates are trade-ready; WATCHLIST requires further confirmation.</p>
+<p>Eight-component weighted composite fused with a two-tier CONFIRMED/WATCHLIST classifier, plus a regime filter overlay. The most complex scanner in the suite. Production use requires an integrated news/catalyst feed.</p>

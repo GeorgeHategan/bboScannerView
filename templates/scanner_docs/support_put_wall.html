@@ -1,0 +1,101 @@
+<h2>🎯 What It Does</h2>
+<p>Combines <strong>technical swing-low support</strong> with <strong>options put wall positioning</strong> to identify stocks trading just above a <em>double-reinforced</em> floor. The thesis: when a technical support level lines up with a heavy put-wall strike below, that level tends to hold hard.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> Market-maker put walls create a "gamma wall" that reluctantly gets pushed through — dealers must buy stock to hedge if price approaches the strike, providing mechanical demand. When that same level also shows multiple prior swing-low touches, you have both a <em>psychological</em> floor (technical) and a <em>mechanical</em> floor (options flow).
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Swing-Low Support Clustering</div>
+    <p>The scanner scans the last 60 days for swing lows and clusters them by price within <code>support_tolerance = 3.0%</code>. A level with ≥ 2 touches, separated by at least 3 trading days, qualifies as support.</p>
+    <p><strong>Logic:</strong> More touches + longer time spread = stronger memory. Levels defended across 30+ days score higher than levels defended twice this week.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Put Wall Open Interest</div>
+    <p>Reads today's options flow from the options_data database. A qualifying put wall has OI ≥ <code>5,000 contracts</code> (<code>min_put_wall_oi</code>) at a strike below current price, within <code>max_put_wall_distance = 15%</code> of price.</p>
+    <p><strong>Scoring tiers:</strong> 100k+ OI = 15 pts; 50k+ = 12; 20k+ = 9; 10k+ = 6; 5k+ = 3.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Stacked Put Walls (Primary + Secondary + Tertiary)</div>
+    <p>Beyond the largest put wall, the scanner also credits secondary and tertiary walls. Multiple walls stacked below price create a "put wall staircase" — price has to break through several dealer hedges to go lower.</p>
+    <p><strong>Bonus:</strong> Secondary ≥ 20k = 5 pts, ≥ 10k = 3. Tertiary ≥ 20k = 5, ≥ 10k = 2.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Wall-to-Support Alignment</div>
+    <p>Highest-quality signals have the put wall strike landing <em>right at</em> technical support. The scanner scores alignment: wall strike within -2% to +5% of support = 10 pts; within 10% = 6 pts; within 15% = 3 pts.</p>
+    <p><strong>Logic:</strong> Technical support alone is defensible but can break. Options support alone can shift as walls roll. When both point to the same price, the level has the highest probability of holding.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Entry Position (Above Support, Not Below)</div>
+    <p>Price must be ≥ support level and within <code>max_distance_to_support = 8%</code> above it. Below support = the level has broken, disqualify. Above 8% = stop would be too wide for reasonable position sizing.</p>
+    <p><strong>Scoring:</strong> Within 2% above = 10 pts; within 4% = 8; within 6% = 5; within 8% = 3.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">6. Put/Call Ratio Context</div>
+    <p>An elevated put/call ratio (≥ 1.0) indicates bearish positioning — but contrarians see this as "puts to eat" above support, setting up gamma squeeze conditions when price bounces.</p>
+    <p><strong>Bonus:</strong> P/C ≥ 1.0 = 5 pts; ≥ 0.5 = 3 pts.</p>
+</div>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>≥ 2 swing lows within <code>support_tolerance = 3%</code></li>
+    <li>Put wall OI ≥ <code>min_put_wall_oi = 5,000</code></li>
+    <li>Price within 8% above support (NOT below)</li>
+    <li>Put wall strike below current price</li>
+    <li>Put wall strike within 15% below price</li>
+    <li>Signal strength ≥ <code>MIN_SIGNAL_STRENGTH = 50</code></li>
+    <li>Stock price <code>$5 ≤ price ≤ $500</code></li>
+    <li>Avg volume ≥ 100,000</li>
+</ul>
+
+<h2>🎯 Signal Strength (0-100)</h2>
+<table>
+    <tr><th>Group</th><th>Component</th><th>Max Points</th></tr>
+    <tr><td rowspan="3"><strong>Support (40)</strong></td><td>Touches</td><td>20 (4+=20, 3=15, 2=10)</td></tr>
+    <tr><td>Time spread</td><td>10 (30d+=10, 14d+=7, 7d+=4)</td></tr>
+    <tr><td>Distance to support</td><td>10 (≤3%=10, ≤5%=8, ≤8%=5)</td></tr>
+    <tr><td rowspan="5"><strong>Put Wall (40)</strong></td><td>Primary OI</td><td>15 (100k=15, 50k=12, 20k=9, 10k=6, 5k=3)</td></tr>
+    <tr><td>Secondary wall</td><td>5 (20k=5, 10k=3)</td></tr>
+    <tr><td>Tertiary wall</td><td>5 (20k=5, 10k=2)</td></tr>
+    <tr><td>Proximity</td><td>10 (2-5% below=10, 5-10%=7, 10-15%=4)</td></tr>
+    <tr><td>Put/Call ratio</td><td>5 (≥1.0=5, ≥0.5=3)</td></tr>
+    <tr><td rowspan="2"><strong>Position (20)</strong></td><td>Distance above support</td><td>10 (≤2%=10, ≤4%=8, ≤6%=5, ≤8%=3)</td></tr>
+    <tr><td>Wall-to-support alignment</td><td>10 (-2% to +5%=10, ≤10%=6, ≤15%=3)</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>min_support_touches</td><td>2</td></tr>
+    <tr><td>support_tolerance</td><td>3.0%</td></tr>
+    <tr><td>lookback_days (swing lows)</td><td>60</td></tr>
+    <tr><td>min_support_spacing</td><td>3 days</td></tr>
+    <tr><td>min_put_wall_oi</td><td>5,000</td></tr>
+    <tr><td>max_put_wall_distance</td><td>15% below</td></tr>
+    <tr><td>max_distance_to_support</td><td>8% above</td></tr>
+    <tr><td>min_price / max_price</td><td>$5 / $500</td></tr>
+    <tr><td>min_volume</td><td>100,000</td></tr>
+    <tr><td>MIN_SIGNAL_STRENGTH</td><td>50</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, price, support_level, support_touches, put_wall_strike, put_wall_oi, put_wall_2_strike, put_wall_2_oi, put_wall_3_strike, put_wall_3_oi, total_put_oi, put_call_ratio, gamma_flip, gamma_regime, distance_to_support_pct, distance_to_put_wall_pct, support_score, put_wall_score, position_score, signal_strength, suggested_stop, risk_pct, atr, sma_20, sma_50, avg_volume, signal_type, timeframe</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below the put wall strike (not below support — the wall is the deeper floor)</li>
+    <li><strong>Target:</strong> Prior swing high or R:R ≥ 2:1</li>
+    <li><strong>Position Size:</strong> 1-2% risk — tighter stops enable larger positions</li>
+    <li><strong>Holding Period:</strong> 2-4 weeks typical</li>
+    <li><strong>Exit Rule:</strong> Abort if the put wall materially shifts (OI drains or strike moves lower)</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Three-group weighted score (support 40 + put wall 40 + position 20) combining technical swing-lows with options flow data. Requires integration with the options_data database for put wall OI. Best used on mid-to-large-cap names where options flow is meaningful.</p>

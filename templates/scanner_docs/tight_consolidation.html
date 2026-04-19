@@ -1,0 +1,97 @@
+<h2>🎯 What It Does</h2>
+<p>Detects <strong>volatility-contraction bases</strong> — stocks coiling in a tight, low-volatility range after a prior uptrend, with Bollinger Band width compressed vs its own history. Based on Mark Minervini's VCP (Volatility Contraction Pattern) methodology.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> Tight consolidation is the precursor to explosive moves. When a stock's range contracts <em>and</em> its Bollinger Width hits a multi-month low <em>and</em> the trend structure stays intact — buyers and sellers have reached equilibrium, and the next directional break tends to travel far. It's the classic "tight before loose" market behavior.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Base Range Tightness</div>
+    <p>Over the last 10-25 days, the high-to-low range must be ≤ <code>MAX_BASE_RANGE_PCT = 10%</code> (relaxed from 8% for signal density). A 10% range on a $100 stock means the stock has barely moved — exactly what we want before a breakout.</p>
+    <p><strong>Formula:</strong> <code>(base_high - base_low) / base_low ≤ 10%</code></p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. ATR% Compression</div>
+    <p>Average True Range as a % of price must be ≤ <code>2.0%</code> (relaxed from 1.5%). Low ATR% confirms that <em>daily</em> ranges are also tight, not just the aggregate base.</p>
+    <p><strong>Logic:</strong> Range tightness without ATR tightness is a deception — wide-ranging days that happen to close near each other can still fit in a 10% box. ATR filter eliminates this.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Bollinger Band Width Percentile (6-Month History)</div>
+    <p>Current BBWidth must be in the bottom <code>30%</code> of its own 6-month distribution (<code>BBW_PERCENTILE_THRESH = 0.30</code>, relaxed from 0.25). This is the statistical version of "tightness vs this stock's own normal."</p>
+    <p><strong>Impact:</strong> Stocks that are tight <em>for themselves</em> score better than stocks that are tight <em>in absolute terms</em>. A stock normally moving 2%/day that compresses to 0.5%/day is a stronger signal than one that's always been at 0.5%.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Compression Ratio (40d / 15d Range)</div>
+    <p>Range over the last 40 days divided by range over the last 15 days. Must be ≥ <code>1.8×</code> (relaxed from 2.0). Greater ratios mean the recent window is <em>much</em> tighter than the prior window — active compression.</p>
+    <p><strong>Formula:</strong> <code>(max(last_40d) - min(last_40d)) / (max(last_15d) - min(last_15d)) ≥ 1.8</code></p>
+    <p><strong>Impact:</strong> Up to 20 pts — compression ratio 2.5+ scores full marks, graduated down from there.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Trend Structure Gate (MA Alignment)</div>
+    <p>Price &gt; 50 DMA AND MA stack aligned: <code>10 DMA ≥ 20 DMA ≥ 50 DMA</code>. Without this filter, consolidation scans catch stocks that are dying — we want bases in <em>uptrends</em>, not distribution zones.</p>
+    <p><strong>Overextension guard:</strong> Price must not be &gt; 10% above 200 DMA (stocks too extended usually continue down into their base rather than up out of it).</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">6. Market Regime Filter (SPY + VIX)</div>
+    <p>Only fires when SPY is above its 50 DMA AND VIX is below 25. Tight consolidations work in bullish regimes; in bearish regimes they tend to resolve to the downside.</p>
+</div>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>Base range ≤ <code>MAX_BASE_RANGE_PCT = 10%</code> over 10-25 days</li>
+    <li>ATR% ≤ <code>2.0%</code></li>
+    <li>BBWidth ≤ 30th percentile of 6-month history</li>
+    <li>Compression ratio (40d/15d) ≥ <code>1.8×</code></li>
+    <li>Price above 50 DMA; MA stack <code>10 ≥ 20 ≥ 50</code></li>
+    <li>Not &gt; 10% above 200 DMA</li>
+    <li>Avg dollar volume ≥ <code>$1,000,000</code></li>
+    <li>Quality score ≥ <code>65</code> (lowered from 70)</li>
+</ul>
+
+<h2>🎯 Quality Score (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Tiers</th></tr>
+    <tr><td>Compression ratio</td><td>20</td><td>≥2.5×=20, scales between 1.8-2.5</td></tr>
+    <tr><td>BBWidth percentile</td><td>20</td><td>≤10th pct=20, ≤20th pct=10</td></tr>
+    <tr><td>ATR%</td><td>15</td><td>≤1.2%=15, scales to max_atr_pct</td></tr>
+    <tr><td>Volume behavior</td><td>15</td><td>Declining slope + SMA10&lt;SMA20 volume=15, partial=8</td></tr>
+    <tr><td>MA alignment</td><td>10</td><td>10≥20≥50=10</td></tr>
+    <tr><td>Market regime</td><td>10</td><td>SPY&gt;50DMA and VIX&lt;25=10</td></tr>
+    <tr><td>NR pattern</td><td>10</td><td>NR7/NR21 bar=10</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>MAX_BASE_RANGE_PCT</td><td>10%</td></tr>
+    <tr><td>max_atr_pct</td><td>2.0%</td></tr>
+    <tr><td>BBW_PERCENTILE_THRESH</td><td>30th percentile</td></tr>
+    <tr><td>wide_lookback / tight_lookback</td><td>40 / 15 days</td></tr>
+    <tr><td>MIN_COMPRESSION</td><td>1.8×</td></tr>
+    <tr><td>max_extension_200dma</td><td>10%</td></tr>
+    <tr><td>min_dollar_volume</td><td>$1,000,000</td></tr>
+    <tr><td>VIX_THRESHOLD</td><td>25.0</td></tr>
+    <tr><td>quality_threshold</td><td>65</td></tr>
+    <tr><td>data_lookback</td><td>260 days (for percentile)</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, date, base_days, base_range_pct, atr_pct, bbw, bbw_percentile_6m, compression_ratio, nr_flag, vol_slope, rvol_last, base_high, base_low, trigger_price, logical_stop, stop_pct, rr_estimate, ma10, ma20, ma50, regime_pass, quality_score, setup_stage, entry_price, signal_type, timeframe</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below the base low (reported as <code>logical_stop</code>, typically 3-5% below entry)</li>
+    <li><strong>Target:</strong> 20-50%+ over 4-8 weeks (historical VCP success)</li>
+    <li><strong>Position Size:</strong> Tight stops enable larger positions (1-2% risk = large % size)</li>
+    <li><strong>Holding Period:</strong> Until breakout fires; abandon if base breaks down</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Seven-component VCP-style scoring with market regime gating. Ultra-selective by design — thresholds have been <em>relaxed</em> from tighter originals just to produce a handful of signals. Best used in bullish regimes where tight-before-loose price action is most reliable.</p>

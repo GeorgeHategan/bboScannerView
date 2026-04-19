@@ -1,0 +1,94 @@
+<h2>🎯 What It Does</h2>
+<p>A <strong>volatility-weighted MACD variant</strong> that produces three distinct signal types — <code>expansion_crossover</code>, <code>compression_coiling</code>, and <code>momentum_confirmed</code> — each capturing a different phase of the volatility-momentum cycle.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> Classic MACD ignores volatility — it fires the same way in quiet and chaotic markets. V-MACD weights the momentum reading by ATR%, so a MACD flip during rising volatility is flagged differently than a flip during compression. This separates <em>explosive</em> setups from <em>coiling</em> ones.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. V-MACD Calculation</div>
+    <p>Built on a standard 12/26/9 EMA structure, but scaled by ATR(14) so that readings are comparable across stocks of different volatility profiles.</p>
+    <p><strong>Formula:</strong> <code>V-MACD = EMA(12) − EMA(26)</code>, with histogram = V-MACD − signal_line, signal_line = EMA(9) of V-MACD.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Signal Type A — Expansion Crossover</div>
+    <p>V-MACD crosses above its signal line <em>while ATR% is rising</em> and V-MACD &gt; 0.1. This is the "explosive breakout" mode — momentum flipping bullish at the same moment volatility is expanding.</p>
+    <p><strong>Criteria:</strong> <code>crossover = True</code> AND <code>atr_rising = True</code> AND <code>v_macd &gt; 0.1</code>.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Signal Type B — Compression Coiling</div>
+    <p>V-MACD near zero (|value| &lt; 0.3), histogram flat (|value| &lt; 0.1), ATR% low (&lt; 2.0%). This is the watchlist mode — stock is coiled, but no directional signal yet. Use these for anticipation, not immediate entry.</p>
+    <p><strong>Logic:</strong> Compressed V-MACD with flat histogram = dormant energy. When volatility starts rising, these stocks often flip to expansion-crossover signals — catching them early via coiling gives advance notice.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Signal Type C — Momentum Confirmed</div>
+    <p>V-MACD already above signal line, histogram expanding, ATR rising, and volume ≥ 1.3×. This captures trends that are <em>already</em> in motion with institutional participation — lower R:R than expansion crossovers but higher win rate.</p>
+    <p><strong>Criteria:</strong> <code>v_macd &gt; signal</code> AND <code>histogram_expanding</code> AND <code>atr_rising</code> AND <code>rvol ≥ 1.3</code>.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. ATR% Dual Role (Rising vs Low)</div>
+    <p>ATR% plays opposite roles depending on the signal type. For expansion/confirmed, <em>rising</em> ATR is good (higher scores at 4%+). For coiling, <em>low</em> ATR is good (higher scores below 1.5%). Same metric, inverted grading.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">6. Price Structure Overlay</div>
+    <p>Stock must sit above both SMA50 and SMA20, with distance from SMA20 ≥ 2%. This prevents the scanner from firing V-MACD signals in downtrending charts where the math works but the trade doesn't.</p>
+</div>
+
+<h2>✅ Entry Criteria (any signal type)</h2>
+<ul>
+    <li>Meets one of the three signal-type criteria above</li>
+    <li>Price above SMA 20</li>
+    <li>Stock price <code>$5 ≤ price ≤ $500</code></li>
+    <li>Avg dollar volume ≥ <code>$50,000,000</code></li>
+    <li>Min signal strength ≥ <code>60</code></li>
+</ul>
+
+<h2>🎯 Signal Strength (0-100)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Tiers</th></tr>
+    <tr><td>V-MACD strength</td><td>30</td><td>Expansion: &gt;1.0=30, &gt;0.5=25, &gt;0.3=20, &gt;0.1=15 / Coiling: &lt;0.1=30, &lt;0.2=20 / Confirmed: &gt;1.5=30, &gt;1.0=25, &gt;0.5=20</td></tr>
+    <tr><td>Histogram expansion</td><td>25</td><td>&gt;0.5=25, &gt;0.3=20, &gt;0.15=15, &gt;0.05=10, &gt;0=5</td></tr>
+    <tr><td>Volatility trend</td><td>20</td><td>Expansion/Confirmed (rising): &gt;4%=20, &gt;3%=15, &gt;2%=10 / Coiling (low): &lt;1.5%=20, &lt;2%=15, &lt;2.5%=10</td></tr>
+    <tr><td>Volume confirmation</td><td>15</td><td>≥2.0×=15, ≥1.7×=12, ≥1.5×=10, ≥1.3×=7, ≥1.0×=4</td></tr>
+    <tr><td>Price structure</td><td>10</td><td>Above both SMAs, dist&gt;10%=10, &gt;5%=8, &gt;2%=6, else=4</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>EMA fast / slow / signal</td><td>12 / 26 / 9</td></tr>
+    <tr><td>ATR period</td><td>14</td></tr>
+    <tr><td>min_v_macd (crossover)</td><td>0.1</td></tr>
+    <tr><td>min_histogram_expansion</td><td>0.05</td></tr>
+    <tr><td>min_volume_ratio (confirmed)</td><td>1.3×</td></tr>
+    <tr><td>min_price / max_price</td><td>$5 / $500</td></tr>
+    <tr><td>min_dollar_volume</td><td>$50,000,000</td></tr>
+    <tr><td>min_signal_strength</td><td>60</td></tr>
+    <tr><td>lookback_days</td><td>100</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, entry_price, signal_type, signal_strength, v_macd, v_signal, v_histogram, atr_pct, atr_rising, rvol, price_vs_sma20, crossover, histogram_expanding, timeframe, scan_date, chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below recent swing low or SMA 20, typically 4-6% below entry</li>
+    <li><strong>Signal Type Differences:</strong>
+        <ul>
+            <li><em>Expansion:</em> largest positions (highest R:R)</li>
+            <li><em>Confirmed:</em> medium positions (already moving)</li>
+            <li><em>Coiling:</em> watchlist only — no entry until a resolution signal fires</li>
+        </ul>
+    </li>
+    <li><strong>Holding Period:</strong> 1-3 weeks typical</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Five-component scoring with three distinct signal types on a volatility-adjusted MACD. The triple-mode design is the differentiator — coiling signals pre-position the trader, expansion signals are entries, and confirmed signals are add-ons to existing positions.</p>

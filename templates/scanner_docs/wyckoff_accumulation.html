@@ -1,0 +1,96 @@
+<h2>🎯 What It Does</h2>
+<p>Detects stocks in <strong>Wyckoff Phase C / D accumulation</strong> — specifically identifying spring actions (false breakdowns below support that reverse) and signs of strength (high-volume thrusts off the lows). Based on Richard Wyckoff's 1930s method for tracking institutional accumulation.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> Wyckoff's insight: institutions accumulate in <em>trading ranges</em>, not uptrends. They engineer "springs" — deliberate pushes below support on low volume to shake out weak hands — then confirm strength via high-volume thrust bars ("signs of strength"). This scanner detects both, in order: spring first, then SoS.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Trading Range Detection (Phase B Foundation)</div>
+    <p>Before anything else, the scanner identifies a trading range: 10-30 days of price action with width ≤ <code>MAX_RANGE_WIDTH = 13%</code> (balanced from 15%). Without a defined range there's no "support" to spring below.</p>
+    <p><strong>Formula:</strong> <code>(range_high - range_low) / range_low ≤ 13%</code>, over 10-30 days.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Spring Action (Phase C — The Shakeout)</div>
+    <p>A "spring" is a false breakdown: price dips <code>SPRING_DEPTH = 2%</code> below range support on <em>low volume</em> (&lt; <code>SPRING_VOLUME_MULT = 1.5×</code>) and recovers back into the range within <code>3 days</code>.</p>
+    <p><strong>Logic:</strong> Low-volume breakdowns are engineered shakeouts — insiders letting weak hands capitulate at the lows before loading up. The fast recovery confirms there's no real selling pressure below support.</p>
+    <p><strong>Impact:</strong> Spring present = 30 pts, +10 bonus if the spring was recent (≤5 days ago).</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Sign of Strength (Phase D — Institutional Reveal)</div>
+    <p>A "Sign of Strength" (SoS) is a 2.5%+ up bar on ≥ <code>SOS_VOLUME_MULT = 1.8×</code> volume with RSI ≥ 55. This is the moment institutions stop hiding — they absorb supply openly and leave a vol+momentum footprint.</p>
+    <p><strong>Logic:</strong> A spring without an SoS is just a false alarm. A spring followed by an SoS is the textbook Wyckoff accumulation completion — the phase C-to-D transition.</p>
+    <p><strong>Impact:</strong> SoS present = 40 pts, +15 bonus if volume ≥ 2.5× average (very high conviction).</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Volume Profile Contraction (Optional)</div>
+    <p>Ideally, average volume in the second half of the range is <em>lower</em> than the first half — institutions accumulating quietly as the range matures. This is optional (<code>REQUIRE_VOLUME_CONTRACTION = False</code> for signal density), but contributes up to 20 pts when present.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Entry Timing (Reward Early, Penalize Late)</div>
+    <p>Early entries (&gt; 5% below resistance) score +15 bonus — you're catching the trade right as Phase D begins. Late entries (&lt; 2% below resistance) get a -10 penalty — the move is nearly done and R:R is poor.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">6. Sector Context (Historical Performance Bias)</div>
+    <p>Some sectors have historically produced cleaner Wyckoff patterns (Basic Materials, Technology during bases). Others regularly fail these patterns (Energy, Real Estate during this scanner's history). The sector bonus is ±15 pts based on the historical empirical record.</p>
+</div>
+
+<h2>✅ Entry Criteria</h2>
+<ul>
+    <li>Trading range: 10-30 days, width ≤ <code>MAX_RANGE_WIDTH = 13%</code></li>
+    <li>Spring detected: ≥ <code>2%</code> below support on &lt; 1.5× volume, recovered within 3 days</li>
+    <li>Sign of Strength: ≥ 2.5% gain on ≥ 1.8× volume with RSI ≥ 55</li>
+    <li>Price at/near support, NOT at resistance</li>
+    <li>Stock price <code>$10 ≤ price ≤ $500</code> (floor raised from $5)</li>
+    <li>Avg dollar volume ≥ <code>$50,000,000</code></li>
+    <li>Quality score ≥ <code>50</code> (balanced from 70)</li>
+</ul>
+
+<h2>🎯 Signal Strength (0-100+)</h2>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Tiers</th></tr>
+    <tr><td>Spring presence</td><td>40</td><td>Spring detected=30, recent (≤5d)=+10 bonus</td></tr>
+    <tr><td>Sign of Strength</td><td>55</td><td>SoS detected=40, very high vol (≥2.5×)=+15 bonus</td></tr>
+    <tr><td>Volume profile contraction</td><td>20</td><td>Second half avg &lt; first half avg=20</td></tr>
+    <tr><td>Entry timing</td><td>±15</td><td>Early (&gt;5% from resistance)=+15, late (&lt;2%)=-10</td></tr>
+    <tr><td>Sector bonus</td><td>±15</td><td>Good sectors=+10, bad sectors=-15</td></tr>
+    <tr><td>RSI confirmation</td><td>±10</td><td>Phase-dependent (spring needs non-overbought, SoS needs momentum)</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>range_lookback</td><td>30 days</td></tr>
+    <tr><td>min_range_days</td><td>10</td></tr>
+    <tr><td>MAX_RANGE_WIDTH</td><td>13%</td></tr>
+    <tr><td>SPRING_DEPTH</td><td>2%</td></tr>
+    <tr><td>spring_recovery_days</td><td>3</td></tr>
+    <tr><td>SPRING_VOLUME_MULT (max)</td><td>1.5×</td></tr>
+    <tr><td>SOS_VOLUME_MULT (min)</td><td>1.8×</td></tr>
+    <tr><td>SOS_MIN_GAIN</td><td>2.5%</td></tr>
+    <tr><td>SOS_MIN_RSI</td><td>55</td></tr>
+    <tr><td>MIN_AVG_DOLLAR_VOLUME</td><td>$50,000,000</td></tr>
+    <tr><td>min_price / max_price</td><td>$10 / $500</td></tr>
+    <tr><td>min_quality_score</td><td>50</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, scanner_name, signal_type, setup_stage, signal_date, entry_price, signal_strength, timeframe, phase, support, resistance, range_width_pct, days_in_range, has_spring, has_sos, distance_to_resistance, rsi, sector, sector_bonus, notes, chart</code></p>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below the spring low — not below support itself. The spring low IS the definitive "if this breaks, the pattern is invalidated" price.</li>
+    <li><strong>Target:</strong> Range width projected up from breakout (measured move), or prior resistance</li>
+    <li><strong>Position Size:</strong> 1-2% risk; patterns can take time to resolve</li>
+    <li><strong>Holding Period:</strong> 4-12 weeks (Wyckoff setups are swing-to-position horizon)</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Six-component scoring on Wyckoff's Phase C / D accumulation, ordered: trading range → spring → sign of strength. Thresholds have been balanced for signal density — stricter originals produced too few signals. Requires patience: the full spring → SoS sequence can unfold over weeks.</p>
