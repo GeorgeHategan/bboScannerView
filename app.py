@@ -312,7 +312,6 @@ SCANNER_COLORS = {
     'supertrend':                '#4AAFD5',  # bkue
     'tight_consolidation':       '#E59462',  # orangfe
     'volatility_macd':           '#E3CCB2',  # beige
-    'wyckoff':                   '#D8905A',  # Muted Orange
     'wyckoff_accumulation':      '#6BAA6B'   # Muted Green
 }
 # Candlestick pattern strength weights (out of 10)
@@ -5875,8 +5874,31 @@ async def ticker_search(request: Request, ticker: Optional[str] = Query(None)):
 
 
 def get_scanner_documentation(scanner_name):
-    """Return HTML documentation for specific scanner."""
-    
+    """Return HTML documentation for specific scanner.
+
+    Resolution order:
+      1. templates/scanner_docs/{scanner_name}.html (new, file-based)
+      2. Legacy inline docs dict (fallback for un-migrated scanners)
+      3. Default "coming soon" placeholder
+    """
+    # Alias table: DB scanner_name -> doc file name
+    # (some scanner DB names differ from the doc filename convention)
+    scanner_aliases = {
+        'wyckoff': 'wyckoff_accumulation',
+    }
+    lookup_name = scanner_aliases.get(scanner_name, scanner_name)
+
+    # 1. Try file-based template first
+    try:
+        docs_dir = os.path.join(os.path.dirname(__file__), 'templates', 'scanner_docs')
+        file_path = os.path.join(docs_dir, f'{lookup_name}.html')
+        if os.path.isfile(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+    except Exception as e:
+        print(f"Error loading scanner doc file for '{scanner_name}': {e}")
+
+    # 2. Legacy inline docs (will be removed once all scanners migrated)
     docs = {
         'accumulation_distribution': '''
 <h2>🎯 What It Does</h2>
@@ -7085,7 +7107,7 @@ def get_scanner_documentation(scanner_name):
 '''
     }
     
-    return docs.get(scanner_name, '<p>Documentation coming soon...</p>')
+    return docs.get(lookup_name, '<p>Documentation coming soon...</p>')
 
 
 @app.get("/", response_class=HTMLResponse)

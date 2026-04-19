@@ -1,5 +1,43 @@
 <h2>🎯 What It Does</h2>
-<p>Detects <strong>TA-Lib continuation candlestick patterns</strong> — signals that an <em>existing</em> uptrend will persist. Unlike the reversal scanner, this REQUIRES an established uptrend.</p>
+<p>Detects <strong>TA-Lib bullish continuation candlestick patterns</strong> — formations that signal an <em>existing</em> uptrend will resume after a brief pause. Unlike the reversal scanner, this one <em>requires</em> an established uptrend; it will not fire on sideways or downtrending stocks.</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> Continuation patterns are the lowest-risk candlestick trades because the trend is <em>already</em> established. You are not betting on a reversal — you are just timing a pullback entry into an already-working trend.
+</div>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Trend Classification Gate</div>
+    <p>Before any pattern matching runs, the scanner classifies the stock's trend using SMA 20 and SMA 50 slopes. The four tiers are checked in order — the moment a stock qualifies for a tier, that label is used.</p>
+    <ul>
+        <li><strong>strong_uptrend:</strong> price &gt; SMA20 <em>AND</em> price &gt; SMA50 <em>AND</em> SMA20 slope &gt; 5% <em>AND</em> SMA50 slope &gt; 2%</li>
+        <li><strong>moderate_uptrend:</strong> price &gt; SMA20 <em>AND</em> price &gt; SMA50</li>
+        <li><strong>weak_uptrend:</strong> price &gt; SMA20 <em>OR</em> price &gt; SMA50</li>
+        <li><strong>no_uptrend:</strong> skipped — continuation patterns are meaningless without a trend to continue</li>
+    </ul>
+    <p><strong>Impact:</strong> Strong trend adds +5 score bonus; moderate +3; weak +1; no_uptrend exits early.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Curated Continuation Pattern Library (13 patterns)</div>
+    <p>TA-Lib has dozens of continuation candidates; this scanner uses 13, weighted 5.0 (marginal) to 9.2 (premium). The standout is CDLMATHOLD — a 5-bar Japanese pattern where a long bullish bar is followed by three small consolidation bars and then another bullish bar, encoding a clean pause-and-resume rhythm.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Volume Tiering</div>
+    <p>Volume is graded in four tiers, not binary: <code>2.0×</code> = +10 pts, <code>1.5×</code> = +7 pts, <code>1.2×</code> = +4 pts, <code>1.0×</code> = +2 pts. This rewards institutional participation without throwing away clean patterns that happen on average volume.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Pattern Stacking</div>
+    <p>If multiple continuation patterns fire on the same bar, the score gets a cluster bonus: +5 for two, +10 for three, +15 for four or more. This is especially common during strong trends where several continuation patterns align simultaneously.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Picked-Symbol Filter</div>
+    <p>Like the reversal scanner, this one runs only on symbols that another scanner has flagged in the last 30 days. It never produces standalone signals — it confirms existing setups.</p>
+</div>
 
 <h2>🕯️ Pattern Library (13 patterns, weights 5.0-9.2)</h2>
 <table>
@@ -19,26 +57,12 @@
     <tr><td>CDLBREAKAWAY</td><td>5.0</td></tr>
 </table>
 
-<h2>📈 Uptrend Classification</h2>
-<div class="indicator-box">
-    <strong>strong_uptrend:</strong> price &gt; SMA20 AND price &gt; SMA50 AND SMA20_slope &gt; 5% AND SMA50_slope &gt; 2%
-</div>
-<div class="indicator-box">
-    <strong>moderate_uptrend:</strong> price &gt; SMA20 AND price &gt; SMA50
-</div>
-<div class="indicator-box">
-    <strong>weak_uptrend:</strong> price &gt; SMA20 OR price &gt; SMA50
-</div>
-<div class="indicator-box">
-    <strong>no_uptrend:</strong> skipped (continuation requires existing trend)
-</div>
-
 <h2>✅ Entry Criteria</h2>
 <ul>
-    <li>≥1 continuation pattern detected</li>
-    <li>Trend strength ≥ weak_uptrend (required)</li>
-    <li>Symbol in picked_symbols (last 30 days, other scanners)</li>
-    <li>Excludes other candlestick scanners</li>
+    <li>≥1 continuation pattern detected within the analysis window</li>
+    <li>Trend strength ≥ <code>weak_uptrend</code> (required)</li>
+    <li>Symbol in <code>picked_symbols</code> (last 30 days, other scanners)</li>
+    <li>Excludes: <code>candlestick_bullish</code>, <code>candlestick_continuation</code>, <code>candlestick</code></li>
 </ul>
 
 <h2>🎯 Signal Strength (0-100)</h2>
@@ -46,7 +70,7 @@
     <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
     <tr><td>Base pattern weight</td><td>64</td><td><code>pattern_weight × 7</code> (weights 5.0-9.2)</td></tr>
     <tr><td>Multiple patterns</td><td>15</td><td>4+=15, 3=10, 2=5</td></tr>
-    <tr><td>Volume confirmation</td><td>10</td><td>2.0x+=10, 1.5x=7, 1.2x=4, 1.0x=2</td></tr>
+    <tr><td>Volume confirmation</td><td>10</td><td>2.0×+=10, 1.5×=7, 1.2×=4, 1.0×=2</td></tr>
     <tr><td>Trend strength bonus</td><td>5</td><td>strong=5, moderate=3, weak=1</td></tr>
 </table>
 
@@ -56,7 +80,7 @@
     <tr><td>sma_20_slope_threshold</td><td>5%</td></tr>
     <tr><td>sma_50_slope_threshold</td><td>2%</td></tr>
     <tr><td>lookback_days</td><td>60</td></tr>
-    <tr><td>volume_ratio_strong/moderate/good</td><td>2.0 / 1.5 / 1.2</td></tr>
+    <tr><td>volume_ratio_strong / moderate / good</td><td>2.0 / 1.5 / 1.2</td></tr>
 </table>
 
 <h2>📤 Output Columns</h2>
@@ -64,10 +88,10 @@
 
 <h2>⚠️ Risk Management</h2>
 <ul>
-    <li><strong>Stop Loss:</strong> 2-4% below entry (tighter than reversal — trend already established)</li>
+    <li><strong>Stop Loss:</strong> 2-4% below entry — tighter than reversal trading since the trend is already established</li>
     <li><strong>Position Size:</strong> 90+=3%, 80-89=2%, 65-79=1%</li>
     <li><strong>Hold Period:</strong> 1-3 weeks</li>
 </ul>
 
 <h2>📝 Summary</h2>
-<p>13 TA-Lib continuation patterns requiring at least a weak uptrend. Lower risk than reversal trading since the trend is already established. Primary use: entering pullbacks in strong stocks.</p>
+<p>13 TA-Lib continuation patterns gated by a trend classifier and confirmed by picked-symbol membership. Lower-risk than reversal trading: the trend is already working. Primary use case is entering pullbacks in strong stocks with momentum still intact.</p>
