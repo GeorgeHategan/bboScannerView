@@ -1,0 +1,112 @@
+<h2>🎯 What It Does</h2>
+<p>Detects <strong>stocks in a quiet base sitting right under a prior high</strong>, positioned for a breakout. Replaces the <code>tight_consolidation</code> and <code>vcp</code> scanners (both were calibrated for textbook Minervini / VCP patterns that almost never occur in the current market).</p>
+
+<div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
+    <strong>💡 Key Concept:</strong> Real breakout winners aren't always tight Minervini coils. They're stocks already extended well above their 200 DMA, sitting within 5% of a 52-week high, with manageable volatility. This scanner is calibrated on actual historical winners, not textbook patterns.
+</div>
+
+<h2>📊 Backtest Evidence</h2>
+<p>Built by running both old scanners against 380 confirmed breakout winners from Nov 2024 – Feb 2026:</p>
+<table>
+    <tr><th>Scanner</th><th>Recall</th><th>Production volume</th></tr>
+    <tr><td>tight_consolidation</td><td><strong>0.8%</strong> (3 of 380)</td><td>~0 signals/day (dead)</td></tr>
+    <tr><td>vcp</td><td><strong>0.0%</strong> (0 of 380)</td><td>never productionized</td></tr>
+    <tr><td><strong>volatility_squeeze (this)</strong></td><td><strong>32.1% out-of-sample</strong></td><td>~15-25 signals/day</td></tr>
+</table>
+
+<h2>📈 Core Concepts</h2>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Proximity to 52-Week High (the top discriminator)</div>
+    <p>Winners sit at <strong>median 3.8% below</strong> their 52-week high. Non-winners sit at median 13% below. This single feature is the strongest predictor.</p>
+    <p><strong>Hard gate:</strong> within <code>5%</code> of the 52-week high.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Extension Above 200 DMA</div>
+    <p>Winners are <strong>median 9.8% above</strong> their 200 DMA. Non-winners are at or below it. This filter excludes recovery plays and stage-1 bases.</p>
+    <p><strong>Hard gate:</strong> <code>≥ 5%</code> above the 200 DMA.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Reasonable ATR Ceiling (NOT sub-2%)</div>
+    <p>The old scanners required ATR ≤ 2.0% — this rejected 60% of real winners. Real breakout bases typically form at ATR 2-3%. This scanner uses <code>2.5%</code> — strict enough to filter chaos, loose enough to catch normal setups.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Best-Fit Base Detection (10–25 days)</div>
+    <p>Rather than pick a fixed window, the scanner tries every lookback from 10 to 25 days and selects the one producing the tightest high-low range. The tightest base found must have range ≤ <code>15%</code> of low.</p>
+    <p><strong>Logic:</strong> Some bases consolidate for two weeks, others for five. Hard-coding a single window misses real patterns.</p>
+</div>
+
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. What We Deliberately Do NOT Require</div>
+    <p>The backtest showed that these textbook requirements <em>inversely</em> correlated with winners, or didn't discriminate at all:</p>
+    <ul>
+        <li><strong>Volume dryup</strong> — winners and non-winners both have vol_ratio ≈ 0.97</li>
+        <li><strong>Compression ratio (40d/15d)</strong> — non-winners actually compress MORE than winners</li>
+        <li><strong>3+ monotonically decreasing contractions</strong> — rejects all real winners</li>
+        <li><strong>SMA200 rising 1%+ in 30 days</strong> — many winners emerge from still-flat 200 DMAs</li>
+    </ul>
+</div>
+
+<h2>✅ Entry Criteria (ALL 6 hard gates must pass)</h2>
+<ol>
+    <li>Price above SMA 50 (trend)</li>
+    <li>Within <code>5%</code> of 52-week high (positioning)</li>
+    <li>≥ <code>5%</code> above 200 DMA (defined uptrend)</li>
+    <li>ATR(14) / close ≤ <code>2.5%</code> (manageable volatility)</li>
+    <li>Best-fit base range (10-25 day window) ≤ <code>15%</code> of low</li>
+    <li>Avg dollar volume 20d ≥ <code>$1,000,000</code> (liquidity)</li>
+</ol>
+
+<h2>🎯 Signal Strength (0-100)</h2>
+<p>Quality ranking only — does not affect pass/fail. All hard-gate passers with signal_strength ≥ 60 are returned.</p>
+<table>
+    <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
+    <tr><td>52-week proximity</td><td>40</td><td>At the high=40; 5% away=0</td></tr>
+    <tr><td>Base tightness</td><td>20</td><td>5% range=20; 15% range=0</td></tr>
+    <tr><td>ATR% level</td><td>20</td><td>1.0%=20; 2.5%=0</td></tr>
+    <tr><td>Extension above 200 DMA</td><td>10</td><td>Plateau at 20% above</td></tr>
+    <tr><td>Base duration</td><td>10</td><td>Longer base = more points</td></tr>
+</table>
+
+<h2>⚙️ Thresholds (as coded)</h2>
+<table>
+    <tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>max_atr_pct</td><td>2.5%</td></tr>
+    <tr><td>max_base_range_pct</td><td>15.0%</td></tr>
+    <tr><td>max_pct_from_52h</td><td>5.0%</td></tr>
+    <tr><td>min_pct_above_200</td><td>5.0%</td></tr>
+    <tr><td>min_dollar_volume</td><td>$1,000,000</td></tr>
+    <tr><td>base_lookback_min / max</td><td>10 / 25 days</td></tr>
+    <tr><td>min_signal_strength</td><td>60</td></tr>
+</table>
+
+<h2>📤 Output Columns</h2>
+<p><code>symbol, entry_price, signal_strength, signal_type, timeframe, base_days, base_high, base_low, base_range_pct, atr_pct, pct_from_52h, pct_vs_200, trigger_price, stop_loss</code></p>
+<ul>
+    <li><code>trigger_price</code> = base_high × 1.001 (suggested long entry)</li>
+    <li><code>stop_loss</code> = base_low × 0.99 (initial stop)</li>
+</ul>
+
+<h2>📊 Validation Methodology</h2>
+<p>Built on real data, not theory:</p>
+<ol>
+    <li><strong>Winner definition:</strong> Stock had a 30-60 day consolidation (range ≤ 20%), broke out above it on ≥1.3× avg volume, gained ≥15% within 40 trading days, did not drop ≥10% in following 10 days. Found 380 such winners across 255 symbols.</li>
+    <li><strong>Feature profiling:</strong> Measured 8 features on each winner + 2,000 random non-winner positions. Identified 52-week proximity and extension-above-200 as top discriminators.</li>
+    <li><strong>Grid search:</strong> Tested 320 threshold combinations to find best recall + signal-to-noise balance.</li>
+    <li><strong>Out-of-sample validation:</strong> Trained thresholds on pre-July 2025 winners, applied unchanged to post-July 2025. Recall actually <em>improved</em> on test data (24.5% → 32.1%), confirming thresholds are not overfit.</li>
+</ol>
+
+<h2>⚠️ Risk Management</h2>
+<ul>
+    <li><strong>Stop Loss:</strong> Below base_low (typically 3-5% below entry)</li>
+    <li><strong>Target:</strong> Prior resistance or measured move equal to base height</li>
+    <li><strong>Position Size:</strong> 1-2% account risk per trade; setups near 52-week high have asymmetric upside</li>
+    <li><strong>Holding Period:</strong> 2-8 weeks typical</li>
+    <li><strong>Exit Rule:</strong> If price doesn't clear base_high within 10 trading days, setup is stale</li>
+</ul>
+
+<h2>📝 Summary</h2>
+<p>Six hard gates calibrated on 380 real winners vs 2,000 non-winners. Captures stocks in quiet, tight bases right under 52-week highs in defined uptrends — the actual shape of real breakout setups in the current market, not the textbook shape from trading books written 20+ years ago.</p>

@@ -310,7 +310,8 @@ SCANNER_COLORS = {
     'golden_cross':              '#9EE8E1',  # neonBlue
     'momentum_burst':            '#EC6D67',  # colral
     'supertrend':                '#4AAFD5',  # bkue
-    'tight_consolidation':       '#E59462',  # orangfe
+    'tight_consolidation':       '#E59462',  # orangfe (retired 2026-04-20; color kept for historical rows)
+    'volatility_squeeze':        '#E59462',  # orangfe (replaces tight_consolidation + vcp)
     'volatility_macd':           '#E3CCB2',  # beige
     'wyckoff_accumulation':      '#6BAA6B'   # Muted Green
 }
@@ -5686,7 +5687,8 @@ async def scanner_docs(request: Request):  # email: str = Depends(require_login)
         'candlestick_bullish': 'TA-Lib bullish reversal patterns - finds bottoms and new uptrends (20 patterns)',
         'candlestick_continuation': 'TA-Lib continuation patterns - pullbacks in existing uptrends (13 patterns)',
         'momentum_burst': 'Spots explosive momentum moves with high volume',
-        'tight_consolidation': 'Detects tight consolidation patterns before potential breakouts'
+        'tight_consolidation': 'Detects tight consolidation patterns before potential breakouts',
+        'volatility_squeeze': 'Stocks in a quiet base right under a 52-week high — backtested replacement for tight_consolidation + vcp'
     }
     
     # Custom display names for specific scanners
