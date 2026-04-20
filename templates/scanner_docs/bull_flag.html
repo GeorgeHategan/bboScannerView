@@ -1,84 +1,113 @@
 <h2>🎯 What It Does</h2>
-<p>The Bull Flag scanner detects <strong>wedge-style bullish continuation patterns</strong>: a strong prior uptrend (the "flagpole") followed by a tightening, converging consolidation (the "wedge") with an imminent breakout. Unlike a classic rectangular flag, this variant requires the range to <em>compress</em> over time — a much higher-probability setup.</p>
+<p>Detects the <strong>classic bull flag pattern</strong>: a strong prior rally (flagpole) followed by a tight shallow pullback (flag), then an imminent breakout. <strong>Calibrated on 403 real bull-flag winners</strong> from Nov 2024 – Feb 2026.</p>
 
 <div class="alert" style="background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460;">
-    <strong>💡 Key Concept:</strong> A real bull flag is a <em>coiling spring</em>. The flagpole builds energy, the wedge compresses it, and the breakout releases it. If volume is also drying up during the wedge and picking up near the breakout, the probability of follow-through rises sharply.
+    <strong>💡 Key Concept:</strong> A real bull flag is <em>not</em> a "wedge compression" pattern. It's a <strong>short, shallow pullback near a 52-week high after a strong rally</strong>. The old scanner required wedge compression and volume dryup — the backtest showed neither discriminated real winners from losers. This scanner drops those false signals and keeps only what actually works.
 </div>
+
+<h2>📊 Backtest Evidence</h2>
+<table>
+    <tr><th>Version</th><th>Winner recall</th><th>False-pos rate</th><th>Signal-to-noise</th></tr>
+    <tr><td>v1 (old wedge scanner)</td><td>15.9%</td><td>unknown (no strength floor)</td><td>~3-5×</td></tr>
+    <tr><td><strong>v2 (current)</strong></td><td><strong>11.7%</strong></td><td><strong>0.8%</strong></td><td><strong>14.6×</strong></td></tr>
+</table>
+<p><strong>v2 catches fewer winners but each signal is ~3× higher quality.</strong> Matches the "fewer but better" design goal.</p>
 
 <h2>📈 Core Concepts</h2>
 
 <div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
-    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Flagpole (Phase 1)</div>
-    <p>A strong prior uptrend establishing institutional demand. Must be a gain of <code>flagpole_gain_min = 20%</code> or more, completed in 5-15 trading days, with the pole itself starting 15-30 days ago.</p>
-    <p><strong>Logic:</strong> The steeper and shorter the pole, the more energy is trapped. Gains &lt; 20% don't create enough momentum for a meaningful continuation.</p>
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">1. Flagpole (the uptrend)</div>
+    <p>A rally of ≥ <code>20%</code> over 5-15 days, ending 5-30 days before the scan. The scanner tries every window in that range and keeps the <em>largest</em> gain found.</p>
+    <p><strong>Why this matters:</strong> Without a flagpole, a pullback isn't a flag — it's just a sideways chop. Real bull flags need the prior thrust to set up the release.</p>
 </div>
 
 <div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
-    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Consolidation (Phase 2)</div>
-    <p>Duration 7, 10, 14, or 20 days — the scanner tests each candidate window. The consolidation range must be 5-15% of its own low: tight enough to indicate equilibrium, wide enough to not be noise.</p>
-    <p><strong>Formula:</strong> <code>(consolidation_high - consolidation_low) / consolidation_low ≤ 15%</code></p>
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">2. Flag (the consolidation)</div>
+    <p>Duration <code>4-18 days</code>, range ≤ <code>15%</code> of flag low. Winner median flag length is 8 days — half of non-winner median (19 days). Real flags are short; longer consolidations become full bases or trend reversals.</p>
 </div>
 
 <div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
-    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Wedge Compression (Phase 3)</div>
-    <p>The <em>second half</em> of the consolidation range must be tighter than the <em>first half</em>. This converging price action — lower highs meeting higher lows — is what turns a flag into a wedge.</p>
-    <p><strong>Formula:</strong> <code>compression_ratio = range(second_half) / range(first_half)</code>; must be &lt; 1.</p>
-    <p><strong>Impact:</strong> Ratios near 0.5 produce the highest-quality signals (score component up to 15 pts).</p>
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">3. Pullback Depth ≤ 10% (NEW — top discriminator)</div>
+    <p>Measures drop from the flagpole peak to the flag low. Winners pull back a median of <code>5.6%</code>; non-winners pull back 11.9%.</p>
+    <p><strong>Logic:</strong> A shallow pullback = holders aren't selling = buyers are still in control. A 15%+ pullback means the rally is breaking down, not just resting.</p>
 </div>
 
 <div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
-    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Volume Pattern (Phase 4)</div>
-    <p>Two-part signature: (a) volume should <em>decline</em> during the consolidation (traders losing interest = supply exhausted), and (b) there should be a <em>pickup</em> in the last 3 days (early-bird institutions positioning for the break).</p>
-    <p><strong>Formula:</strong> Declining slope &lt; 0 on consolidation volume <strong>AND</strong> <code>last_3d_avg / prior_avg ≥ 1.1×</code> <em>or</em> <code>RVOL ≥ 1.2×</code>.</p>
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">4. Within 10% of 52-Week High (NEW)</div>
+    <p>Winners sit at median <code>4.6%</code> below 52-week high. Non-winners at 14.7%. A setup far from its prior high isn't breaking out — it's just rallying within a downtrend.</p>
 </div>
 
 <div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
-    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Breakout Proximity (Phase 5)</div>
-    <p>Current price must be within <code>3%</code> of the consolidation high, and must be ≥ 98% of the EMA 9. This catches stocks right at the trigger point, not mid-breakout or too early.</p>
-    <p><strong>Logic:</strong> Entering after the breakout has already fired gives back most of the expected move. The 3% proximity filter forces entries at the cleanest R:R location.</p>
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">5. Strict MA Alignment</div>
+    <p>Price must be above EMA21, and EMA9 must be above EMA21. This combination was present in <strong>98%+ of winners</strong> but only 60-70% of non-winners. The single strongest binary classifier in the data.</p>
 </div>
 
-<h2>✅ Hard Filters (beyond phase logic)</h2>
-<ul>
-    <li>RSI 14 &lt; <code>rsi_14_threshold = 75</code> (reject overbought — flags that fire from RSI &gt; 75 fail more often)</li>
-    <li>Quality score ≥ <code>quality_threshold = 60</code></li>
-    <li>Avg volume ≥ <code>min_avg_volume = 500,000</code> (swing-trade liquidity)</li>
-    <li>Pattern ≤ 10 days old (actionable freshness)</li>
-</ul>
+<div class="indicator-box" style="padding: 20px; border-left: 4px solid #3498db;">
+    <div style="font-weight: bold; color: #2980b9; font-size: 1.1em; margin-bottom: 10px;">6. RSI ≤ 80 (NOT "cool RSI")</div>
+    <p>The old scanner rewarded RSI 40-65 as a "sweet spot." This was WRONG: real winner median RSI is <code>68</code>, non-winner median is 54. The hot, extended setups ARE the ones that break out. The new gate simply prevents full overextension (RSI > 80); there's no bonus for cool readings.</p>
+</div>
 
-<h2>🎯 Quality Score (0-100)</h2>
+<h2>✅ Entry Criteria (ALL 10 hard gates)</h2>
+<ol>
+    <li>Flagpole ≥ <code>20%</code> over 5-15 days, ending 5-30 days ago</li>
+    <li>Flag length 4-18 bars</li>
+    <li>Flag range ≤ <code>15%</code></li>
+    <li>Pullback ≤ <code>10%</code> from pole peak to flag low</li>
+    <li>Distance to breakout ≤ <code>5%</code></li>
+    <li>Within <code>10%</code> of 52-week high</li>
+    <li>Price > EMA21</li>
+    <li>EMA9 > EMA21</li>
+    <li>RSI(14) ≤ <code>80</code></li>
+    <li>Avg dollar volume 20d ≥ <code>$1,000,000</code></li>
+    <li><em>(Ranking)</em> signal_strength ≥ 60</li>
+</ol>
+
+<h2>🎯 Signal Strength (0-100)</h2>
 <table>
     <tr><th>Component</th><th>Max</th><th>Formula</th></tr>
-    <tr><td>Flagpole strength</td><td>30</td><td><code>min(30, int(flagpole_gain_pct))</code></td></tr>
-    <tr><td>Consolidation tightness</td><td>20</td><td><code>max(0, 20 - range_pct)</code></td></tr>
-    <tr><td>Wedge compression</td><td>15</td><td><code>(1 - compression_ratio) × 15</code></td></tr>
-    <tr><td>Volume pattern</td><td>15</td><td>Declining=10, pickup=5</td></tr>
-    <tr><td>MA alignment</td><td>20</td><td>EMA9&gt;EMA21=10, Price&gt;EMA9=5, Price&gt;EMA21=5</td></tr>
-    <tr><td>RSI sweet spot</td><td>10</td><td>40-65=10pt, 65-75=5pt</td></tr>
-    <tr><td>RVOL bonus</td><td>5</td><td>&gt;1.5=5pt, &gt;1.2=3pt</td></tr>
+    <tr><td>Flagpole strength</td><td>30</td><td>gain %, capped at 30</td></tr>
+    <tr><td>Flag tightness</td><td>20</td><td>3% range=20; 15% range=0</td></tr>
+    <tr><td>Shallow pullback</td><td>15</td><td>0% pullback=15; 10%=0</td></tr>
+    <tr><td>Breakout proximity</td><td>15</td><td>at break=15; 5% away=0</td></tr>
+    <tr><td>52-week proximity</td><td>10</td><td>at high=10; 10% away=0</td></tr>
+    <tr><td>Trend alignment</td><td>10</td><td>All MAs aligned=10</td></tr>
 </table>
 
-<h2>⚙️ Thresholds (as coded)</h2>
+<h2>❌ What v2 Removed (and Why)</h2>
 <table>
-    <tr><th>Parameter</th><th>Value</th></tr>
-    <tr><td>flagpole_gain_min</td><td>20%</td></tr>
-    <tr><td>flagpole_days_range</td><td>5-15</td></tr>
-    <tr><td>min_consolidation_range / max</td><td>5% / 15%</td></tr>
-    <tr><td>distance_to_breakout_max</td><td>3%</td></tr>
-    <tr><td>rsi_14_threshold (max)</td><td>75</td></tr>
-    <tr><td>quality_threshold</td><td>60</td></tr>
-    <tr><td>min_avg_volume</td><td>500,000</td></tr>
+    <tr><th>Feature</th><th>Why removed</th></tr>
+    <tr><td><strong>Wedge compression</strong> (second-half range &lt; first-half)</td><td>Winners' compression_ratio = 1.08 vs non-winners' 1.03 — virtually identical. No discrimination.</td></tr>
+    <tr><td><strong>Volume dryup</strong> (declining slope during flag)</td><td>Winners' vol_contraction = 0.85 vs non-winners' 0.85 — identical.</td></tr>
+    <tr><td><strong>Volume pickup</strong> (last 3 days > prior)</td><td>Winners' vol_pickup = 1.04 vs non-winners' 0.90 — weak and inconsistent.</td></tr>
+    <tr><td><strong>RSI 40-65 bonus</strong></td><td>Inverted signal: real winner median RSI is 68, not 52. Bonus was rewarding bad setups.</td></tr>
+    <tr><td><strong>First-matching consolidation break</strong></td><td>v1 tested periods 7→10→14→20 and broke on first pass → biased to shortest. v2 uses single-flag detection with actual bar range.</td></tr>
 </table>
 
 <h2>📤 Output Columns</h2>
-<p><code>Ticker, Date, Current_Price, Flagpole_Gain_%, Flagpole_Days, Consolidation_Days, Consolidation_Range_%, Compression_Ratio, Volume_Pattern, Volume_Pickup, Breakout_Level, Distance_to_Breakout_%, Stop_Loss, Target_Price, Risk_%, Reward_%, Risk_Reward_Ratio, Quality_Score, setup_stage, EMA_9, EMA_21, SMA_20, SMA_50, RSI_14, ATR_14, RVOL, Setup_Quality, Chart</code></p>
+<p><code>symbol, entry_price, signal_strength, signal_type, timeframe, pole_gain_pct, pole_len_days, flag_len_days, flag_range_pct, flag_high, flag_low, pullback_pct, d2b_pct, pct_from_52h, rsi_14, trigger_price, stop_loss, target_price, risk_reward</code></p>
+<ul>
+    <li><code>trigger_price</code> = flag_high × 1.001 (suggested entry)</li>
+    <li><code>stop_loss</code> = flag_low − 1×ATR(14)</li>
+    <li><code>target_price</code> = flag_high + (pole_end_close − pole_start_close) — measured move</li>
+</ul>
+
+<h2>📊 Out-of-Sample Validation</h2>
+<p>Thresholds were grid-searched on winners before 2025-07-01, then applied unchanged to unseen winners after that date:</p>
+<table>
+    <tr><th>Split</th><th>Winners</th><th>Recall</th><th>FPR</th><th>SNR</th></tr>
+    <tr><td>Train (Nov 2024 – Jun 2025)</td><td>201</td><td>19.9%</td><td>3.4%</td><td>5.86×</td></tr>
+    <tr><td><strong>Test (Jul 2025 – Feb 2026)</strong></td><td>202</td><td><strong>33.7%</strong></td><td>3.4%</td><td><strong>9.91×</strong></td></tr>
+</table>
+<p>Test recall IMPROVED vs train — thresholds are not overfit. Caught winners had mean 32.4% forward gain (vs 37.5% for missed) — no bias toward weak moves.</p>
 
 <h2>⚠️ Risk Management</h2>
 <ul>
-    <li><strong>Stop Loss:</strong> Below consolidation low (~2-4% below entry)</li>
-    <li><strong>Target:</strong> Flagpole height projected from the breakout point (measured move)</li>
-    <li><strong>Position Size:</strong> Quality 90+=3%, 80-89=2%, 60-79=1%</li>
+    <li><strong>Stop Loss:</strong> Below flag_low, buffered by 1×ATR (typical 3-6% below entry)</li>
+    <li><strong>Target:</strong> Measured move = flag_high + flagpole height</li>
+    <li><strong>Position Size:</strong> Quality 90+=3%, 80-89=2%, 60-79=1% account risk</li>
+    <li><strong>Holding Period:</strong> 1-6 weeks typical</li>
+    <li><strong>Exit Rule:</strong> If price doesn't clear flag_high within 10 trading days, pattern has failed</li>
 </ul>
 
 <h2>📝 Summary</h2>
-<p>Seven-component quality score built on top of a strict 5-phase pattern detector. Key differentiator vs classic "bull flag" scans: this one demands wedge-style range compression and imminent breakout proximity (≤3%), producing fewer but higher-quality signals.</p>
+<p>v2 replaces the v1 "wedge" scanner with thresholds calibrated on 403 real winners. Ten hard gates anchored in positional features (flagpole, shallow pullback, 52-week proximity, trend alignment). Wedge compression, volume dryup, and RSI sweet-spot — all classic textbook features — were tested and removed because they did not discriminate. Result: fewer but much higher-quality signals.</p>
