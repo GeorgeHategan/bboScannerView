@@ -1769,7 +1769,8 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
                        put_wall_strike, put_wall_oi,
                        put_wall_2_strike, put_wall_2_oi,
                        put_wall_3_strike, put_wall_3_oi,
-                       total_call_oi, total_put_oi, put_call_ratio
+                       total_call_oi, total_put_oi, put_call_ratio,
+                       oms
                 FROM options_walls
                 WHERE underlying_symbol = ?
                 ORDER BY scan_date DESC
@@ -1798,7 +1799,8 @@ def get_stock_data_for_analysis(symbol: str) -> dict:
                     'total_call_oi': walls_result[14],
                     'total_put_oi': walls_result[15],
                     'put_call_ratio': walls_result[16],
-                    'gamma_flip': gamma_flip
+                    'oms': walls_result[17],
+                    'gamma_flip': gamma_flip,
                 }
             
             conn.close()
@@ -3392,7 +3394,8 @@ async def focus_list_page(request: Request):
                                    put_wall_strike, put_wall_oi,
                                    put_wall_2_strike, put_wall_2_oi,
                                    put_wall_3_strike, put_wall_3_oi,
-                                   total_call_oi, total_put_oi, put_call_ratio
+                                   total_call_oi, total_put_oi, put_call_ratio,
+                                   oms
                             FROM options_walls
                             WHERE underlying_symbol IN ({placeholders})
                             QUALIFY ROW_NUMBER() OVER (PARTITION BY underlying_symbol ORDER BY scan_date DESC) = 1
@@ -3427,10 +3430,11 @@ async def focus_list_page(request: Request):
                                 'total_call_oi': row[15],
                                 'total_put_oi': row[16],
                                 'put_call_ratio': row[17],
+                                'oms': row[18],
                                 'gamma_flip': gamma_flip,
-                                'gamma_flip_distance': gamma_flip_distance
+                                'gamma_flip_distance': gamma_flip_distance,
                             }
-                        
+
                         options_conn.close()
                 except Exception as e:
                     print(f"Error fetching options/darkpool data for focus list: {e}")
@@ -3612,28 +3616,9 @@ async def focus_list_page(request: Request):
                 # Add options walls
                 item['options_walls'] = options_walls_dict.get(sym)
                 
-                # Calculate OMS — see other call site (~line 7945) for the formula
-                # rationale (SUM of 6 walls × 100 ÷ 20d-avg volume).
-                # TODO: refactor to precomputed `oms` column on options_walls in
-                # the producer (uw_datacollector) to remove this from the frontend.
-                avg_volume = item.get('avg_volume') or 0
-                if item['options_walls'] and avg_volume and avg_volume > 0:
-                    walls = item['options_walls']
-                    oi_values = [
-                        walls.get('call_wall_1', {}).get('oi') or 0,
-                        walls.get('call_wall_2', {}).get('oi') or 0,
-                        walls.get('call_wall_3', {}).get('oi') or 0,
-                        walls.get('put_wall_1', {}).get('oi') or 0,
-                        walls.get('put_wall_2', {}).get('oi') or 0,
-                        walls.get('put_wall_3', {}).get('oi') or 0,
-                    ]
-                    total_oi = sum(oi_values)
-                    if total_oi > 0:
-                        item['oms'] = round((total_oi * 100) / avg_volume, 2)
-                    else:
-                        item['oms'] = None
-                else:
-                    item['oms'] = None
+                # OMS is precomputed by scanner_data/compute_options_market_share.py
+                # and stored on options_walls.oms. Just read it through.
+                item['oms'] = (item['options_walls'] or {}).get('oms')
                 
                 # Add fundamental quality
                 item['fund_quality'] = fund_quality_dict.get(sym)
@@ -7552,7 +7537,8 @@ async def index(
                                    put_wall_strike, put_wall_oi,
                                    put_wall_2_strike, put_wall_2_oi,
                                    put_wall_3_strike, put_wall_3_oi,
-                                   total_call_oi, total_put_oi, put_call_ratio
+                                   total_call_oi, total_put_oi, put_call_ratio,
+                                   oms
                             FROM options_walls
                             WHERE underlying_symbol IN ({placeholders})
                             AND CAST(scan_date AS DATE) < CAST(? AS DATE)
@@ -7572,7 +7558,8 @@ async def index(
                                    put_wall_strike, put_wall_oi,
                                    put_wall_2_strike, put_wall_2_oi,
                                    put_wall_3_strike, put_wall_3_oi,
-                                   total_call_oi, total_put_oi, put_call_ratio
+                                   total_call_oi, total_put_oi, put_call_ratio,
+                                   oms
                             FROM options_walls
                             WHERE underlying_symbol IN ({placeholders})
                             QUALIFY ROW_NUMBER() OVER (PARTITION BY underlying_symbol ORDER BY scan_date DESC) = 1
@@ -7613,8 +7600,9 @@ async def index(
                                 'total_call_oi': row[15],
                                 'total_put_oi': row[16],
                                 'put_call_ratio': row[17],
+                                'oms': row[18],
                                 'gamma_flip': gamma_flip,
-                                'gamma_flip_distance': gamma_flip_distance
+                                'gamma_flip_distance': gamma_flip_distance,
                             }
                     
                     options_conn.close()
@@ -7946,48 +7934,11 @@ async def index(
                         if symbol in options_walls_dict:
                             stocks[symbol][f'{pattern}_options_walls'] = options_walls_dict[symbol]
                             
-                            # Calculate OMS (Options Market Share)
-                            # OMS = SUM(OI at top-3 call + top-3 put walls) × 100 ÷ 20d-avg volume
-                            #
-                            # Numerator units: shares  (Σ contracts × 100 shares/contract)
-                            # Denominator units: shares/day (typical daily flow)
-                            # Result: days = "how many days of typical volume the wall
-                            # positions represent" — i.e. options-market influence.
-                            #
-                            # Why SUM not MAX: MAX picked one wall and ignored the other
-                            # five — understates total options influence on stocks with
-                            # multiple substantial walls. SUM uses all 6 dominant walls.
-                            #
-                            # Why 20d-avg volume not single-day: single-day volume is
-                            # noisy (news days inflate; thin days deflate), causing OMS
-                            # to flip regimes for no fundamental reason. 20d is stable.
-                            #
-                            # NOTE: thresholds (0.3 / 1.0 / 2.0) were calibrated for the
-                            # old MAX/single-day formula. SUM/20d gives larger absolute
-                            # values for the same stock — empirical recalibration of
-                            # thresholds in templates may be appropriate after observing
-                            # the new distribution.
+                            # OMS (Options Market Share) is now precomputed by
+                            # scanner_data/compute_options_market_share.py and stored
+                            # on options_walls.oms. Just read it through.
                             walls = options_walls_dict[symbol]
-                            avg_volume = stocks[symbol].get(f'{pattern}_avg_volume', 0)
-
-                            if avg_volume and avg_volume > 0:
-                                oi_values = [
-                                    walls.get('call_wall_1', {}).get('oi') or 0,
-                                    walls.get('call_wall_2', {}).get('oi') or 0,
-                                    walls.get('call_wall_3', {}).get('oi') or 0,
-                                    walls.get('put_wall_1', {}).get('oi') or 0,
-                                    walls.get('put_wall_2', {}).get('oi') or 0,
-                                    walls.get('put_wall_3', {}).get('oi') or 0,
-                                ]
-                                total_oi = sum(oi_values)
-
-                                if total_oi > 0:
-                                    oms = (total_oi * 100) / avg_volume
-                                    stocks[symbol][f'{pattern}_oms'] = round(oms, 2)
-                                else:
-                                    stocks[symbol][f'{pattern}_oms'] = None
-                            else:
-                                stocks[symbol][f'{pattern}_oms'] = None
+                            stocks[symbol][f'{pattern}_oms'] = walls.get('oms')
                         else:
                             stocks[symbol][f'{pattern}_options_walls'] = None
                             stocks[symbol][f'{pattern}_oms'] = None
