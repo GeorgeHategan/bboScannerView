@@ -7659,6 +7659,39 @@ async def index(
                 print(f'Fundamental quality query failed: {e}')
                 fund_quality_dict = {}
         
+        # Fetch upcoming earnings dates from earnings_cache (populated by
+        # scanner_data/fetch_earnings_calendar.py daily). Replaces the old
+        # external-API fallback that was disabled for being too slow.
+        earnings_dict = {}
+        if symbols_list:
+            try:
+                earn_conn = get_db_connection(DUCKDB_PATH)
+                if earn_conn:
+                    placeholders = ','.join(['?' for _ in symbols_list])
+                    earn_query = f'''
+                        SELECT symbol,
+                               MIN(TRY_CAST(report_date AS DATE)) AS next_report,
+                               CAST(MIN(TRY_CAST(report_date AS DATE) - CURRENT_DATE)
+                                    AS INTEGER) AS days_to_earnings
+                        FROM scanner_data.main.earnings_cache
+                        WHERE symbol IN ({placeholders})
+                          AND TRY_CAST(report_date AS DATE) >= CURRENT_DATE
+                        GROUP BY symbol
+                    '''
+                    earn_results = earn_conn.execute(earn_query, symbols_list).fetchall()
+                    for row in earn_results:
+                        sym, next_report, dte = row
+                        if next_report and dte is not None:
+                            earnings_dict[sym] = {
+                                'earnings_date': str(next_report),
+                                'earnings_days': int(dte),
+                            }
+                    earn_conn.close()
+                    print(f'Loaded upcoming earnings for {len(earnings_dict)} symbols')
+            except Exception as e:
+                print(f'Earnings date query failed: {e}')
+                earnings_dict = {}
+
         # Fetch news sentiment pressure scores for each symbol
         news_sentiment_dict = {}
         if symbols_list:
@@ -7955,9 +7988,16 @@ async def index(
                         else:
                             stocks[symbol]['news_sentiment'] = None
                         
-                        # Skip external API calls - too slow for Render
-                        stocks[symbol][f'{pattern}_earnings_date'] = None
-                        stocks[symbol][f'{pattern}_earnings_days'] = None
+                        # Earnings date / DtE: read from earnings_dict (sourced from
+                        # scanner_data.earnings_cache, populated daily by
+                        # fetch_earnings_calendar.py — replaces the old external-API
+                        # fallback that was disabled for being too slow).
+                        if symbol in earnings_dict:
+                            stocks[symbol][f'{pattern}_earnings_date'] = earnings_dict[symbol]['earnings_date']
+                            stocks[symbol][f'{pattern}_earnings_days'] = earnings_dict[symbol]['earnings_days']
+                        else:
+                            stocks[symbol][f'{pattern}_earnings_date'] = None
+                            stocks[symbol][f'{pattern}_earnings_days'] = None
                         
                         # Skip sentiment API calls - too slow
                         stocks[symbol][f'{pattern}_sentiment_score'] = None
