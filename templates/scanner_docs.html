@@ -56,6 +56,90 @@
             margin-top: 15px;
             opacity: 0.8;
         }
+        /* Stage-flow chart */
+        .stage-rail {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin: 25px 0 30px;
+        }
+        .stage {
+            border-radius: 10px;
+            padding: 18px 16px;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+            display: flex;
+            flex-direction: column;
+        }
+        .stage-pre  { background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%); }
+        .stage-trig { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); }
+        .stage-late { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+        .stage-num {
+            font-size: 11px;
+            opacity: 0.85;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .stage-title {
+            font-size: 17px;
+            font-weight: 700;
+            margin: 2px 0 4px;
+        }
+        .stage-when {
+            font-size: 12px;
+            opacity: 0.92;
+            font-style: italic;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.25);
+        }
+        .stage-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.85;
+        }
+        .stage-list li {
+            padding-left: 14px;
+            position: relative;
+        }
+        .stage-list li::before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            opacity: 0.7;
+        }
+        .stage-list li.note {
+            opacity: 0.85;
+            font-style: italic;
+            font-size: 12px;
+            line-height: 1.45;
+            margin-top: 4px;
+        }
+        .stage-list li.note::before { content: "⚠"; }
+        .stage-callout {
+            background: #eef2ff;
+            border-left: 4px solid #6366f1;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 0 0 25px;
+            font-size: 13px;
+            color: #374151;
+        }
+        .stage-callout strong { color: #1f2937; }
+        .stage-section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 25px 0 6px;
+        }
+        .stage-section-sub {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
         .back-link {
             display: inline-block;
             margin-bottom: 20px;
@@ -87,9 +171,59 @@
         </div>
         
         <p style="font-size: 16px; color: #666; margin-top: 20px;">
-            Detailed explanations of each technical scanner, including what they detect, 
+            Detailed explanations of each technical scanner, including what they detect,
             how they work, and why certain setups are flagged.
         </p>
+
+        <div class="stage-section-title">📊 Scanner Stages</div>
+        <div class="stage-section-sub">
+            Empirical classification — derived from lead-lag analysis on scanner output and average subsequent gain. A breakout typically progresses left → right.
+        </div>
+
+        <div class="stage-rail">
+            <div class="stage stage-pre">
+                <div class="stage-num">Stage ① · Pre-breakout</div>
+                <div class="stage-title">Accumulation</div>
+                <div class="stage-when">Institutions buying; price ranging or basing. Caught before the move.</div>
+                <ul class="stage-list">
+                    <li>darkpool_volume <small style="opacity:.85">· win 64.9%</small></li>
+                    <li>accumulation_distribution <small style="opacity:.85">· win 54.2%</small></li>
+                    <li>cup_and_handle <small style="opacity:.85">· win 57.0%</small></li>
+                    <li>gamma_squeeze <small style="opacity:.85">· win 58.0%</small></li>
+                </ul>
+            </div>
+            <div class="stage stage-trig">
+                <div class="stage-num">Stage ② · Trigger</div>
+                <div class="stage-title">Breakout</div>
+                <div class="stage-when">Price breaks structure; volume confirms; pattern resolves. The actionable moment.</div>
+                <ul class="stage-list">
+                    <li>breakout <small style="opacity:.85">· avg gain 21.6%</small></li>
+                    <li>bull_flag <small style="opacity:.85">· avg gain 18.5%</small></li>
+                    <li>volatility_macd <small style="opacity:.85">· avg gain 17.3%</small></li>
+                    <li>candlestick_bullish <small style="opacity:.85">· avg gain 15.5%</small></li>
+                    <li>candlestick_continuation <small style="opacity:.85">· avg gain 15.3%</small></li>
+                    <li>support_put_wall <small style="opacity:.85">· avg gain 13.2%</small></li>
+                </ul>
+            </div>
+            <div class="stage stage-late">
+                <div class="stage-num">Stage ③ · Confirmation</div>
+                <div class="stage-title">Already moving</div>
+                <div class="stage-when">Trend established; chasers arrive. Higher conviction, lower remaining gain.</div>
+                <ul class="stage-list">
+                    <li>momentum_burst</li>
+                    <li>supertrend</li>
+                    <li>golden_cross</li>
+                    <li>fundamental_swing</li>
+                    <li>episodic_pivot</li>
+                    <li class="note">wyckoff_accumulation — name suggests early; data says late</li>
+                    <li class="note">volatility_squeeze — fires post-compression chop, low gain</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="stage-callout">
+            <strong>How to use this:</strong> highest-conviction setups are symbols where one or more <em>Stage ①</em> scanners have fired AND a <em>Stage ②</em> trigger has fired but no <em>Stage ③</em> scanner is firing yet — institutions positioning ahead of the move with the trigger now resolving. Symbols showing only Stage ③ scanners are typically arriving too late.
+        </div>
 
         <div class="scanner-grid">
             {% for scanner in scanners %}
